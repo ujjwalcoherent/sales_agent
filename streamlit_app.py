@@ -83,10 +83,20 @@ def _refresh_log_area():
     if _log_area is None or not st.session_state.logs:
         return
     with _log_area.container():
-        with st.expander("Pipeline Log", expanded=False):
-            for entry in reversed(st.session_state.logs[-20:]):
-                color = {"info": "#888", "success": "#2ed573", "warning": "#ffa502", "error": "#ff4757"}.get(entry['level'], "#888")
-                st.markdown(f'<span style="color: #555; font-size: 11px;">{entry["time"]}</span> <span style="color: {color};">{entry["icon"]}</span> <span style="color: #aaa; font-size: 12px;">{entry["message"]}</span>', unsafe_allow_html=True)
+        log_col, dl_col = st.columns([5, 1])
+        with log_col:
+            with st.expander("Pipeline Log", expanded=False):
+                for entry in reversed(st.session_state.logs[-20:]):
+                    color = {"info": "#888", "success": "#2ed573", "warning": "#ffa502", "error": "#ff4757"}.get(entry['level'], "#888")
+                    st.markdown(f'<span style="color: #555; font-size: 11px;">{entry["time"]}</span> <span style="color: {color};">{entry["icon"]}</span> <span style="color: #aaa; font-size: 12px;">{entry["message"]}</span>', unsafe_allow_html=True)
+        with dl_col:
+            _debug_log = Path("trend_engine_debug.log")
+            if _debug_log.exists():
+                st.download_button(
+                    "📥", _debug_log.read_text(encoding="utf-8", errors="replace"),
+                    file_name="trend_engine_debug.log", mime="text/plain",
+                    key="debug_log_dl", help="Download raw debug log",
+                )
 
 
 def add_log(message: str, level: str = "info"):
@@ -809,21 +819,6 @@ def main():
         with step_container:
             renderer()
 
-    # Debug log viewer — separate section, rendered once
-    log_path = Path("trend_engine_debug.log")
-    if log_path.exists():
-        with st.expander("Raw Debug Log", expanded=False):
-            log_content = log_path.read_text(encoding="utf-8", errors="replace")
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                st.download_button(
-                    "Download Debug Log", log_content,
-                    file_name="trend_engine_debug.log", mime="text/plain",
-                    key="debug_log_download",
-                )
-            with col2:
-                if st.checkbox("View raw log", value=False, key="debug_log_view"):
-                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="log")
 
 
 if __name__ == "__main__":
