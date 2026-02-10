@@ -87,16 +87,6 @@ def _refresh_log_area():
             for entry in reversed(st.session_state.logs[-20:]):
                 color = {"info": "#888", "success": "#2ed573", "warning": "#ffa502", "error": "#ff4757"}.get(entry['level'], "#888")
                 st.markdown(f'<span style="color: #555; font-size: 11px;">{entry["time"]}</span> <span style="color: {color};">{entry["icon"]}</span> <span style="color: #aaa; font-size: 12px;">{entry["message"]}</span>', unsafe_allow_html=True)
-            # Debug log download
-            log_path = Path("trend_engine_debug.log")
-            if log_path.exists():
-                log_content = log_path.read_text(encoding="utf-8", errors="replace")
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    st.download_button("Download Debug Log", log_content, file_name="trend_engine_debug.log", mime="text/plain")
-                with col2:
-                    if st.checkbox("View Debug Log", value=False):
-                        st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="log")
 
 
 def add_log(message: str, level: str = "info"):
@@ -761,14 +751,16 @@ def render_step_4_emails():
                 "trends": [t.model_dump() for t in trends],
             }
             st.download_button("JSON", json.dumps(export_data, indent=2, default=str),
-                               f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", "application/json", use_container_width=True)
+                               f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", "application/json",
+                               use_container_width=True, key="export_json")
         with col_csv:
             csv_data = [
                 {"Score": score, "Company": e.company_name, "Contact": e.person_name, "Email": e.email, "Subject": e.subject}
                 for score, e, _ in scored_leads
             ]
             st.download_button("CSV", pd.DataFrame(csv_data).to_csv(index=False),
-                               f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", "text/csv", use_container_width=True)
+                               f"leads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", "text/csv",
+                               use_container_width=True, key="export_csv")
         with col_new:
             if st.button("New Run", type="primary", use_container_width=True):
                 st.session_state.current_step = 0
@@ -816,6 +808,22 @@ def main():
     if renderer:
         with step_container:
             renderer()
+
+    # Debug log viewer — separate section, rendered once
+    log_path = Path("trend_engine_debug.log")
+    if log_path.exists():
+        with st.expander("Raw Debug Log", expanded=False):
+            log_content = log_path.read_text(encoding="utf-8", errors="replace")
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.download_button(
+                    "Download Debug Log", log_content,
+                    file_name="trend_engine_debug.log", mime="text/plain",
+                    key="debug_log_download",
+                )
+            with col2:
+                if st.checkbox("View raw log", value=False, key="debug_log_view"):
+                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="log")
 
 
 if __name__ == "__main__":
