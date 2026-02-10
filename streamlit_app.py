@@ -83,20 +83,10 @@ def _refresh_log_area():
     if _log_area is None or not st.session_state.logs:
         return
     with _log_area.container():
-        log_col, dl_col = st.columns([5, 1])
-        with log_col:
-            with st.expander("Pipeline Log", expanded=False):
-                for entry in reversed(st.session_state.logs[-20:]):
-                    color = {"info": "#888", "success": "#2ed573", "warning": "#ffa502", "error": "#ff4757"}.get(entry['level'], "#888")
-                    st.markdown(f'<span style="color: #555; font-size: 11px;">{entry["time"]}</span> <span style="color: {color};">{entry["icon"]}</span> <span style="color: #aaa; font-size: 12px;">{entry["message"]}</span>', unsafe_allow_html=True)
-        with dl_col:
-            _debug_log = Path("trend_engine_debug.log")
-            if _debug_log.exists():
-                st.download_button(
-                    "📥", _debug_log.read_text(encoding="utf-8", errors="replace"),
-                    file_name="trend_engine_debug.log", mime="text/plain",
-                    key="debug_log_dl", help="Download raw debug log",
-                )
+        with st.expander("Pipeline Log", expanded=False):
+            for entry in reversed(st.session_state.logs[-20:]):
+                color = {"info": "#888", "success": "#2ed573", "warning": "#ffa502", "error": "#ff4757"}.get(entry['level'], "#888")
+                st.markdown(f'<span style="color: #555; font-size: 11px;">{entry["time"]}</span> <span style="color: {color};">{entry["icon"]}</span> <span style="color: #aaa; font-size: 12px;">{entry["message"]}</span>', unsafe_allow_html=True)
 
 
 def add_log(message: str, level: str = "info"):
@@ -810,7 +800,17 @@ def main():
 
     global _log_area
     step_container = st.container()
-    _log_area = st.empty()
+    log_row_left, log_row_right = st.columns([5, 1])
+    with log_row_left:
+        _log_area = st.empty()
+    with log_row_right:
+        _debug_log = Path("trend_engine_debug.log")
+        if _debug_log.exists():
+            st.download_button(
+                "📥", _debug_log.read_text(encoding="utf-8", errors="replace"),
+                file_name="trend_engine_debug.log", mime="text/plain",
+                key="debug_log_dl", help="Download raw debug log",
+            )
     _refresh_log_area()
 
     step_renderers = {0: render_step_0_trends, 1: render_step_1_impacts, 2: render_step_2_companies, 3: render_step_3_contacts, 4: render_step_4_emails}
