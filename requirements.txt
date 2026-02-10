@@ -51,6 +51,8 @@ ollama>=0.3.0
 #   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 
 # Trend Detection Pipeline (Layer 2)
+numba>=0.59.0              # JIT compiler (required by umap-learn, pre-install avoids build errors)
+pynndescent>=0.5.0         # Nearest neighbor descent (umap dependency)
 umap-learn>=0.5.0          # UMAP dimensionality reduction (384-dim → 5-dim)
 datasketch>=1.6.0          # MinHash LSH near-duplicate article detection
 vaderSentiment>=3.3.2      # Rule-based sentiment (tuned for social media/news)
