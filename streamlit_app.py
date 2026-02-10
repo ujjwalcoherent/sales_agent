@@ -4,6 +4,7 @@ Human-in-the-loop workflow for testing and controlling the agent pipeline.
 """
 
 import asyncio
+import base64
 import json
 from datetime import datetime
 from pathlib import Path
@@ -84,6 +85,16 @@ def _refresh_log_area():
         return
     with _log_area.container():
         with st.expander("Pipeline Log", expanded=False):
+            # Download link (HTML — no Streamlit key, safe to re-render)
+            _debug_log = Path("trend_engine_debug.log")
+            if _debug_log.exists():
+                b64 = base64.b64encode(_debug_log.read_bytes()).decode()
+                st.markdown(
+                    f'<div style="text-align:right;margin:-4px 0 6px;">'
+                    f'<a href="data:text/plain;base64,{b64}" download="trend_engine_debug.log" '
+                    f'title="Download raw debug log" style="text-decoration:none;font-size:16px;opacity:0.7;">📥</a></div>',
+                    unsafe_allow_html=True,
+                )
             for entry in reversed(st.session_state.logs[-20:]):
                 color = {"info": "#888", "success": "#2ed573", "warning": "#ffa502", "error": "#ff4757"}.get(entry['level'], "#888")
                 st.markdown(f'<span style="color: #555; font-size: 11px;">{entry["time"]}</span> <span style="color: {color};">{entry["icon"]}</span> <span style="color: #aaa; font-size: 12px;">{entry["message"]}</span>', unsafe_allow_html=True)
@@ -800,17 +811,7 @@ def main():
 
     global _log_area
     step_container = st.container()
-    log_row_left, log_row_right = st.columns([5, 1])
-    with log_row_left:
-        _log_area = st.empty()
-    with log_row_right:
-        _debug_log = Path("trend_engine_debug.log")
-        if _debug_log.exists():
-            st.download_button(
-                "📥", _debug_log.read_text(encoding="utf-8", errors="replace"),
-                file_name="trend_engine_debug.log", mime="text/plain",
-                key="debug_log_dl", help="Download raw debug log",
-            )
+    _log_area = st.empty()
     _refresh_log_area()
 
     step_renderers = {0: render_step_0_trends, 1: render_step_1_impacts, 2: render_step_2_companies, 3: render_step_3_contacts, 4: render_step_4_emails}
