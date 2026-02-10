@@ -87,6 +87,16 @@ def _refresh_log_area():
             for entry in reversed(st.session_state.logs[-20:]):
                 color = {"info": "#888", "success": "#2ed573", "warning": "#ffa502", "error": "#ff4757"}.get(entry['level'], "#888")
                 st.markdown(f'<span style="color: #555; font-size: 11px;">{entry["time"]}</span> <span style="color: {color};">{entry["icon"]}</span> <span style="color: #aaa; font-size: 12px;">{entry["message"]}</span>', unsafe_allow_html=True)
+            # Debug log download
+            log_path = Path("trend_engine_debug.log")
+            if log_path.exists():
+                log_content = log_path.read_text(encoding="utf-8", errors="replace")
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    st.download_button("Download Debug Log", log_content, file_name="trend_engine_debug.log", mime="text/plain")
+                with col2:
+                    if st.checkbox("View Debug Log", value=False):
+                        st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="log")
 
 
 def add_log(message: str, level: str = "info"):
