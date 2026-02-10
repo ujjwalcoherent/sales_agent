@@ -15,10 +15,11 @@ import streamlit as st
 
 # Streamlit runs inside an existing event loop — nest_asyncio makes
 # asyncio.run() safe to call from within it (avoids RuntimeError).
+# uvloop (used by Streamlit Cloud) is incompatible with nest_asyncio.
 try:
     nest_asyncio.apply()
-except ValueError:
-    pass  # Already patched or incompatible loop type (Streamlit Cloud)
+except (ValueError, TypeError, RuntimeError):
+    pass  # uvloop or already patched — asyncio.run() may still work
 
 # Add app to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -201,8 +202,9 @@ def render_step_0_trends():
             disabled=is_running,
         )
     with col2:
-        max_per_source = st.number_input("Per source", min_value=5, max_value=100, value=st.session_state.get('max_per_source', 10), step=5, label_visibility="collapsed", disabled=is_running)
-        st.session_state.max_per_source = max_per_source
+        if 'max_per_source' not in st.session_state:
+            st.session_state.max_per_source = 10
+        max_per_source = st.number_input("Per source", min_value=5, max_value=100, step=5, label_visibility="collapsed", disabled=is_running, key="max_per_source")
     with col3:
         if st.button("🔍 Detect", type="primary", use_container_width=True, disabled=st.session_state.get('pipeline_running', False), on_click=_on_detect):
             progress = st.empty()
