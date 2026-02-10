@@ -1,0 +1,59 @@
+# Core Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# LangGraph & LangChain (compatible versions)
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+
+# LLM Providers
+langchain-nvidia-ai-endpoints>=0.3.0
+google-genai>=1.0.0
+groq>=0.4.0
+
+# Search & Data
+tavily-python>=0.3.1
+feedparser>=6.0.10
+httpx>=0.26.0
+aiohttp>=3.9.0
+trafilatura>=2.0.0          # Full article content extraction from URLs
+
+# Database
+sqlalchemy>=2.0.25
+aiosqlite>=0.19.0
+
+# Utilities
+beautifulsoup4>=4.12.0
+lxml>=5.1.0
+tldextract>=5.1.0
+validators>=0.22.0
+
+# Export
+pandas>=2.0.0
+
+# Streamlit UI
+streamlit>=1.31.0
+streamlit-flow-component>=1.0.0   # React Flow-based horizontal tree visualization
+nest-asyncio>=1.5.0               # Safe asyncio.run() inside existing event loops (Streamlit)
+
+# ML & Embeddings (for clustering & similarity)
+numpy>=1.24.0
+scikit-learn>=1.3.0
+huggingface-hub>=0.20.0
+sentence-transformers>=2.2.0
+ollama>=0.3.0
+# PyTorch is pulled by sentence-transformers. For CUDA GPU acceleration:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+
+# Trend Detection Pipeline (Layer 2)
+umap-learn>=0.5.0          # UMAP dimensionality reduction (384-dim → 5-dim)
+datasketch>=1.6.0          # MinHash LSH near-duplicate article detection
+vaderSentiment>=3.3.2      # Rule-based sentiment (tuned for social media/news)
+spacy>=3.7.0               # Named Entity Recognition (NER)
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+

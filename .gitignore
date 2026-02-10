@@ -1,0 +1,80 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.claude/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# MCP / Playwright
+.playwright-mcp/
+screenshots/
+.deepeval/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Test artifacts
+test-results/
+
+# Screenshots (verification / UI testing)
+*.png
+*.jpeg
+*.jpg
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Debug / Logs
+*.log
+trend_engine_debug.log
+nul
+
+# Data outputs
+data/
+app/outputs/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Misc generated files
+verify_output.txt
+verify_ui.js
