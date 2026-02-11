@@ -217,7 +217,6 @@ The UI needed to support the new pipeline stages, display which LLM provider han
 - **New helper functions:**
   - `_ensure_model()` — Safely convert dict to Pydantic model
   - `_rebuild_list()` — Round-trip validation through model_dump
-  - `format_reasoning_text()` — Format reasoning output with bullet points
 - **Pipeline state:** New session state keys for `articles`, `clusters`, `major_trends`, `active_sources`
 - **Default mode change:** `mock_mode` default changed from `True` to `False` (real data by default)
 - **Sidebar:** Added provider status display and news source information

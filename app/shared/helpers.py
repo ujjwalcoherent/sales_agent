@@ -19,26 +19,6 @@ def _rebuild_list(items, model_class):
     return [_ensure_model(d, model_class) for d in dumped]
 
 
-def format_reasoning_text(text: str) -> str:
-    """Format reasoning text with proper line breaks for readability."""
-    if not text:
-        return text
-
-    # Split on numbered points (1., 2., etc.) or bullet patterns
-    formatted_lines = re.split(r'(?=\d+\.\s)|(?=•\s)|(?=\-\s)', text)
-    formatted_lines = [line.strip() for line in formatted_lines if line.strip()]
-
-    if len(formatted_lines) > 1:
-        return "\n\n".join(f"• {line.lstrip('•-0123456789. ')}" for line in formatted_lines)
-
-    # Split on sentences for long text
-    sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
-    if len(sentences) > 2:
-        return "\n\n".join(f"• {s.strip()}" for s in sentences if s.strip())
-
-    return text
-
-
 def strip_html_tags(text: str) -> str:
     """Remove HTML tags from text for display in non-HTML contexts."""
     if not text:

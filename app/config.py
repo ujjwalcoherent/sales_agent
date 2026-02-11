@@ -38,10 +38,6 @@ class Settings(BaseSettings):
     embedding_model: str = Field(default="BAAI/bge-small-en-v1.5", alias="EMBEDDING_MODEL")
     local_embedding_model: str = Field(default="paraphrase-multilingual-MiniLM-L12-v2", alias="LOCAL_EMBEDDING_MODEL")
 
-    # Clustering Configuration (legacy DBSCAN — used by tools/clustering.py)
-    clustering_eps: float = Field(default=0.5, alias="CLUSTERING_EPS")
-    clustering_min_samples: int = Field(default=2, alias="CLUSTERING_MIN_SAMPLES")
-
     # ── Trend Engine Pipeline (RecursiveTrendEngine) ──
     # UMAP: Dimensionality reduction before HDBSCAN clustering
     umap_n_components: int = Field(default=5, alias="UMAP_N_COMPONENTS")
@@ -931,13 +927,4 @@ DEFAULT_ACTIVE_SOURCES = [
     # GDELT (FREE, no API key needed — massive event coverage)
     "gdelt_india",
     "gdelt_india_business",
-]
-
-# Extended sources (use if you have all API keys)
-EXTENDED_API_SOURCES = [
-    "mediastack",            # MEDIASTACK_API_KEY - 500/month
-    "thenewsapi",            # THENEWSAPI_KEY - free tier
-    "newsdata",              # NEWSDATA_API_KEY - 500/month
-    "webz_news",             # WEBZ_API_KEY - 1000/month
-    "rapidapi_google_news",  # RAPIDAPI_KEY - 500/day
 ]

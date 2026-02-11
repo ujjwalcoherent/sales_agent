@@ -536,9 +536,6 @@ sales_agent/
 │   │   ├── event_classifier.py   # Embedding-based event classification (15 types)
 │   │   └── scraper.py            # Full article extraction (trafilatura)
 │   │
-│   ├── sales/
-│   │   └── service_portfolio.py  # CMI service catalog for pitch matching
-│   │
 │   ├── schemas/
 │   │   ├── __init__.py           # Re-exports all schemas
 │   │   ├── base.py               # Enums: Severity, SignalStrength, CompanySize, etc.

@@ -119,7 +119,6 @@ def _to_trend_data(major_trends: list) -> list:
 
 async def _run_trend_pipeline(progress) -> list:
     """Run the trend detection pipeline."""
-    import time as _time
     mock_mode = st.session_state.mock_mode
     settings = get_settings()
 

@@ -220,7 +220,6 @@ def render_tree_node(
         if c.lower() not in seen_lower:
             seen_lower.add(c.lower())
             entity_set.append(c)
-    kw_html = ""
     ent_html = ""
     if entity_set:
         ent_spans = ''.join([f'<span style="background: rgba(255,0,255,0.1); padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-right: 4px;">{escape_for_html(e)}</span>' for e in entity_set[:8]])
@@ -356,7 +355,6 @@ def render_sliding_sidebar(node, tree, articles_map: dict):
         if c.lower() not in _seen:
             _seen.add(c.lower())
             _entity_set.append(c)
-    kw_html = ""
     ent_html = ""
     if _entity_set:
         ent_spans = "".join([f'<span class="entity-tag">{escape_for_html(e)}</span>' for e in _entity_set[:10]])
@@ -488,8 +486,6 @@ def render_sliding_sidebar(node, tree, articles_map: dict):
     if chain:
         chain_items = ''.join([f'<div style="padding: 2px 0 2px 12px; border-left: 2px solid #ffa502; margin-left: 4px; color: #aaa; font-size: 11px;">{escape_for_html(c[:80])}</div>' for c in chain[:4]])
         chain_html = f'<div class="detail-section"><div class="detail-section-title" style="color: #ffa502;">Causal Chain</div>{chain_items}</div>'
-
-    affected_html = ""  # Merged into ent_html above
 
     sidebar_html = (
         '<div class="detail-sidebar" id="trend-detail-sidebar">'
