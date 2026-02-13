@@ -476,9 +476,9 @@ test("V2a: LLM JSON max retries from env", v2_config)
 
 
 def v2_generate_json_has_pydantic_param():
-    from app.tools.llm_tool import LLMTool
+    from app.tools.llm_service import LLMService
     import inspect
-    sig = inspect.signature(LLMTool.generate_json)
+    sig = inspect.signature(LLMService.generate_json)
     assert "pydantic_model" in sig.parameters, f"Missing pydantic_model param. Params: {list(sig.parameters.keys())}"
 
 

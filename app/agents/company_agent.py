@@ -18,7 +18,7 @@ import aiohttp
 
 from ..schemas import CompanyData, CompanySize, ImpactAnalysis, AgentState
 from ..tools.tavily_tool import TavilyTool
-from ..tools.llm_tool import LLMTool
+from ..tools.llm_service import LLMService
 from ..tools.domain_utils import (
     extract_clean_domain,
     is_valid_company_domain,
@@ -45,7 +45,7 @@ class CompanyAgent:
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.mock_mode
         self.tavily_tool = TavilyTool(mock_mode=self.mock_mode)
-        self.llm_tool = LLMTool(mock_mode=self.mock_mode)
+        self.llm_service = LLMService(mock_mode=self.mock_mode)
     
     async def find_companies(self, state: AgentState) -> AgentState:
         """
@@ -223,7 +223,7 @@ Focus on:
 4. Companies with clear consulting needs"""
 
         try:
-            companies_data = await self.llm_tool.generate_list(prompt=prompt)
+            companies_data = await self.llm_service.generate_list(prompt=prompt)
             
             companies = []
             for item in companies_data[:limit]:
@@ -304,7 +304,7 @@ RULES:
 Return JSON array only."""
 
         try:
-            result = await self.llm_tool.generate_list(prompt=prompt)
+            result = await self.llm_service.generate_list(prompt=prompt)
             
             companies = []
             for item in result:

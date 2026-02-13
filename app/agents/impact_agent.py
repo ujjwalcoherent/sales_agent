@@ -11,7 +11,7 @@ import logging
 from typing import List, Optional
 
 from ..schemas import TrendData, ImpactAnalysis, AgentState
-from ..tools.llm_tool import LLMTool
+from ..tools.llm_service import LLMService
 from ..config import get_settings, TREND_ROLE_MAPPING, CMI_SERVICES
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,17 @@ class ImpactAgent:
     """
     
     def __init__(self, mock_mode: bool = False):
-        """Initialize impact agent with standard provider fallback chain."""
+        """Initialize impact agent with Groq-preferred provider chain.
+
+        Impact analysis requires deep reasoning, so we prefer Groq 120B
+        (puts it first in the fallback chain) while keeping other providers
+        as fallbacks.
+        """
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.mock_mode
-        # Use normal provider chain (NVIDIA→Ollama→OpenRouter→Gemini→Groq)
-        # Previously force_groq=True bypassed the entire fallback chain
-        self.llm_tool = LLMTool(mock_mode=self.mock_mode)
-        provider = self.llm_tool.settings.get_llm_config().get("provider", "unknown")
-        logger.info(f"Impact Agent initialized (provider={provider})")
+        self.llm_service = LLMService(mock_mode=self.mock_mode, force_groq=True)
+        provider = self.llm_service.settings.get_llm_config().get("provider", "unknown")
+        logger.info(f"Impact Agent initialized (provider={provider}, force_groq=True)")
     
     async def analyze_impacts(self, state: AgentState) -> AgentState:
         """
@@ -210,17 +213,20 @@ Your job is to identify SPECIFIC business challenges where Coherent Market Insig
 Always respond with valid JSON only."""
 
         try:
-            result = await self.llm_tool.generate_json(
+            result = await self.llm_service.generate_json(
                 prompt=prompt,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
             )
 
-            # H2: Check for error dict from failed JSON parsing
-            if isinstance(result, dict) and "error" in result:
+            # H2: Check for non-dict or error responses
+            if not isinstance(result, dict):
+                logger.warning(f"LLM returned {type(result).__name__} instead of dict. Falling back to basic impact.")
+                return self._create_basic_impact(trend)
+            if "error" in result:
                 logger.warning(f"LLM returned error dict: {result['error']}. Falling back to basic impact.")
                 return self._create_basic_impact(trend)
 
-            logger.info(f"LLM returned impact analysis with keys: {result.keys()}")
+            logger.info(f"LLM returned impact analysis with keys: {list(result.keys())}")
 
             # V5: Validate and coerce all fields before creating ImpactAnalysis
             result = self._validate_impact_response(result)
@@ -315,7 +321,7 @@ Focus on mid-size Indian companies (50-300 employees).
 Find 2-4 company types affected by 2+ trends simultaneously."""
 
         try:
-            result = await self.llm_tool.generate_json(
+            result = await self.llm_service.generate_json(
                 prompt=prompt,
                 system_prompt="You are a senior strategy consultant. Identify compound market impacts. Respond with JSON only."
             )
@@ -330,7 +336,10 @@ Find 2-4 company types affected by 2+ trends simultaneously."""
                 if not isinstance(result.get("cross_trend_insight"), str):
                     result["cross_trend_insight"] = str(result.get("cross_trend_insight", ""))
                 return result
-            logger.debug(f"Cross-trend synthesis returned error: {result.get('error', 'unknown')}")
+            if isinstance(result, dict):
+                logger.debug(f"Cross-trend synthesis returned error: {result.get('error', 'unknown')}")
+            else:
+                logger.debug(f"Cross-trend synthesis returned {type(result).__name__} instead of dict")
             return None
         except Exception as e:
             logger.warning(f"Cross-trend synthesis LLM call failed: {e}")

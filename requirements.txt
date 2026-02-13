@@ -12,6 +12,7 @@ langchain-core>=0.3.0
 langchain-community>=0.3.0
 
 # LLM Providers
+pydantic-ai[groq]>=0.2.0      # Structured LLM output with provider fallback
 langchain-nvidia-ai-endpoints>=0.3.0
 google-genai>=1.0.0
 groq>=0.4.0

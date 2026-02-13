@@ -14,7 +14,7 @@ from ..schemas import (
     Sector, TrendType, Severity, ImpactType, ServiceType,
     ConfidenceScore, GeoLocation
 )
-from .llm_tool import LLMTool
+from .llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -123,15 +123,15 @@ Focus on:
 
 Always respond with valid JSON."""
 
-    def __init__(self, llm: Optional[LLMTool] = None, mock_mode: bool = False):
+    def __init__(self, llm: Optional[LLMService] = None, mock_mode: bool = False):
         """
         Initialize trend synthesizer.
 
         Args:
-            llm: LLM tool instance (creates one if not provided)
+            llm: LLM service instance (creates one if not provided)
             mock_mode: Use mock responses
         """
-        self.llm = llm or LLMTool(mock_mode=mock_mode)
+        self.llm = llm or LLMService(mock_mode=mock_mode)
         self.mock_mode = mock_mode
 
     async def synthesize_trend(

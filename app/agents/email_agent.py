@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 from ..schemas import ContactData, TrendData, CompanyData, OutreachEmail, AgentState
 from ..tools.apollo_tool import ApolloTool
 from ..tools.hunter_tool import HunterTool
-from ..tools.llm_tool import LLMTool
+from ..tools.llm_service import LLMService
 from ..tools.domain_utils import extract_clean_domain
 from ..config import get_settings, CMI_SERVICES
 
@@ -31,7 +31,7 @@ class EmailAgent:
         self.mock_mode = mock_mode or self.settings.mock_mode
         self.apollo_tool = ApolloTool(mock_mode=self.mock_mode)
         self.hunter_tool = HunterTool(mock_mode=self.mock_mode)
-        self.llm_tool = LLMTool(mock_mode=self.mock_mode)
+        self.llm_service = LLMService(mock_mode=self.mock_mode)
     
     async def process_emails(self, state: AgentState) -> AgentState:
         """
@@ -269,7 +269,7 @@ Your emails should feel like a consultant reaching out to help, not a salesperso
 Always respond with valid JSON only."""
 
         try:
-            result = await self.llm_tool.generate_json(
+            result = await self.llm_service.generate_json(
                 prompt=prompt,
                 system_prompt=system_prompt
             )

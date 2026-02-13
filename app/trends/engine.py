@@ -149,8 +149,8 @@ class RecursiveTrendEngine:
     @property
     def llm_tool(self):
         if self._llm_tool is None:
-            from app.tools.llm_tool import LLMTool
-            self._llm_tool = LLMTool(mock_mode=self.mock_mode)
+            from app.tools.llm_service import LLMService
+            self._llm_tool = LLMService(mock_mode=self.mock_mode)
         return self._llm_tool
 
     # ════════════════════════════════════════════════════════════════════

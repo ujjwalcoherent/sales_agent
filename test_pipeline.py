@@ -178,9 +178,9 @@ async def test_4_llm_providers():
     print("TEST 4: LLM Provider Chain")
     print("=" * 60)
 
-    from app.tools.llm_tool import LLMTool
+    from app.tools.llm_service import LLMService
 
-    tool = LLMTool()
+    tool = LLMService()
 
     # Check provider status
     status = await tool.get_provider_status()

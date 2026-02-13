@@ -11,7 +11,7 @@ from typing import List
 from ..schemas import TrendData, Severity, AgentState
 from ..tools.rss_tool import RSSTool
 from ..tools.tavily_tool import TavilyTool
-from ..tools.llm_tool import LLMTool
+from ..tools.llm_service import LLMService
 from ..config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class TrendAgent:
         self.mock_mode = mock_mode or self.settings.mock_mode
         self.rss_tool = RSSTool(mock_mode=self.mock_mode)
         self.tavily_tool = TavilyTool(mock_mode=self.mock_mode)
-        self.llm_tool = LLMTool(mock_mode=self.mock_mode)
+        self.llm_service = LLMService(mock_mode=self.mock_mode)
     
     async def detect_trends(self, state: AgentState) -> AgentState:
         """
@@ -48,10 +48,15 @@ class TrendAgent:
         logger.info("🔍 Starting trend detection...")
         
         try:
-            # Step 1: Fetch RSS headlines
-            rss_items = await self.rss_tool.fetch_trends(
-                max_results=5
+            # Step 1: Fetch news articles from all sources
+            articles = await self.rss_tool.fetch_all_sources(
+                max_per_source=5
             )
+            # Convert NewsArticle objects to dicts for _process_headline
+            rss_items = [
+                {"title": a.title, "summary": a.summary, "link": a.url, "source": a.source_name}
+                for a in articles
+            ]
             logger.info(f"📰 Fetched {len(rss_items)} RSS items")
             
             if not rss_items:
@@ -187,7 +192,7 @@ Focus on specific, actionable insights - not generic trends.
 Always respond with valid JSON only."""
 
         try:
-            result = await self.llm_tool.generate_json(
+            result = await self.llm_service.generate_json(
                 prompt=prompt,
                 system_prompt=system_prompt
             )

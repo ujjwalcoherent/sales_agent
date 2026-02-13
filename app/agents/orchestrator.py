@@ -75,7 +75,7 @@ async def trend_node(state: GraphState) -> GraphState:
     result = await run_trend_agent(agent_state)
     
     return {
-        "trends": [t.model_dump() for t in result.trends],
+        "trends": [t.model_dump(mode='json') for t in result.trends],
         "impacts": state.get("impacts", []),
         "companies": state.get("companies", []),
         "contacts": state.get("contacts", []),
@@ -103,7 +103,7 @@ async def impact_node(state: GraphState) -> GraphState:
     
     return {
         "trends": state.get("trends", []),
-        "impacts": [i.model_dump() for i in result.impacts],
+        "impacts": [i.model_dump(mode='json') for i in result.impacts],
         "companies": state.get("companies", []),
         "contacts": state.get("contacts", []),
         "outreach_emails": state.get("outreach_emails", []),
@@ -132,7 +132,7 @@ async def company_node(state: GraphState) -> GraphState:
     return {
         "trends": state.get("trends", []),
         "impacts": state.get("impacts", []),
-        "companies": [c.model_dump() for c in result.companies],
+        "companies": [c.model_dump(mode='json') for c in result.companies],
         "contacts": state.get("contacts", []),
         "outreach_emails": state.get("outreach_emails", []),
         "errors": result.errors,
@@ -163,7 +163,7 @@ async def contact_node(state: GraphState) -> GraphState:
         "trends": state.get("trends", []),
         "impacts": state.get("impacts", []),
         "companies": state.get("companies", []),
-        "contacts": [c.model_dump() for c in result.contacts],
+        "contacts": [c.model_dump(mode='json') for c in result.contacts],
         "outreach_emails": state.get("outreach_emails", []),
         "errors": result.errors,
         "current_step": result.current_step
@@ -195,8 +195,8 @@ async def email_node(state: GraphState) -> GraphState:
         "trends": state.get("trends", []),
         "impacts": state.get("impacts", []),
         "companies": state.get("companies", []),
-        "contacts": [c.model_dump() for c in result.contacts],  # Updated with emails
-        "outreach_emails": [e.model_dump() for e in result.outreach_emails],
+        "contacts": [c.model_dump(mode='json') for c in result.contacts],  # Updated with emails
+        "outreach_emails": [e.model_dump(mode='json') for e in result.outreach_emails],
         "errors": result.errors,
         "current_step": result.current_step
     }
@@ -343,6 +343,11 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
         leads.append(lead)
     
     # Save JSON
+    def _json_default(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
     json_file = outputs_dir / f"leads_{run_id}.json"
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump({
@@ -350,7 +355,7 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
             "generated_at": datetime.utcnow().isoformat(),
             "total_leads": len(leads),
             "leads": leads
-        }, f, indent=2, ensure_ascii=False)
+        }, f, indent=2, ensure_ascii=False, default=_json_default)
     
     # Save CSV
     csv_file = outputs_dir / f"leads_{run_id}.csv"

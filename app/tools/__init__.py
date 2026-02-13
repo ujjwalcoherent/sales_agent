@@ -1,5 +1,5 @@
 # Tools module
-from .llm_tool import LLMTool
+from .llm_service import LLMService
 from .rss_tool import RSSTool
 from .tavily_tool import TavilyTool
 from .apollo_tool import ApolloTool
@@ -16,7 +16,7 @@ from .domain_utils import (
 
 __all__ = [
     # LLM & Search
-    "LLMTool",
+    "LLMService",
     "RSSTool",
     "TavilyTool",
     "ApolloTool",

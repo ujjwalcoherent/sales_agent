@@ -19,7 +19,7 @@ from .config import get_settings
 from .schemas import PipelineResult
 from .database import get_database
 from .agents.orchestrator import run_pipeline
-from .tools.llm_tool import LLMTool
+from .tools.llm_service import LLMService
 
 # Configure logging
 logging.basicConfig(
@@ -86,8 +86,8 @@ async def startup_event():
     
     # Check LLM providers
     settings = get_settings()
-    llm_tool = LLMTool()
-    status = await llm_tool.get_provider_status()
+    llm_service = LLMService()
+    status = await llm_service.get_provider_status()
     
     if status["ollama"]:
         logger.info(f"✅ Ollama available ({settings.ollama_model})")
@@ -118,8 +118,8 @@ async def root():
 async def health_check():
     """Detailed health check."""
     settings = get_settings()
-    llm_tool = LLMTool()
-    llm_status = await llm_tool.get_provider_status()
+    llm_service = LLMService()
+    llm_status = await llm_service.get_provider_status()
     
     return {
         "status": "healthy",

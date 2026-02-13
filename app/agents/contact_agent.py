@@ -10,7 +10,7 @@ from typing import List, Dict, Optional
 
 from ..schemas import CompanyData, ContactData, ImpactAnalysis, AgentState
 from ..tools.tavily_tool import TavilyTool
-from ..tools.llm_tool import LLMTool
+from ..tools.llm_service import LLMService
 from ..tools.apollo_tool import ApolloTool
 from ..config import get_settings, TREND_ROLE_MAPPING
 
@@ -32,7 +32,7 @@ class ContactAgent:
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.mock_mode
         self.tavily_tool = TavilyTool(mock_mode=self.mock_mode)
-        self.llm_tool = LLMTool(mock_mode=self.mock_mode)
+        self.llm_service = LLMService(mock_mode=self.mock_mode)
         self.apollo_tool = ApolloTool(mock_mode=self.mock_mode)
     
     async def find_contacts(self, state: AgentState) -> AgentState:
@@ -231,7 +231,7 @@ Only include information you are confident about.
 If no relevant person is found, return {{"person_name": ""}}"""
 
         try:
-            result = await self.llm_tool.generate_json(prompt=prompt)
+            result = await self.llm_service.generate_json(prompt=prompt)
             
             # Clean up LinkedIn URL
             linkedin = result.get("linkedin_url", "")

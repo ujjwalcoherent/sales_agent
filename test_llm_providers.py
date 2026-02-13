@@ -31,8 +31,9 @@ logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("test_llm_providers")
 logger.setLevel(logging.INFO)
 
-# ─── Import LLMTool (the class under test) ───────────────────────────────────
-from app.tools.llm_tool import LLMTool
+# ─── Import LLMService (the class under test) ────────────────────────────────
+from app.tools.llm_service import LLMService
+from app.tools.provider_manager import ProviderManager
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ ALL_RESULTS: List[TestResult] = []
 # ─── Helper: call a provider method directly ─────────────────────────────────
 
 async def call_provider(
-    llm: LLMTool,
+    llm: LLMService,
     provider_name: str,
     method_name: str,
     prompt: str,
@@ -138,7 +139,7 @@ async def call_provider(
     """
     method = getattr(llm, method_name, None)
     if method is None:
-        return None, 0.0, f"Method {method_name} not found on LLMTool"
+        return None, 0.0, f"Method {method_name} not found on LLMService"
 
     start = time.perf_counter()
     try:
@@ -180,7 +181,7 @@ def is_valid_json(text: str) -> Tuple[bool, Optional[dict]]:
 
 # ─── Individual test functions ────────────────────────────────────────────────
 
-async def test_connectivity(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_connectivity(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 1: Can it connect and return anything?"""
     r = TestResult(provider, "connectivity")
     resp, dur, err = await call_provider(llm, provider, method, SIMPLE_PROMPT, SYSTEM_PROMPT, timeout=45)
@@ -197,7 +198,7 @@ async def test_connectivity(llm: LLMTool, provider: str, method: str) -> TestRes
     return r
 
 
-async def test_json_speed(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_json_speed(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 2: Speed for a simple JSON prompt."""
     r = TestResult(provider, "json_speed")
     resp, dur, err = await call_provider(llm, provider, method, JSON_PROMPT, SYSTEM_PROMPT, max_tokens=512, timeout=60)
@@ -216,7 +217,7 @@ async def test_json_speed(llm: LLMTool, provider: str, method: str) -> TestResul
     return r
 
 
-async def test_long_analysis(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_long_analysis(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 3: Speed for a longer analysis (~500 token output)."""
     r = TestResult(provider, "long_analysis")
     resp, dur, err = await call_provider(llm, provider, method, LONG_ANALYSIS_PROMPT, None, max_tokens=2048, timeout=120)
@@ -234,7 +235,7 @@ async def test_long_analysis(llm: LLMTool, provider: str, method: str) -> TestRe
     return r
 
 
-async def test_json_quality(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_json_quality(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 4: Does it return well-formed JSON with the requested keys?"""
     r = TestResult(provider, "json_quality")
     resp, dur, err = await call_provider(llm, provider, method, JSON_PROMPT, SYSTEM_PROMPT, max_tokens=512, timeout=60)
@@ -263,7 +264,7 @@ async def test_json_quality(llm: LLMTool, provider: str, method: str) -> TestRes
     return r
 
 
-async def test_empty_prompt(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_empty_prompt(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 5 (edge): What happens with an empty prompt?"""
     r = TestResult(provider, "empty_prompt")
     resp, dur, err = await call_provider(llm, provider, method, EMPTY_PROMPT, None, timeout=30)
@@ -284,7 +285,7 @@ async def test_empty_prompt(llm: LLMTool, provider: str, method: str) -> TestRes
     return r
 
 
-async def test_long_prompt(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_long_prompt(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 6 (edge): Very long prompt (~20k chars)."""
     r = TestResult(provider, "long_prompt")
     resp, dur, err = await call_provider(llm, provider, method, VERY_LONG_PROMPT, None, max_tokens=256, timeout=90)
@@ -303,7 +304,7 @@ async def test_long_prompt(llm: LLMTool, provider: str, method: str) -> TestResu
     return r
 
 
-async def test_hindi_prompt(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_hindi_prompt(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 7 (edge): Non-English (Hindi) prompt requesting JSON."""
     r = TestResult(provider, "hindi_prompt")
     resp, dur, err = await call_provider(llm, provider, method, HINDI_PROMPT, None, max_tokens=512, timeout=60)
@@ -322,7 +323,7 @@ async def test_hindi_prompt(llm: LLMTool, provider: str, method: str) -> TestRes
     return r
 
 
-async def test_timeout_behavior(llm: LLMTool, provider: str, method: str) -> TestResult:
+async def test_timeout_behavior(llm: LLMService, provider: str, method: str) -> TestResult:
     """Test 8: Does it respect a very short timeout (3s)?"""
     r = TestResult(provider, "timeout_3s")
     # Use the long analysis prompt with a 3-second timeout to force a timeout
@@ -350,7 +351,7 @@ async def test_timeout_behavior(llm: LLMTool, provider: str, method: str) -> Tes
 # ─── Provider test orchestrator ──────────────────────────────────────────────
 
 async def test_single_provider(
-    llm: LLMTool,
+    llm: LLMService,
     provider_display: str,
     method_name: str,
     is_configured: bool,
@@ -360,7 +361,7 @@ async def test_single_provider(
     print(f"\n{'='*70}")
     print(f"  TESTING: {provider_display}")
     print(f"  Model:   {model_name}")
-    print(f"  Method:  LLMTool.{method_name}")
+    print(f"  Method:  LLMService.{method_name}")
     print(f"  Status:  {'CONFIGURED' if is_configured else 'NOT CONFIGURED (skipping)'}")
     print(f"{'='*70}")
 
@@ -522,18 +523,18 @@ async def main():
     print("=" * 70)
 
     # Clear any previous failure cooldowns so all providers are tested fresh
-    LLMTool._failed_providers.clear()
+    ProviderManager.reset_cooldowns()
 
-    # Initialize LLMTool (with force_groq to configure Groq client)
-    llm = LLMTool(mock_mode=False, force_groq=True)
+    # Initialize LLMService (with force_groq to configure Groq client)
+    llm = LLMService(mock_mode=False, force_groq=True)
     settings = llm.settings
 
     print(f"\n  Configuration loaded from .env:")
-    print(f"    NVIDIA:      {'YES' if llm._nvidia_configured else 'NO'} (model={settings.nvidia_model})")
+    print(f"    NVIDIA:      {'YES' if settings.nvidia_api_key else 'NO'} (model={settings.nvidia_model})")
     print(f"    Ollama:      {'YES' if settings.use_ollama else 'NO'} (model={settings.ollama_model})")
-    print(f"    OpenRouter:  {'YES' if llm._openrouter_configured else 'NO'} (model={settings.openrouter_model})")
-    print(f"    Gemini:      {'YES' if llm._gemini_configured else 'NO'} (model={settings.gemini_model})")
-    print(f"    Groq:        {'YES' if llm._groq_configured else 'NO'} (model={settings.groq_model})")
+    print(f"    OpenRouter:  {'YES' if settings.openrouter_api_key else 'NO'} (model={settings.openrouter_model})")
+    print(f"    Gemini:      {'YES' if settings.gemini_api_key else 'NO'} (model={settings.gemini_model})")
+    print(f"    Groq:        {'YES' if settings.groq_api_key else 'NO'} (model={settings.groq_model})")
 
     # ── Test each provider ────────────────────────────────────────────────
 
