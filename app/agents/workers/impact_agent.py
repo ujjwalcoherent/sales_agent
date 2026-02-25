@@ -75,7 +75,10 @@ class ImpactAnalyzer:
         self._log(f"Analyzing {len(state.trends)} trends through AI council...")
 
         # V7: Parallel impact analysis with concurrency limit
-        semaphore = asyncio.Semaphore(4)
+        # Semaphore=2: GeminiDirect is ~60 RPM on Vertex AI free tier.
+        # Each council call takes ~5-15s; at 2 concurrent we stay well under quota.
+        # Was 4 — caused all 8 trends to fire simultaneously → 429 cascade.
+        semaphore = asyncio.Semaphore(2)
         completed = 0
 
         async def _analyze_one(trend: TrendData) -> ImpactAnalysis:

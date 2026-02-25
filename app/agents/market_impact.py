@@ -77,7 +77,7 @@ async def search_precedent(ctx: RunContext[AgentDeps], trend_title: str) -> str:
         trend_title: The trend headline to search precedents for.
     """
     result = await ctx.deps.tavily_tool.enrich_trend(trend_title, "")
-    context = result.get("enriched_context", "")[:300]
+    context = (result.get("enriched_context") or "")[:300]
     sources = [s.get("title", "") for s in result.get("sources", [])]
     return f"Precedent for '{trend_title[:40]}': {context} Sources: {sources}"
 

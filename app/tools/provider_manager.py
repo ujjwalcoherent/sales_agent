@@ -206,15 +206,18 @@ class ProviderManager:
         return providers
 
     def get_structured_output_model(self):
-        """Get model for structured JSON output — intentionally skips VertexLlama.
+        """Get model for structured JSON output — skips VertexLlama and NVIDIA.
 
-        VertexLlama via OpenAI-compat endpoint returns 400 when pydantic-ai sends
-        tool_choice='required' (forced function calling / mode=ANY). This method
-        returns a model chain that only includes providers which support structured
-        output natively.
+        These providers return 400 for structured output:
+        - VertexLlama: "forced function calling (mode=ANY) not supported"
+        - NVIDIA DeepSeek: "Invalid grammar request" (JSON schema validation)
 
-        Use this in LLMService.run_structured() and _get_or_create_agent() when
-        output_type is not str.
+        Only GeminiDirect and Groq reliably support pydantic-ai structured output
+        (tool_choice='required'). When both are rate-limited, raises RuntimeError
+        so LLMService.run_structured() can wait for cooldown and retry instead of
+        cascading into known-failing providers.
+
+        Use this in LLMService._get_or_create_agent() when output_type is not str.
         """
         if self.mock_mode:
             from . import mock_responses
@@ -228,30 +231,24 @@ class ProviderManager:
         if _google_available and has_gemini and not self._is_cooling_down("GeminiDirect", now):
             providers.append(("GeminiDirect", self._build_gemini_direct_model()))
 
-        # Groq — confirmed function calling support
+        # Groq — confirmed function calling support (when not rate-limited)
         if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
             model = self._build_groq_model()
             if model:
                 providers.append(("Groq", model))
 
-        # NVIDIA — JSON grammar sometimes works
-        if self.settings.nvidia_api_key and not self._is_cooling_down("NVIDIA", now):
-            providers.append(("NVIDIA", self._build_nvidia_model()))
-
-        # OpenRouter (if not billing-disabled)
-        if self.settings.openrouter_api_key and not self._is_cooling_down("OpenRouter", now):
-            providers.append(("OpenRouter", self._build_openrouter_model()))
-
-        # Ollama last resort
+        # Ollama last resort (local, no rate limits)
         if self.settings.use_ollama and not self._is_cooling_down("Ollama", now):
             providers.append(("Ollama", self._build_ollama_model()))
 
-        # NOTE: VertexLlama intentionally excluded — returns 400 for tool_choice='required'
+        # NOTE: VertexLlama excluded — 400 on tool_choice='required' (mode=ANY not supported)
+        # NOTE: NVIDIA excluded — 400 "Invalid grammar request" on JSON schema structured output
+        # NOTE: OpenRouter excluded — 402 payment required (no credits)
 
         if not providers:
-            # Fall back to full provider list (includes VertexLlama) if nothing else available
-            logger.warning("No structured-output-capable providers available, falling back to full list")
-            return self.get_model()
+            # Raise so LLMService.run_structured() waits for shortest cooldown to expire
+            # (better than cascading into NVIDIA/VertexLlama which always fail with 400)
+            raise RuntimeError("No LLM providers available (GeminiDirect and Groq both in cooldown)")
 
         if len(providers) == 1:
             return providers[0][1]
