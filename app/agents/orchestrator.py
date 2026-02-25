@@ -244,7 +244,10 @@ def quality_route(state: GraphState) -> str:
         return "analysis"
 
     settings = get_settings()
-    threshold = settings.min_trend_confidence_for_agents
+    deps = state.get("deps")
+    mock_mode = getattr(deps, "mock_mode", False) if deps else False
+    # In mock mode, mock LLM produces 0-confidence impacts — pass everything
+    threshold = 0.0 if mock_mode else settings.min_trend_confidence_for_agents
     impacts = state.get("impacts", [])
 
     viable = [imp for imp in impacts if imp.council_confidence >= threshold]

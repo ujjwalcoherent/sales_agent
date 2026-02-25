@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from app.agents.agent_deps import AgentDeps
+from app.agents.deps import AgentDeps
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ QUALITY RULES:
 
 # ── Agent definition ──────────────────────────────────────────────────
 
-lead_gen_agent = Agent(
+lead_gen = Agent(
     'test',  # Placeholder — overridden at runtime via deps.get_model()
     deps_type=AgentDeps,
     output_type=LeadGenResult,
@@ -72,14 +72,14 @@ lead_gen_agent = Agent(
 
 # ── Tools ─────────────────────────────────────────────────────────────
 
-@lead_gen_agent.tool
+@lead_gen.tool
 async def find_companies_for_trends(ctx: RunContext[AgentDeps]) -> str:
     """Find companies affected by each analyzed trend.
 
     Uses the existing CompanyDiscovery pipeline with NER-based
     hallucination guard and Wikipedia verification.
     """
-    from app.agents.company_agent import CompanyDiscovery
+    from app.agents.workers.company_agent import CompanyDiscovery
     from app.schemas import AgentState
 
     trends = ctx.deps._trend_data
@@ -105,7 +105,7 @@ async def find_companies_for_trends(ctx: RunContext[AgentDeps]) -> str:
     )
 
 
-@lead_gen_agent.tool
+@lead_gen.tool
 async def find_contacts_for_companies(ctx: RunContext[AgentDeps]) -> str:
     """Find decision-maker contacts at target companies.
 
@@ -139,7 +139,7 @@ async def find_contacts_for_companies(ctx: RunContext[AgentDeps]) -> str:
     )
 
 
-@lead_gen_agent.tool
+@lead_gen.tool
 async def generate_outreach_emails(ctx: RunContext[AgentDeps]) -> str:
     """Generate personalized outreach emails for all contacts.
 
@@ -172,7 +172,7 @@ async def generate_outreach_emails(ctx: RunContext[AgentDeps]) -> str:
     )
 
 
-@lead_gen_agent.tool
+@lead_gen.tool
 async def assess_company_relevance(
     ctx: RunContext[AgentDeps],
     company_size: str,
@@ -217,32 +217,31 @@ async def run_lead_gen(deps: AgentDeps) -> tuple:
         f"Generate personalized outreach emails."
     )
 
+    agent_result = None
     try:
         model = deps.get_model()
-        result = await lead_gen_agent.run(prompt, deps=deps, model=model)
-
-        companies = deps._companies
-        contacts = deps._contacts
-        outreach = deps._outreach
-
+        result = await lead_gen.run(prompt, deps=deps, model=model)
+        agent_result = result.output
         logger.info(
-            f"Lead Gen Agent: {len(companies)} companies, "
-            f"{len(contacts)} contacts, {len(outreach)} outreach"
+            f"Lead Gen Agent: {len(deps._companies)} companies, "
+            f"{len(deps._contacts)} contacts, {len(deps._outreach)} outreach"
         )
-        return companies, contacts, outreach, result.output
-
     except Exception as e:
         logger.error(f"Lead Gen Agent failed: {e}")
-        # Fallback: run each stage directly
-        from app.agents.company_agent import run_company_agent
-        from app.agents.contact_agent import run_contact_agent
-        from app.agents.email_agent import run_email_agent
+
+    # Run full lead gen pipeline if agent's tools didn't populate deps (e.g. mock mode)
+    if not deps._companies and impacts:
+        from app.agents.workers.company_agent import run_company_agent
+        from app.agents.workers.contact_agent import run_contact_agent
+        from app.agents.workers.email_agent import run_email_agent
         from app.schemas import AgentState
 
         state = AgentState(trends=trends, impacts=impacts)
         state = await run_company_agent(state, deps=deps)
         state = await run_contact_agent(state, deps=deps)
         state = await run_email_agent(state, deps=deps)
+        deps._companies = state.companies
+        deps._contacts = state.contacts
+        deps._outreach = state.outreach_emails
 
-        fallback = LeadGenResult(reasoning=f"Fallback: {e}")
-        return state.companies, state.contacts, state.outreach_emails, fallback
+    return deps._companies, deps._contacts, deps._outreach, agent_result or LeadGenResult(reasoning="Fallback pipeline")
