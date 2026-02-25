@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from app.agents.agent_deps import AgentDeps
+from app.agents.deps import AgentDeps
 from app.config import get_settings
 from app.schemas.news import NewsArticle
 
@@ -71,7 +71,7 @@ DECISION GUIDELINES:
 
 # ── Agent definition ──────────────────────────────────────────────────
 
-source_intel_agent = Agent(
+source_intel = Agent(
     'test',  # Placeholder — overridden at runtime via deps.get_model()
     deps_type=AgentDeps,
     output_type=SourceIntelResult,
@@ -82,7 +82,7 @@ source_intel_agent = Agent(
 
 # ── Tools ─────────────────────────────────────────────────────────────
 
-@source_intel_agent.tool
+@source_intel.tool
 async def fetch_rss_articles(
     ctx: RunContext[AgentDeps],
     max_per_source: int = 10,
@@ -118,7 +118,7 @@ async def fetch_rss_articles(
     return summary
 
 
-@source_intel_agent.tool
+@source_intel.tool
 async def search_web(
     ctx: RunContext[AgentDeps],
     query: str,
@@ -166,27 +166,36 @@ async def search_web(
     return summary
 
 
-@source_intel_agent.tool
+@source_intel.tool
 async def scrape_and_embed_articles(ctx: RunContext[AgentDeps]) -> str:
-    """Scrape full content and generate embeddings for all collected articles.
+    """Generate embeddings for collected articles (uses RSS summaries; scraping optional).
 
     Call this after fetch_rss_articles (and optionally search_web).
-    Populates content via trafilatura and generates 1024-dim embeddings.
+    Generates 1024-dim embeddings from title + summary. Full scraping only
+    runs if SCRAPE_ENABLED=true in config (disabled by default for speed).
     """
     articles = ctx.deps._articles
     if not articles:
         return "No articles to process."
 
-    from app.news.scraper import scrape_articles
-    enriched_count = await scrape_articles(articles)
+    settings = get_settings()
+    enriched_count = 0
+    if settings.scrape_enabled:
+        from app.news.scraper import scrape_articles
+        enriched_count = await scrape_articles(
+            articles,
+            max_concurrent=settings.scrape_max_concurrent,
+            max_articles=settings.scrape_max_articles,
+        )
 
+    char_limit = settings.summary_max_chars
     texts = []
     for a in articles:
         parts = [a.title]
         if a.content:
-            parts.append(a.content[:1000])
+            parts.append(a.content[:char_limit])
         elif a.summary:
-            parts.append(a.summary)
+            parts.append(a.summary[:char_limit])
         texts.append(" ".join(parts))
 
     embeddings = ctx.deps.embedding_tool.embed_batch(texts)
@@ -201,7 +210,7 @@ async def scrape_and_embed_articles(ctx: RunContext[AgentDeps]) -> str:
     )
 
 
-@source_intel_agent.tool
+@source_intel.tool
 async def classify_article_events(ctx: RunContext[AgentDeps]) -> str:
     """Classify all articles by event type (regulation, funding, technology, etc.).
 
@@ -221,7 +230,7 @@ async def classify_article_events(ctx: RunContext[AgentDeps]) -> str:
     return f"Event classification: {dict(event_counts)}"
 
 
-@source_intel_agent.tool
+@source_intel.tool
 async def check_source_quality(ctx: RunContext[AgentDeps]) -> str:
     """Check source quality via Thompson Sampling (explore + exploit).
 
@@ -256,6 +265,22 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
     """
     settings = get_settings()
 
+    # In mock mode skip the pydantic-ai agent entirely — FunctionModel still
+    # fires tool calls that make real HTTP requests, polluting deps._articles
+    # with a handful of live articles that prevent the deterministic mock set
+    # from being injected later.  We jump straight to the fallback path.
+    if deps.mock_mode:
+        articles = _make_mock_articles()
+        deps._articles = articles
+        logger.info(f"Mock mode: injected {len(articles)} mock articles (agent skipped)")
+        fallback_result = SourceIntelResult(
+            total_fetched=len(articles),
+            total_after_dedup=len(articles),
+            sources_used=["mock"],
+            reasoning="Mock mode: deterministic article set injected.",
+        )
+        return articles, [], fallback_result
+
     prompt = (
         f"Collect Indian market news articles from the last "
         f"{settings.rss_hours_ago} hours. "
@@ -263,38 +288,81 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
         f"Target: at least 50 quality articles with full content."
     )
 
+    agent_ok = False
     try:
         model = deps.get_model()
-        result = await source_intel_agent.run(prompt, deps=deps, model=model)
-
+        result = await source_intel.run(prompt, deps=deps, model=model)
         articles = deps._articles
         embeddings = deps._embeddings
-
-        logger.info(
-            f"Source Intel Agent: {len(articles)} articles, "
-            f"{len(embeddings)} embeddings, "
-            f"reasoning: {result.output.reasoning[:100]}"
-        )
-        return articles, embeddings, result.output
-
+        agent_ok = len(articles) > 0
+        if agent_ok:
+            logger.info(
+                f"Source Intel Agent: {len(articles)} articles, "
+                f"{len(embeddings)} embeddings, "
+                f"reasoning: {result.output.reasoning[:100]}"
+            )
+            return articles, embeddings, result.output
+        logger.warning("Source Intel Agent returned 0 articles — falling back to direct RSS fetch")
     except Exception as e:
         logger.error(f"Source Intel Agent failed: {e}")
-        # Fallback: direct tool calls (no agent reasoning)
-        logger.info("Falling back to direct RSS fetch...")
-        articles = await deps.rss_tool.fetch_all_sources(
-            max_per_source=settings.rss_max_per_source,
-        )
-        deps._articles = articles
 
-        from app.news.scraper import scrape_articles
-        await scrape_articles(articles)
-        texts = [f"{a.title} {a.content or a.summary or ''}"[:1000] for a in articles]
+    # Fallback: reuse articles/embeddings from tool calls if they already ran,
+    # otherwise do a fresh direct RSS fetch. This avoids triple-embedding.
+    articles = deps._articles
+    embeddings = deps._embeddings
+
+    if not articles:
+        if deps.mock_mode:
+            # In mock mode, inject 17 deterministic articles in 3 tight clusters
+            # so clustering/synthesis/impact can run end-to-end without HTTP calls.
+            articles = _make_mock_articles()
+            deps._articles = articles
+            logger.info(f"Mock mode: injected {len(articles)} mock articles")
+        else:
+            articles = await deps.rss_tool.fetch_all_sources(
+                max_per_source=settings.rss_max_per_source,
+            )
+            deps._articles = articles
+
+    cfg = get_settings()
+    if not embeddings or len(embeddings) != len(articles):
+        # Only embed if we don't have matching embeddings from the agent's tool calls
+        if cfg.scrape_enabled:
+            from app.news.scraper import scrape_articles
+            await scrape_articles(articles, max_concurrent=cfg.scrape_max_concurrent, max_articles=cfg.scrape_max_articles)
+        texts = [f"{a.title} {a.content or a.summary or ''}"[:cfg.summary_max_chars] for a in articles]
         embeddings = deps.embedding_tool.embed_batch(texts)
         deps._embeddings = embeddings
 
-        fallback_result = SourceIntelResult(
-            total_fetched=len(articles),
-            total_after_dedup=len(articles),
-            reasoning=f"Fallback mode (agent error: {e})",
+    logger.info(f"Direct fetch fallback: {len(articles)} articles, {len(embeddings)} embeddings")
+    fallback_result = SourceIntelResult(
+        total_fetched=len(articles),
+        total_after_dedup=len(articles),
+        reasoning="Direct RSS fallback (agent produced 0 articles)",
+    )
+    return articles, embeddings, fallback_result
+
+
+def _make_mock_articles() -> List[NewsArticle]:
+    """Build NewsArticle objects from the raw tuples in mock_articles.py."""
+    from uuid import uuid4
+    from datetime import datetime, timezone
+    from .mock_articles import MOCK_ARTICLES_RAW
+
+    now = datetime.now(timezone.utc)
+    articles = []
+    for i, (title, content, source, event_type) in enumerate(MOCK_ARTICLES_RAW):
+        slug = source.lower().replace(" ", "-")
+        a = NewsArticle(
+            id=uuid4(),
+            title=title,
+            content=content,
+            summary=content[:300],
+            source_id=slug,
+            source_name=source,
+            source_credibility=round(0.7 + (i % 3) * 0.05, 2),
+            published_at=now,
+            url=f"https://mock-{slug}.com/article-{i+1}",
         )
-        return articles, embeddings, fallback_result
+        articles.append(a)
+    return articles

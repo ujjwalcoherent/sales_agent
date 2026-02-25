@@ -107,7 +107,11 @@ class SectorImpact(BaseModel):
 
 
 class TrendData(BaseModel):
-    """Market trend detected from RSS/Tavily."""
+    """Market trend detected from RSS/Tavily.
+
+    V2: Extended with synthesis-derived fields so LLM output flows to
+    downstream agents (Impact, Lead Gen) instead of being discarded.
+    """
     id: str = Field(default="")
     trend_title: str
     summary: str
@@ -117,7 +121,22 @@ class TrendData(BaseModel):
     keywords: List[str] = Field(default_factory=list)
     detected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    @field_validator('industries_affected', 'source_links', 'keywords', mode='before')
+    # ── Synthesis-derived fields (V2 — flow-through from TrendNode) ──
+    trend_type: str = "general"
+    actionable_insight: str = ""
+    event_5w1h: Dict[str, str] = Field(default_factory=dict)
+    causal_chain: List[str] = Field(default_factory=list)
+    buying_intent: Dict[str, str] = Field(default_factory=dict)
+    affected_companies: List[str] = Field(default_factory=list)
+    affected_regions: List[str] = Field(default_factory=list)
+    trend_score: float = 0.0
+    actionability_score: float = 0.0
+    article_count: int = 0
+    article_snippets: List[str] = Field(default_factory=list)  # Top-5 raw excerpts for impact council
+
+    @field_validator('industries_affected', 'source_links', 'keywords',
+                     'causal_chain', 'affected_companies', 'affected_regions',
+                     mode='before')
     @classmethod
     def coerce_str_lists(cls, v, info):
         return _coerce_to_str_list(v, info.field_name)
@@ -129,7 +148,8 @@ class TrendData(BaseModel):
 class ImpactAnalysis(BaseModel):
     """Deep mid-size company focused impact analysis.
 
-    V1: All list fields validate/coerce LLM output. Model validator warns
+    V2: Now powered by AI Council (4 specialist agents + moderator).
+    All list fields validate/coerce LLM output. Model validator warns
     when ALL impact lists are empty (pipeline will produce thin results).
     """
     trend_id: str
@@ -158,13 +178,28 @@ class ImpactAnalysis(BaseModel):
     relevant_services: List[str] = Field(default_factory=list)
     target_roles: List[str] = Field(default_factory=list)
     pitch_angle: str = ""
-    reasoning: str = ""
+
+    # ── V2: Council-powered fields ─────────────────────────────────
+    # Multi-paragraph detailed reasoning (replaces single-line reasoning)
+    detailed_reasoning: str = ""
+    # Each specialist agent's perspective
+    council_perspectives: List[Dict[str, Any]] = Field(default_factory=list)
+    # Key disagreements between agents and resolution
+    debate_summary: str = ""
+    # Source article references backing claims
+    evidence_citations: List[str] = Field(default_factory=list)
+    # Specific CMI service + offering recommendations with justification
+    service_recommendations: List[Dict[str, str]] = Field(default_factory=list)
+    # Council's confidence in this analysis
+    council_confidence: float = 0.0
+    # Phase 3B: who_needs_help from synthesis buying_intent — used for targeted company search
+    who_needs_help: str = ""
 
     @field_validator(
         'direct_impact', 'indirect_impact', 'additional_verticals',
         'midsize_pain_points', 'consulting_projects', 'positive_sectors',
         'negative_sectors', 'business_opportunities', 'relevant_services',
-        'target_roles',
+        'target_roles', 'evidence_citations',
         mode='before',
     )
     @classmethod
@@ -173,7 +208,8 @@ class ImpactAnalysis(BaseModel):
 
     @field_validator(
         'direct_impact_reasoning', 'indirect_impact_reasoning',
-        'additional_verticals_reasoning', 'pitch_angle', 'reasoning',
+        'additional_verticals_reasoning', 'pitch_angle',
+        'detailed_reasoning', 'debate_summary',
         mode='before',
     )
     @classmethod
@@ -184,10 +220,11 @@ class ImpactAnalysis(BaseModel):
 
     @field_validator('pitch_angle', mode='after')
     @classmethod
-    def truncate_pitch_angle(cls, v):
-        if len(v) > 150:
-            logger.debug(f"Truncated pitch_angle from {len(v)} to 150 chars")
-            return v[:147] + "..."
+    def allow_longer_pitch(cls, v):
+        # V2: Allow longer pitch angles (up to 500 chars) for service-specific detail
+        if len(v) > 500:
+            logger.debug(f"Truncated pitch_angle from {len(v)} to 500 chars")
+            return v[:497] + "..."
         return v
 
     @model_validator(mode='after')

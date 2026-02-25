@@ -124,6 +124,7 @@ async def analysis_node(state: GraphState) -> dict:
                     trend_score=mt.trend_score,
                     actionability_score=mt.actionability_score,
                     article_count=mt.article_count,
+                    article_snippets=mt.article_snippets or [],
                 )
                 for mt in major_trends
             ]

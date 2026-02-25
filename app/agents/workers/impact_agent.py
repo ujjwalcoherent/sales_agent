@@ -138,6 +138,12 @@ class ImpactAnalyzer:
         self._log(f"  Preparing council input for: {trend.trend_title[:50]}...")
         article_excerpts = [trend.summary]
 
+        # Real article evidence — lets council identify FIRST-ORDER (directly named) companies
+        if trend.article_snippets:
+            for i, snippet in enumerate(trend.article_snippets[:5], 1):
+                article_excerpts.append(f"RAW ARTICLE EVIDENCE [{i}]: {snippet}")
+            self._log(f"  Including {len(trend.article_snippets[:5])} article snippets as evidence")
+
         # V4: Pass richer context — causal chain, buying intent, actionable insight
         # These are synthesis-derived fields that give the council concrete facts
         if trend.causal_chain:

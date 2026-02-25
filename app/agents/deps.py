@@ -25,6 +25,11 @@ class AgentDeps:
     Lazy initialization means tools are only created when first used.
     """
 
+    def __hash__(self):
+        # pydantic-ai and LangGraph sometimes hash the deps container
+        # (e.g. as a cache key). Use object identity — each run gets a fresh deps.
+        return id(self)
+
     mock_mode: bool = False
     log_callback: Optional[object] = field(default=None, repr=False)
 
@@ -60,7 +65,7 @@ class AgentDeps:
     _causal_results: List[Any] = field(default_factory=list, repr=False)
     _lead_sheets: List[Any] = field(default_factory=list, repr=False)
     # Per-run quality metrics for autonomous weight/bandit learning
-    _learning_signals: List[Any] = field(default_factory=list, repr=False)
+    _signals: List[Any] = field(default_factory=list, repr=False)
 
     @classmethod
     def create(cls, mock_mode: bool = False, log_callback=None) -> AgentDeps:
