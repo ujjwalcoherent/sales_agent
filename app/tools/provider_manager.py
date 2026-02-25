@@ -138,14 +138,17 @@ class ProviderManager:
     def _get_available_providers(self) -> List[Tuple[str, "Model"]]:
         """Build ordered provider list, skipping cooled-down providers.
 
-        Priority order (GCP-credits-first — burns the $300 free trial):
-        1. VertexLlama (meta/llama-3.3-70b-instruct-maas — primary, uses GCP credits)
-        2. GeminiDirect (Vertex flash-lite — fast structured output, GCP credits)
-        3. VertexDeepSeek (DeepSeek V3.2 via API Service — reasoning, GCP credits)
-        4. Groq (free, fast — 14K req/day, fallback when Vertex rate-limits)
-        5. NVIDIA (separate account, capable but rate-limited)
-        6. OpenRouter (cloud proxy fallback)
-        7. Ollama (local fallback)
+        Priority order (correct for $300 GCP free trial):
+        1. GeminiDirect (gemini-2.5-flash-lite via Vertex — COVERED by $300 credits, native structured output)
+        2. Groq (free tier, 14K req/day — zero cost, fast fallback)
+        3. NVIDIA (separate API key, capable)
+        4. VertexLlama (meta/llama-3.3-70b-instruct-maas — LAST: $300 trial does NOT cover
+                        third-party MaaS partner models; upgrade to paid account to use this)
+        5. OpenRouter (cloud proxy fallback)
+        6. Ollama (local fallback)
+
+        NOTE: $300 free trial credits only cover Google's own Vertex AI models (Gemini).
+        Partner/MaaS models (Llama, DeepSeek) require upgrading to a full paid account.
         """
         providers = []
         now = time.time()
@@ -159,21 +162,18 @@ class ProviderManager:
             self._provider_order = [name for name, _ in providers]
             return providers
 
-        # VertexLlama FIRST — primary provider using GCP $300 free trial credits
-        # meta/llama-3.3-70b-instruct-maas: best tool calling, burns GCP credits as intended
-        if (self.settings.gcp_project_id
-                and getattr(self.settings, 'vertex_llama_model', '')
-                and not self._is_cooling_down("VertexLlama", now)):
-            model = self._build_vertex_openai_model(self.settings.vertex_llama_model)
-            if model:
-                providers.append(("VertexLlama", model))
-
-        # Gemini Direct (Vertex AI — fast structured output, also uses GCP credits)
+        # GeminiDirect FIRST — covered by $300 free trial, native structured output support
         has_gemini = self.settings.gcp_project_id or self.settings.vertex_express_api_key or self.settings.gemini_api_key
         if _google_available and has_gemini and not self._is_cooling_down("GeminiDirect", now):
             providers.append(("GeminiDirect", self._build_gemini_direct_model()))
 
-        # DeepSeek V3.2 via Vertex AI API Service (~$0.07/$0.14 per 1M — best reasoning+tools)
+        # Groq — free tier (no GCP credits needed), fast, 14K req/day
+        if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
+            model = self._build_groq_model()
+            if model:
+                providers.append(("Groq", model))
+
+        # DeepSeek V3.2 via Vertex AI API Service (NOT covered by free trial — paid only)
         if (self.settings.gcp_project_id
                 and getattr(self.settings, 'vertex_deepseek_model', '')
                 and not self._is_cooling_down("VertexDeepSeek", now)):
@@ -181,11 +181,14 @@ class ProviderManager:
             if model:
                 providers.append(("VertexDeepSeek", model))
 
-        # Groq — free tier fallback when Vertex providers rate-limit (14K req/day)
-        if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
-            model = self._build_groq_model()
+        # VertexLlama LAST — NOT covered by $300 free trial (third-party MaaS partner model).
+        # Will 429/fail on free trial accounts. Keep as fallback in case account is upgraded.
+        if (self.settings.gcp_project_id
+                and getattr(self.settings, 'vertex_llama_model', '')
+                and not self._is_cooling_down("VertexLlama", now)):
+            model = self._build_vertex_openai_model(self.settings.vertex_llama_model)
             if model:
-                providers.append(("Groq", model))
+                providers.append(("VertexLlama", model))
 
         # NVIDIA (capable but often rate-limited)
         if self.settings.nvidia_api_key and not self._is_cooling_down("NVIDIA", now):
@@ -639,19 +642,19 @@ class ProviderManager:
         now = time.time()
         providers = []
 
-        # VertexLlama FIRST — primary tool-calling model, uses GCP $300 credits
+        # Groq FIRST for tool calling — free, confirmed tool-calling support, no trial restrictions
+        if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
+            model = self._build_groq_model(tool_capable=True)
+            if model:
+                providers.append(("Groq-Tool", model))
+
+        # VertexLlama — NOT covered by $300 free trial, but try if available (paid accounts)
         if (self.settings.gcp_project_id
                 and getattr(self.settings, 'vertex_llama_model', '')
                 and not self._is_cooling_down("VertexLlama", now)):
             model = self._build_vertex_openai_model(self.settings.vertex_llama_model)
             if model:
                 providers.append(("VertexLlama-Tool", model))
-
-        # Groq llama-3.3-70b-versatile: confirmed tool calling, free fallback
-        if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
-            model = self._build_groq_model(tool_capable=True)
-            if model:
-                providers.append(("Groq-Tool", model))
 
         # Fall back to standard providers (may still work for tool calls)
         standard = self._get_available_providers()
