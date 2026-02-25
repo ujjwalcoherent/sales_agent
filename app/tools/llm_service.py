@@ -5,6 +5,7 @@ Provides both typed structured output (Track A) and backward-compatible
 dict-based methods (Track B) matching the old LLMTool signatures.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
@@ -37,26 +38,45 @@ class LLMService:
     # Cache agents by (output_type, system_prompt_hash, retries) across all instances
     _agent_cache: Dict[tuple, Agent] = {}
 
-    def __init__(self, mock_mode: bool = False, force_gemini: bool = False, force_groq: bool = False):
+    def __init__(self, mock_mode: bool = False, force_groq: bool = False, lite: bool = False):
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.mock_mode
         self.force_groq = force_groq
+        self.lite = lite  # Use cheaper model for classification tasks
         self.provider_manager = ProviderManager(
             settings=self.settings,
             mock_mode=self.mock_mode,
             force_groq=force_groq,
         )
         self.last_provider: Optional[str] = None
+        if getattr(self.settings, 'offline_mode', False):
+            logger.info(f"LLM ({'lite' if lite else 'full'}): OFFLINE → Ollama/{self.settings.ollama_model}")
+        elif self.mock_mode:
+            logger.info(f"LLM ({'lite' if lite else 'full'}): MOCK mode")
+        else:
+            logger.info(f"LLM ({'lite' if lite else 'full'}): ONLINE mode (cloud providers active)")
 
     def _get_or_create_agent(self, output_type: type, system_prompt: str, retries: int = 2) -> Agent:
         """Get or create a cached pydantic-ai Agent.
 
-        Agents are cached by (output_type, system_prompt_hash, retries) for reuse.
-        This avoids creating new httpx client pools per call.
+        Cache key includes cooldown state so the FallbackModel is rebuilt
+        when providers enter/exit cooldown (prevents trying dead providers).
+
+        For structured output (output_type != str): uses get_structured_output_model()
+        which skips VertexLlama (it returns 400 for tool_choice='required').
+        For text output (output_type == str): uses get_model() with VertexLlama primary.
         """
-        key = (output_type, hash(system_prompt), retries, self.mock_mode)
+        cooldown_key = frozenset(ProviderManager._failed_providers.keys())
+        needs_structured = output_type is not str
+        key = (output_type, hash(system_prompt), retries, self.mock_mode, self.lite, cooldown_key, needs_structured)
         if key not in self._agent_cache:
-            model = self.provider_manager.get_model()
+            if self.lite:
+                model = self.provider_manager.get_lite_model()
+            elif needs_structured:
+                # VertexLlama doesn't support forced function calling — use dedicated chain
+                model = self.provider_manager.get_structured_output_model()
+            else:
+                model = self.provider_manager.get_model()
             self._agent_cache[key] = Agent(
                 model,
                 output_type=output_type,
@@ -78,8 +98,22 @@ class LLMService:
         """Generate structured output validated by pydantic-ai.
 
         Uses the Pydantic model's own validators for LLM output coercion.
+        When all providers are rate-limited, waits for the shortest cooldown
+        to expire rather than immediately raising (handles concurrent batch calls).
         """
-        agent = self._get_or_create_agent(output_type, system_prompt, retries)
+        try:
+            agent = self._get_or_create_agent(output_type, system_prompt, retries)
+        except RuntimeError as e:
+            if "No LLM providers available" in str(e):
+                wait_sec = self.provider_manager.get_shortest_cooldown_remaining()
+                if wait_sec > 0:
+                    logger.info(f"All providers in cooldown — waiting {wait_sec:.1f}s for next available")
+                    await asyncio.sleep(wait_sec + 1.0)
+                    agent = self._get_or_create_agent(output_type, system_prompt, retries)
+                else:
+                    raise
+            else:
+                raise
         try:
             result = await agent.run(
                 prompt,
@@ -204,11 +238,23 @@ Do not wrap the response in ```json``` code blocks."""
     # ── Internal helpers ─────────────────────────────────────────────
 
     def _process_failures(self, eg: BaseException):
-        """Extract provider failures from exception group and record cooldowns."""
-        providers = self.provider_manager.get_provider_names()
+        """Extract provider failures from exception group and record cooldowns.
+
+        Uses model-name-based provider inference instead of positional indexing
+        to avoid misattributing errors when cached agents have stale provider lists.
+        """
         exceptions = getattr(eg, 'exceptions', [eg])
-        for i, exc in enumerate(exceptions):
-            provider_name = providers[i] if i < len(providers) else f"unknown-{i}"
+        for exc in exceptions:
+            provider_name = self.provider_manager._infer_provider_from_error(exc)
+            err_msg = str(exc)[:150]
+            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                logger.warning(f"  {provider_name}: Rate limited (429)")
+            elif "402" in err_msg or "Payment" in err_msg:
+                logger.warning(f"  {provider_name}: Payment required (402)")
+            elif "timeout" in err_msg.lower():
+                logger.warning(f"  {provider_name}: Timeout")
+            else:
+                logger.warning(f"  {provider_name}: {err_msg}")
             self.provider_manager.record_failure(provider_name, exc)
 
     def _extract_provider_name(self, result) -> str:

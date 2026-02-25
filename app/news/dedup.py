@@ -69,15 +69,15 @@ class ArticleDeduplicator:
 
     def __init__(
         self,
-        threshold: float = 0.25,  # Lowered from 0.3 for more aggressive matching
+        threshold: float = 0.35,  # Balanced: removes near-verbatim copies without killing multi-angle coverage
         num_perm: int = 128,
         shingle_size: int = 2,
     ):
         """
         Args:
             threshold: Jaccard similarity threshold. Articles above this are duplicates.
-                       0.25 = aggressive, catches articles with ~25% word overlap (RECOMMENDED for news)
-                       0.3 catches cross-source duplicates with shared phrases.
+                       0.35 = balanced for news (removes ~35%+ overlap, keeps different-angle coverage)
+                       0.25 was too aggressive — killed legitimate cross-source stories.
                        0.5 catches same-event-different-headline.
                        0.8 catches only near-identical articles.
                        REF: GPT-3 training used ~0.5 for web page dedup.
@@ -162,9 +162,9 @@ class ArticleDeduplicator:
         tickers = re.findall(r'\b(?:NSE|BSE)[:\s]*([A-Z]{2,10})\b', text)
         entities.update(t.lower() for t in tickers)
 
-        # Create topic fingerprint from CORE key words in title (fewer = more matches)
-        # Use only top 3 words for broader matching
-        topic = '_'.join(sorted(title_words[:3]))  # Top 3 non-stop words sorted
+        # Create topic fingerprint from CORE key words in title
+        # Use top 5 words — 3 was too narrow (shared 3-word combos like "india raises sector" fire across unrelated topics)
+        topic = '_'.join(sorted(title_words[:5]))  # Top 5 non-stop words sorted
 
         return entities, topic
 
@@ -354,18 +354,10 @@ class ArticleDeduplicator:
             first4 = '_'.join(words[:4])
             fingerprints.add(f"f4:{first4}")
 
-        # 6. 2-gram fingerprints: consecutive word pairs
-        # Catches titles that share key phrases even if other words differ
-        if len(words) >= 4:
-            for i in range(len(words) - 1):
-                bigram = f"bg:{words[i]}_{words[i+1]}"
-                fingerprints.add(bigram)
-
-        # 7. 3-gram fingerprints for longer titles
-        if len(words) >= 5:
-            for i in range(len(words) - 2):
-                trigram = f"tg:{words[i]}_{words[i+1]}_{words[i+2]}"
-                fingerprints.add(trigram)
+        # NOTE: Bigram/trigram fingerprints removed — they caused massive over-dedup:
+        # any two articles sharing ANY consecutive 2-word pair (e.g. "india raises",
+        # "sector growth") were marked as duplicates, wiping out multi-angle coverage.
+        # The fingerprints above (kw/core/c3/fw/f4) provide sufficient title matching.
 
         return fingerprints
 

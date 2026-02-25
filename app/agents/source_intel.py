@@ -148,13 +148,13 @@ async def search_web(
     for r in results:
         article = NewsArticle(
             id=uuid4(),
-            title=r.get("title", ""),
-            summary=r.get("content", "")[:500],
-            url=r.get("url", ""),
+            title=r.get("title", "") or "",
+            summary=(r.get("content") or "")[:500],
+            url=r.get("url", "") or "",
             source_id="tavily_web_search",
             source_name="Web Search",
             published_at=datetime.now(timezone.utc),
-            content=r.get("content", ""),
+            content=r.get("content") or "",
         )
         new_articles.append(article)
 
