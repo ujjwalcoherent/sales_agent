@@ -1,7 +1,12 @@
-# Environment variables
+# Environment variables & credentials
 .env
 .env.local
 .env.*.local
+*-service-account*.json
+sales-agent-vertex-488510-4e62ef5ad9dd.json
+primeval-alloy-487712-b3-0521868accce.json
+*.json.key
+*credentials*.json
 
 # Python
 __pycache__/
@@ -40,6 +45,7 @@ env/
 *~
 
 # MCP / Playwright
+.mcp.json
 .playwright-mcp/
 screenshots/
 .deepeval/

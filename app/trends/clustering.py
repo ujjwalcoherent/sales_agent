@@ -278,7 +278,9 @@ def optimize_leiden(
     emb_normed = embeddings / norms
 
     def objective(trial):
-        k = trial.suggest_int("k", 8, min(30, n - 1))
+        k_lo = max(2, min(8, n - 2))   # guard: never let low > high for tiny datasets
+        k_hi = max(k_lo, min(30, n - 1))
+        k = trial.suggest_int("k", k_lo, k_hi)
         resolution = trial.suggest_float("resolution", 0.3, 3.0, log=True)
         min_community = trial.suggest_int("min_community_size", min_comm_lo, min_comm_hi)
         use_mutual = trial.suggest_categorical("mutual_knn", [True, False])
