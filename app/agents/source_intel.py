@@ -312,17 +312,12 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
     embeddings = deps._embeddings
 
     if not articles:
-        if deps.mock_mode:
-            # In mock mode, inject 17 deterministic articles in 3 tight clusters
-            # so clustering/synthesis/impact can run end-to-end without HTTP calls.
-            articles = _make_mock_articles()
-            deps._articles = articles
-            logger.info(f"Mock mode: injected {len(articles)} mock articles")
-        else:
-            articles = await deps.rss_tool.fetch_all_sources(
-                max_per_source=settings.rss_max_per_source,
-            )
-            deps._articles = articles
+        # Real RSS fetch — the only path when mock_mode=False.
+        # Mock injection is handled exclusively by the early-return above (line 272).
+        articles = await deps.rss_tool.fetch_all_sources(
+            max_per_source=settings.rss_max_per_source,
+        )
+        deps._articles = articles
 
     cfg = get_settings()
     if not embeddings or len(embeddings) != len(articles):
