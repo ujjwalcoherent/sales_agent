@@ -56,14 +56,83 @@ def get_mock_response(prompt: str, json_mode: bool = False) -> str:
     return "Mock LLM response for testing purposes."
 
 
+def _build_structured_mock(system_prompt: str) -> str:
+    """Return a valid JSON string matching the expected pydantic-ai output_type
+    based on keywords found in the agent's system prompt."""
+    sp = system_prompt.lower()
+
+    if "source intel" in sp:
+        return json.dumps({
+            "articles": [],
+            "total_fetched": 5,
+            "total_after_dedup": 5,
+            "sources_used": ["mock_rss"],
+            "web_searches_performed": 0,
+            "event_distribution": {"regulation": 2, "funding": 3},
+            "reasoning": "Mock: fetched 5 articles from RSS sources."
+        })
+
+    if "analysis agent" in sp or "cluster" in sp:
+        return json.dumps({
+            "num_clusters": 3,
+            "noise_ratio": 0.15,
+            "mean_coherence": 0.62,
+            "num_trends_passed": 3,
+            "num_trends_rejected": 1,
+            "params_used": {"semantic_dedup_threshold": 0.88, "coherence_min": 0.48},
+            "retries_performed": 0,
+            "reasoning": "Mock: 3 clusters with good coherence."
+        })
+
+    if "market impact" in sp:
+        return json.dumps({
+            "total_trends_analyzed": 3,
+            "high_confidence_count": 2,
+            "low_confidence_count": 1,
+            "precedent_searches": 0,
+            "cross_trend_insights": ["Mock cross-trend insight for testing."],
+            "reasoning": "Mock: analyzed 3 trends with high confidence."
+        })
+
+    if "quality agent" in sp or "quality" in sp:
+        return json.dumps({
+            "stage": "mock",
+            "passed": True,
+            "should_retry": False,
+            "items_passed": 3,
+            "items_filtered": 0,
+            "quality_score": 0.75,
+            "issues": [],
+            "reasoning": "Mock: all quality checks passed."
+        })
+
+    if "lead gen" in sp or "lead" in sp:
+        return json.dumps({
+            "companies_found": 2,
+            "contacts_found": 2,
+            "emails_generated": 2,
+            "outreach_generated": 2,
+            "low_relevance_filtered": 0,
+            "reasoning": "Mock: found 2 companies and generated outreach."
+        })
+
+    # Generic fallback — return a plain text response
+    return "Mock LLM response for testing purposes."
+
+
 def get_mock_response_for_function_model(messages: list[Any], info: Any) -> ModelResponse:
     """Adapter for pydantic-ai FunctionModel.
 
     FunctionModel passes ModelMessage objects. We extract the user prompt
     text and delegate to the main mock function. Returns a ModelResponse
     (required by pydantic-ai >= 1.0).
+
+    When the agent has a structured output_type (SourceIntelResult,
+    AnalysisResult, ImpactResult, QualityVerdict, LeadGenResult), we detect
+    which agent is calling via its system prompt and return a valid JSON
+    payload so pydantic-ai can parse it without retrying.
     """
-    # Extract user prompt from messages (skip system prompts)
+    # Extract user prompt and system prompt from messages
     prompt = ""
     system_prompt = ""
     for msg in messages:
@@ -71,7 +140,6 @@ def get_mock_response_for_function_model(messages: list[Any], info: Any) -> Mode
             for part in msg.parts:
                 if not hasattr(part, 'content') or not isinstance(part.content, str):
                     continue
-                # UserPromptPart → the actual prompt
                 part_type = type(part).__name__
                 if "User" in part_type:
                     prompt = part.content
@@ -82,10 +150,22 @@ def get_mock_response_for_function_model(messages: list[Any], info: Any) -> Mode
     if not prompt and messages:
         prompt = str(messages[-1])
 
-    # Detect JSON mode from either prompt or system prompt
+    # If this is a known pydantic-ai agent (has a recognisable system prompt),
+    # return structured JSON so validation passes on the first try.
+    sp_lower = system_prompt.lower()
+    is_known_agent = any(kw in sp_lower for kw in (
+        "source intel", "analysis agent", "cluster",
+        "market impact", "quality agent", "quality",
+        "lead gen", "lead",
+    ))
+
+    if is_known_agent:
+        text = _build_structured_mock(system_prompt)
+        return ModelResponse(parts=[TextPart(content=text)])
+
+    # Fallback: use the original prompt-based routing
     all_text = (prompt + " " + system_prompt).lower()
     json_mode = "json" in all_text
-
     text = get_mock_response(prompt, json_mode)
     return ModelResponse(parts=[TextPart(content=text)])
 
