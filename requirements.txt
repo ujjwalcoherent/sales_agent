@@ -12,9 +12,10 @@ langchain-core>=0.3.0
 langchain-community>=0.3.0
 
 # LLM Providers
-pydantic-ai[groq]>=0.2.0      # Structured LLM output with provider fallback
+pydantic-ai[groq,google]>=0.2.0  # Structured LLM output with provider fallback (+ Vertex AI)
 langchain-nvidia-ai-endpoints>=0.3.0
 google-genai>=1.0.0
+google-auth>=2.0.0             # Service account auth for full Vertex AI
 groq>=0.4.0
 
 # Search & Data
@@ -27,6 +28,7 @@ trafilatura>=2.0.0          # Full article content extraction from URLs
 # Database
 sqlalchemy>=2.0.25
 aiosqlite>=0.19.0
+chromadb>=0.5.0                # Vector DB for article + embedding cache
 
 # Utilities
 beautifulsoup4>=4.12.0
@@ -55,9 +57,17 @@ ollama>=0.3.0
 # Trend Detection Pipeline (Layer 2)
 numba>=0.59.0              # JIT compiler (required by umap-learn, pre-install avoids build errors)
 pynndescent>=0.5.0         # Nearest neighbor descent (umap dependency)
-umap-learn>=0.5.0          # UMAP dimensionality reduction (384-dim → 5-dim)
+umap-learn>=0.5.0          # UMAP dimensionality reduction (optional, visualization only)
 datasketch>=1.6.0          # MinHash LSH near-duplicate article detection
 vaderSentiment>=3.3.2      # Rule-based sentiment (tuned for social media/news)
 spacy>=3.7.0               # Named Entity Recognition (NER)
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+# Leiden clustering (replaces UMAP+HDBSCAN for primary clustering)
+leidenalg>=0.10.0          # Leiden community detection (graph-based clustering)
+python-igraph>=0.11.0      # Graph library (required by leidenalg)
+optuna>=3.0                # Bayesian hyperparameter optimization for Leiden params
+
+# Entity normalization (optional, Level 3 fuzzy matching)
+rapidfuzz>=3.0.0           # Fast fuzzy string matching for entity normalization
 
