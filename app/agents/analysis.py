@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from app.agents.agent_deps import AgentDeps
+from app.agents.deps import AgentDeps
 from app.config import get_settings, get_domestic_source_ids
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ WORKFLOW:
 Quality targets: mean coherence >= 0.45, noise ratio < 0.35, >= 3 clusters.
 """
 
-analysis_agent = Agent(
+analysis = Agent(
     'test',  # Placeholder — overridden at runtime via deps.get_model()
     deps_type=AgentDeps,
     output_type=AnalysisResult,
@@ -52,7 +52,7 @@ analysis_agent = Agent(
 )
 
 
-@analysis_agent.tool
+@analysis.tool
 async def run_trend_pipeline(
     ctx: RunContext[AgentDeps],
     semantic_dedup_threshold: float = 0.88,
@@ -100,7 +100,7 @@ async def run_trend_pipeline(
     )
 
 
-@analysis_agent.tool
+@analysis.tool
 async def evaluate_cluster_quality(ctx: RunContext[AgentDeps]) -> str:
     """Evaluate quality of current clustering results."""
     tree = ctx.deps._trend_tree
@@ -125,7 +125,7 @@ async def evaluate_cluster_quality(ctx: RunContext[AgentDeps]) -> str:
     return f"{status}: {len(major)} clusters, coherence={mean_c:.3f}, sizes={sorted(sizes, reverse=True)[:8]}, issues={issues}"
 
 
-@analysis_agent.tool
+@analysis.tool
 async def check_trend_novelty(ctx: RunContext[AgentDeps]) -> str:
     """Check trend memory for novelty scores."""
     tree = ctx.deps._trend_tree
@@ -144,13 +144,18 @@ async def run_analysis(deps: AgentDeps) -> Any:
     """Run the Analysis Agent. Returns (tree, result_metadata)."""
     prompt = f"Analyze {len(deps._articles)} articles. Cluster into market trends. Target coherence >= 0.45."
 
+    agent_result = None
     try:
         model = deps.get_model()
-        result = await analysis_agent.run(prompt, deps=deps, model=model)
+        result = await analysis.run(prompt, deps=deps, model=model)
         logger.info(f"Analysis: {result.output.num_clusters} clusters, coh={result.output.mean_coherence:.3f}")
-        return deps._trend_tree, result.output
+        agent_result = result.output
     except Exception as e:
         logger.error(f"Analysis Agent failed: {e}, using fallback")
+
+    # Build the tree if the agent's tool call didn't (e.g. mock mode skips tools)
+    tree = deps._trend_tree
+    if tree is None:
         settings = get_settings()
         from app.trends.engine import TrendPipeline
         pipeline = TrendPipeline(
@@ -163,4 +168,5 @@ async def run_analysis(deps: AgentDeps) -> Any:
         )
         tree = await pipeline.run(deps._articles)
         deps._trend_tree = tree
-        return tree, AnalysisResult(reasoning=f"Fallback: {e}")
+
+    return tree, agent_result or AnalysisResult(reasoning="Fallback pipeline")

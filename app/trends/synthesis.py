@@ -551,7 +551,7 @@ async def synthesize_cluster_validated(
     try:
         from app.config import get_settings
         settings = get_settings()
-        if not settings.validator_enabled:
+        if not settings.validator_enabled or settings.mock_mode:
             return await synthesize_cluster(articles, keywords, llm_tool)
     except Exception:
         return await synthesize_cluster(articles, keywords, llm_tool)
@@ -674,6 +674,7 @@ async def synthesize_clusters(
     cluster_keywords: Dict[int, List[str]],
     llm_tool,
     max_concurrent: int = 6,
+    mock_mode: bool = False,
 ) -> Dict[int, Dict[str, Any]]:
     """Phase 8: LLM synthesis for all clusters with concurrency control."""
     use_validator = False
@@ -682,6 +683,9 @@ async def synthesize_clusters(
         use_validator = get_settings().validator_enabled
     except Exception:
         pass
+    # Never run validation in mock mode — mock LLM content won't pass specificity checks
+    if mock_mode:
+        use_validator = False
 
     semaphore = asyncio.Semaphore(max_concurrent)
 

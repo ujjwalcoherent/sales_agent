@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from app.agents.agent_deps import AgentDeps
+from app.agents.deps import AgentDeps
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ impact_agent = Agent(
 @impact_agent.tool
 async def analyze_all_trends(ctx: RunContext[AgentDeps]) -> str:
     """Analyze business impact of all trends via AI council."""
-    from app.agents.impact_agent import ImpactAnalyzer
+    from app.agents.workers.impact_agent import ImpactAnalyzer
     from app.schemas import AgentState
 
     trends = ctx.deps._trend_data
@@ -106,16 +106,22 @@ async def run_market_impact(deps: AgentDeps) -> tuple:
     """Run Market Impact Agent. Returns (impacts, result)."""
     prompt = f"Analyze business impact of {len(deps._trend_data)} trends for consulting opportunities."
 
+    agent_result = None
     try:
         model = deps.get_model()
         result = await impact_agent.run(prompt, deps=deps, model=model)
         logger.info(f"Impact: {len(deps._impacts)} impacts analyzed")
-        return deps._impacts, result.output
+        agent_result = result.output
     except Exception as e:
         logger.error(f"Impact Agent failed: {e}, using fallback")
-        from app.agents.impact_agent import ImpactAnalyzer
+
+    # Build impacts if agent's tool call didn't (e.g. mock mode skips tools)
+    if not deps._impacts and deps._trend_data:
+        from app.agents.workers.impact_agent import ImpactAnalyzer
         from app.schemas import AgentState
         analyzer = ImpactAnalyzer(mock_mode=deps.mock_mode, deps=deps)
         state = AgentState(trends=deps._trend_data)
         result_state = await analyzer.analyze_impacts(state)
-        return result_state.impacts or [], ImpactResult(reasoning=f"Fallback: {e}")
+        deps._impacts = result_state.impacts or []
+
+    return deps._impacts, agent_result or ImpactResult(reasoning="Fallback analyzer")

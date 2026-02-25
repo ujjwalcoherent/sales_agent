@@ -3,6 +3,9 @@ TrendTree assembly — converts cluster data into hierarchical TrendNode tree.
 
 Extracted from engine.py for compaction. Shared by both top-level tree
 building (Phase 9) and recursive sub-clustering.
+
+V7: Accepts AI validation data (from Stage A council) to set depth_label
+based on business importance rather than volume-based positional rules.
 """
 
 import logging
@@ -18,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 # Sector enum lookup (built once)
 _SECTOR_MAP = {v.value.lower(): v for v in Sector}
+
+# Depth label mapping from AI validation strings
+_DEPTH_LABEL_MAP = {
+    "MAJOR": TrendDepth.MAJOR,
+    "SUB": TrendDepth.SUB,
+    "MICRO": TrendDepth.MICRO,
+    "NOISE": TrendDepth.MICRO,  # NOISE still gets a node but at lowest depth
+}
 
 
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -67,10 +78,20 @@ def create_trend_node(
     parent_tree_path: str = "",
     parent_sectors: Optional[List[Sector]] = None,
     confidence: float = 0.7,
+    validation: Optional[Dict[str, Any]] = None,
 ) -> TrendNode:
     """
     Create a single TrendNode from cluster data. Used by both top-level
     tree assembly and recursive sub-clustering.
+
+    Args:
+        validation: AI council validation data (from Stage A). Keys:
+            - validated_depth: "MAJOR", "SUB", "MICRO", "NOISE"
+            - importance_score: 0.0-1.0
+            - reasoning: why this classification
+            - should_subcluster: bool
+            - validated_event_type: event type string
+            - event_type_reasoning: why this event type
     """
     node_id = uuid.uuid4()
 
@@ -78,8 +99,15 @@ def create_trend_node(
     if summary.get("trend_title"):
         title = summary["trend_title"]
     elif keywords:
-        clean_kw = [k.title() for k in keywords[:4] if len(k) > 2]
-        title = ", ".join(clean_kw) if clean_kw else f"Cluster {node_id.hex[:6]}"
+        clean_kw = [k.title() for k in keywords[:3] if len(k) > 2]
+        if len(clean_kw) >= 3:
+            title = f"{clean_kw[0]}, {clean_kw[1]} and {clean_kw[2]} Developments"
+        elif len(clean_kw) == 2:
+            title = f"{clean_kw[0]} and {clean_kw[1]} Developments"
+        elif len(clean_kw) == 1:
+            title = f"{clean_kw[0]} Developments"
+        else:
+            title = f"Emerging Trend ({node_id.hex[:6]})"
     else:
         title = f"Emerging Trend ({node_id.hex[:6]})"
 
@@ -115,7 +143,15 @@ def create_trend_node(
         trend_type = TrendType.GENERAL
 
     sectors = _parse_sectors(summary.get("primary_sectors", []))
-    depth_label = {1: TrendDepth.MAJOR, 2: TrendDepth.SUB}.get(depth, TrendDepth.MICRO)
+
+    # V7: Use AI-validated depth if available, otherwise fall back to positional
+    validation = validation or {}
+    ai_depth = validation.get("validated_depth", "")
+    if ai_depth and ai_depth.upper() in _DEPTH_LABEL_MAP:
+        depth_label = _DEPTH_LABEL_MAP[ai_depth.upper()]
+    else:
+        depth_label = {1: TrendDepth.MAJOR, 2: TrendDepth.SUB}.get(depth, TrendDepth.MICRO)
+
     tree_path = f"{parent_tree_path} > {title}" if parent_tree_path else title
 
     # ── Temporal evolution fields (from histogram computation) ──
@@ -176,19 +212,19 @@ def create_trend_node(
         adjusted_confidence -= 0.05
         confidence_factors.append(f"Small cluster ({len(articles)} articles, -0.05)")
 
-    adjusted_confidence = max(0.05, min(1.0, adjusted_confidence))
+    # V7: AI validation confidence boost/penalty
+    importance = validation.get("importance_score", 0.0)
+    if importance > 0:
+        if importance >= 0.7:
+            adjusted_confidence += 0.05
+            confidence_factors.append(f"AI: high importance ({importance:.2f}, +0.05)")
+        elif importance < 0.3:
+            adjusted_confidence -= 0.05
+            confidence_factors.append(f"AI: low importance ({importance:.2f}, -0.05)")
+        else:
+            confidence_factors.append(f"AI: moderate importance ({importance:.2f})")
 
-    # ── E1: Extract evidence fields from source articles ──
-    source_titles: List[str] = []
-    source_urls: List[str] = []
-    source_names: List[str] = []
-    for a in articles[:20]:  # Cap at 20 for UI display
-        if hasattr(a, 'title') and a.title:
-            source_titles.append(a.title)
-        url = getattr(a, 'url', '') or getattr(a, 'link', '')
-        source_urls.append(str(url) if url else "")
-        name = getattr(a, 'source_name', '') or getattr(a, 'source_id', '')
-        source_names.append(str(name) if name else "unknown")
+    adjusted_confidence = max(0.05, min(1.0, adjusted_confidence))
 
     return TrendNode(
         id=node_id,
@@ -213,7 +249,6 @@ def create_trend_node(
         signal_strength=signal_strength,
         trend_score=signals.get("trend_score", 0.0),
         actionability_score=signals.get("actionability_score", 0.0),
-        popularity_score=signals.get("trend_score", 0.0),
         signals=signals,
         event_5w1h=summary.get("event_5w1h", {}),
         causal_chain=summary.get("causal_chain", []),
@@ -221,16 +256,28 @@ def create_trend_node(
         affected_companies=summary.get("affected_companies", []),
         affected_regions=summary.get("affected_regions", []),
         lifecycle_stage=summary.get("lifecycle_stage", "emerging"),
-        # E1: Evidence fields — source article details for transparency
-        source_article_titles=source_titles,
-        source_article_urls=source_urls,
-        source_article_sources=source_names,
+        # Top-5 article snippets for impact council first/second-order identification
+        article_snippets=[
+            f"{a.title}: {(getattr(a, 'content', '') or '')[:500]}"
+            for a in sorted(
+                articles,
+                key=lambda x: getattr(x, "credibility_score", 0.0),
+                reverse=True,
+            )[:5]
+        ],
         # Temporal evolution (T1)
         temporal_histogram=signals.get("temporal_histogram", []),
         velocity_history=signals.get("velocity_history", []),
         first_seen_at=first_seen_at,
         last_seen_at=last_seen_at,
         momentum_label=signals.get("momentum_label", ""),
+        # V7: AI Council validation data
+        validation_reasoning=validation.get("reasoning", ""),
+        importance_score=importance,
+        validated_event_type=validation.get("validated_event_type", ""),
+        event_type_reasoning=validation.get("event_type_reasoning", ""),
+        should_subcluster=validation.get("should_subcluster", False),
+        subcluster_reason=validation.get("subcluster_reason", ""),
     )
 
 
@@ -241,21 +288,45 @@ def build_trend_tree(
     cluster_summaries: Dict[int, Dict[str, Any]],
     noise_count: int,
     total_articles: int,
+    cluster_validations: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> TrendTree:
-    """Phase 9: Assemble TrendTree from cluster data."""
+    """Phase 9: Assemble TrendTree from cluster data.
+
+    Args:
+        cluster_validations: AI council validation per cluster. Keys match
+            cluster_articles keys. Each value is a dict with validated_depth,
+            importance_score, reasoning, etc.
+    """
     nodes: Dict[str, TrendNode] = {}
     root_ids: List[uuid.UUID] = []
+    validations = cluster_validations or {}
 
+    noise_nodes = 0
     for cluster_id in sorted(cluster_articles.keys()):
+        val = validations.get(cluster_id, {})
+
+        # V7: Skip NOISE-classified trends (AI says discard)
+        if val.get("validated_depth", "").upper() == "NOISE":
+            noise_nodes += 1
+            noise_count += len(cluster_articles[cluster_id])
+            logger.debug(
+                f"Discarding noise cluster {cluster_id}: {val.get('reasoning', 'AI classified as NOISE')}"
+            )
+            continue
+
         node = create_trend_node(
             articles=cluster_articles[cluster_id],
             keywords=cluster_keywords.get(cluster_id, []),
             signals=cluster_signals.get(cluster_id, {}),
             summary=cluster_summaries.get(cluster_id, {}),
             depth=1,
+            validation=val,
         )
         nodes[str(node.id)] = node
         root_ids.append(node.id)
+
+    if noise_nodes:
+        logger.info(f"AI council discarded {noise_nodes} noise clusters")
 
     return TrendTree(
         root_ids=root_ids,
