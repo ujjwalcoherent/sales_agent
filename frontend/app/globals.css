@@ -1,0 +1,332 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Design Tokens ──────────────────────────────── */
+:root {
+  /* Warm parchment palette */
+  --bg:            #F8F7F2;
+  --surface:       #FFFFFF;
+  --surface-raised: #F2F1EB;
+  --surface-hover:  #EAE9E1;
+
+  /* Borders */
+  --border:        #E4E2D8;
+  --border-strong: #C4C2B5;
+
+  /* Typography */
+  --text:          #18170F;
+  --text-secondary:#4A4940;
+  --text-muted:    #8A8878;
+  --text-xmuted:   #B0AE9E;
+
+  /* Accent — warm amber */
+  --accent:        #B07030;
+  --accent-hover:  #8A5620;
+  --accent-light:  #F5EDD8;
+  --accent-mid:    #D4973D;
+
+  /* Semantic */
+  --green:         #2D6A4F;
+  --green-light:   #EBF5F0;
+  --red:           #A83226;
+  --red-light:     #FAE8E6;
+  --blue:          #2A5A8A;
+  --blue-light:    #E6EEF7;
+  --amber:         #B07030;
+  --amber-light:   #FDF3E0;
+
+  /* Shadcn compat */
+  --background:    var(--bg);
+  --foreground:    var(--text);
+  --card:          var(--surface);
+  --card-foreground: var(--text);
+  --border-color:  var(--border);
+  --radius:        0.5rem;
+  --ring:          var(--accent);
+  --muted:         var(--surface-raised);
+  --muted-foreground: var(--text-muted);
+  --primary:       var(--text);
+  --primary-foreground: #FFFFFF;
+  --secondary:     var(--surface-raised);
+  --secondary-foreground: var(--text-secondary);
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(24,23,15,0.05);
+  --shadow-sm: 0 1px 4px rgba(24,23,15,0.07);
+  --shadow-md: 0 4px 12px rgba(24,23,15,0.08);
+  --shadow-lg: 0 8px 24px rgba(24,23,15,0.10);
+
+  /* Fonts */
+  --font-display: var(--font-display, Georgia, serif);
+  --font-sans:    var(--font-sans, system-ui, sans-serif);
+}
+
+/* ─── Base ───────────────────────────────────────── */
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-xmuted); }
+}
+
+/* ─── Utility Classes ────────────────────────────── */
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .text-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  /* Hairline dividers */
+  .hairline {
+    border-top: 1px solid var(--border);
+  }
+
+  /* Pill badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1.6;
+  }
+
+  .badge-amber  { background: var(--amber-light);  color: var(--amber);  }
+  .badge-green  { background: var(--green-light);  color: var(--green);  }
+  .badge-red    { background: var(--red-light);    color: var(--red);    }
+  .badge-blue   { background: var(--blue-light);   color: var(--blue);   }
+  .badge-muted  { background: var(--surface-raised); color: var(--text-muted); }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-xs);
+  }
+
+  .card-hover {
+    transition: box-shadow 200ms, border-color 200ms, transform 200ms;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+
+  /* Number display */
+  .num {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Status dot */
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .dot-green  { background: var(--green);  }
+  .dot-amber  { background: var(--amber);  }
+  .dot-red    { background: var(--red);    }
+  .dot-muted  { background: var(--text-xmuted); }
+
+  /* Pulse animation for running state */
+  .dot-pulse {
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: background 150ms, color 150ms;
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
+  }
+  .nav-item:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+  .nav-item.active {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+
+  /* Score bar */
+  .score-bar {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--surface-raised);
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent-mid), var(--amber));
+    transition: width 600ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+}
+
+/* ─── Animations ──────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.animate-slide-in-right { animation: slide-in-right 300ms ease forwards; }
+.animate-slide-up       { animation: slide-up 250ms ease forwards; }
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-raised) 25%,
+    var(--surface-hover)  50%,
+    var(--surface-raised) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Progress bar for pipeline */
+@keyframes progress-indeterminate {
+  0%   { transform: translateX(-100%) scaleX(0.5); }
+  50%  { transform: translateX(0%)    scaleX(0.8); }
+  100% { transform: translateX(100%)  scaleX(0.5); }
+}
+.progress-indeterminate {
+  animation: progress-indeterminate 1.4s ease-in-out infinite;
+}
+
+/* ── Landing page: scan bar fill animation ─────── */
+@keyframes scanFill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes scanPulse {
+  0%, 100% { opacity: 1;    }
+  50%       { opacity: 0.55; }
+}
+.scan-bar {
+  transform-origin: left;
+  animation:
+    scanFill  1s cubic-bezier(0.23,1,0.32,1) forwards,
+    scanPulse 3s ease-in-out 1s infinite;
+}
+.scan-bar-0 { animation-delay: 0s,   1s; }
+.scan-bar-1 { animation-delay: 0.2s, 1.2s; }
+.scan-bar-2 { animation-delay: 0.4s, 1.4s; }
+.scan-bar-3 { animation-delay: 0.6s, 1.6s; }
+.scan-bar-4 { animation-delay: 0.8s, 1.8s; }
+
+/* ── Arrow connector travel dot ─────────────────── */
+@keyframes travelRight {
+  0%   { left: 0%;   opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+.travel-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  top: 50%;
+  transform: translateY(-50%);
+  animation: travelRight 2s ease-in-out infinite;
+}
+
+/* ── Landing page button hover states ───────────── */
+.landing-btn-primary {
+  transition: opacity 180ms, transform 180ms, box-shadow 180ms;
+}
+.landing-btn-primary:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(196,137,42,0.35);
+}
+.landing-btn-secondary {
+  transition: background 180ms, color 180ms, border-color 180ms;
+}
+.landing-btn-secondary:hover {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  color: #D4C9A0 !important;
+}
+.landing-btn-light {
+  transition: background 180ms, border-color 180ms;
+}
+.landing-btn-light:hover {
+  background: var(--surface-raised) !important;
+  border-color: var(--border-strong) !important;
+}
+.nav-link-landing {
+  transition: color 150ms;
+}
+.nav-link-landing:hover {
+  color: var(--text) !important;
+}
+
+/* Signal band — hide scrollbar cross-browser */
+.signal-scroll::-webkit-scrollbar { display: none; }
