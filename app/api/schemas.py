@@ -169,9 +169,101 @@ class HealthResponse(BaseModel):
     config: Dict[str, Any] = Field(default_factory=dict)
 
 
+# -- Company Search --
+
+class CompanySearchResult(BaseModel):
+    """A company found via search — enrichable with leads on demand."""
+    id: str = ""
+    company_name: str
+    domain: str = ""
+    website: str = ""
+    industry: str = ""
+    reason_relevant: str = ""
+    article_count: int = 0
+    recent_articles: List[Dict[str, Any]] = Field(default_factory=list)
+    live_news: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class CompanySearchRequest(BaseModel):
+    query: str
+    search_type: str = "auto"  # "company" | "industry" | "auto"
+    max_results: int = 10
+    mock_mode: bool = False
+
+
+class CompanySearchResponse(BaseModel):
+    companies: List[CompanySearchResult]
+    search_type: str
+    query: str
+    cached_articles_used: int = 0
+    search_duration_ms: int = 0
+
+
+class GenerateLeadsRequest(BaseModel):
+    company_name: str
+    domain: str = ""
+    industry: str = ""
+    mock_mode: bool = False
+
+
+class GenerateLeadsResponse(BaseModel):
+    company_name: str
+    contacts: List[PersonResponse] = Field(default_factory=list)
+    outreach_count: int = 0
+    reasoning: str = ""
+    duration_ms: int = 0
+
+
+# -- News Feed --
+
+class NewsArticleResponse(BaseModel):
+    """Article from ArticleCache for the news feed."""
+    id: str = ""
+    title: str
+    summary: str = ""
+    url: str = ""
+    source_name: str = ""
+    source_type: str = ""
+    source_credibility: float = 0.0
+    published_at: str = ""
+    sentiment_score: float = 0.0
+    entity_names: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
+    content_preview: str = ""
+
+
+class NewsListResponse(BaseModel):
+    articles: List[NewsArticleResponse]
+    total: int
+    page: int
+    per_page: int
+    sources: List[str] = Field(default_factory=list)
+
+
+# -- Feedback History --
+
+class FeedbackRecord(BaseModel):
+    timestamp: str
+    feedback_type: str
+    item_id: str
+    rating: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FeedbackHistoryResponse(BaseModel):
+    items: List[FeedbackRecord]
+    total: int
+    page: int
+    per_page: int
+
+
 # Resolve forward references so FastAPI serializes all fields correctly.
 # Without this, List["LeadResponse"] / List["TrendResponse"] remain unresolved
 # ForwardRefs and FastAPI's schema-based serialization silently drops new fields.
 LeadResponse.model_rebuild()
 PipelineResultResponse.model_rebuild()
 LeadListResponse.model_rebuild()
+CompanySearchResponse.model_rebuild()
+GenerateLeadsResponse.model_rebuild()
+NewsListResponse.model_rebuild()
+FeedbackHistoryResponse.model_rebuild()

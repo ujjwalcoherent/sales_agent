@@ -319,7 +319,6 @@ async def get_lead_detail(lead_id: int):
 
 class SendEmailRequest(BaseModel):
     person_index: int = 0  # Which person in the people[] array (0 = primary contact)
-    dry_run: bool = False   # Validate without actually sending
 
 
 class SendEmailResponse(BaseModel):
@@ -329,7 +328,6 @@ class SendEmailResponse(BaseModel):
     subject: str = ""
     error: str = ""
     test_mode: bool = False
-    dry_run: bool = False
     sent_at: str = ""
 
 
@@ -363,8 +361,7 @@ async def send_lead_email(lead_id: int, req: SendEmailRequest):
 
     Safety:
     - EMAIL_SENDING_ENABLED must be True (global kill switch)
-    - EMAIL_TEST_MODE=True redirects to dummy recipient
-    - dry_run=True validates without sending
+    - EMAIL_TEST_MODE=True redirects to test recipient from settings
     """
     # Find the lead
     run = run_manager.get_latest_run()
@@ -410,7 +407,7 @@ async def send_lead_email(lead_id: int, req: SendEmailRequest):
         to_name=to_name,
         subject=subject,
         body=body,
-        dry_run=req.dry_run,
+        dry_run=False,
         tone=tone,
         trend_title=lead.trend_title,
         company_name=lead.company_name,

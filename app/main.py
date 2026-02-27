@@ -57,12 +57,16 @@ def create_app() -> FastAPI:
     from app.api.leads import router as leads_router
     from app.api.feedback import router as feedback_router
     from app.api.learning import router as learning_router
+    from app.api.companies import router as companies_router
+    from app.api.news import router as news_router
 
     app.include_router(health_router, tags=["health"])
     app.include_router(pipeline_router, prefix="/api/v1/pipeline", tags=["pipeline"])
     app.include_router(leads_router, prefix="/api/v1/leads", tags=["leads"])
     app.include_router(feedback_router, prefix="/api/v1/feedback", tags=["feedback"])
     app.include_router(learning_router, prefix="/api/v1/learning", tags=["learning"])
+    app.include_router(companies_router, prefix="/api/v1/companies", tags=["companies"])
+    app.include_router(news_router, prefix="/api/v1/news", tags=["news"])
 
     return app
 

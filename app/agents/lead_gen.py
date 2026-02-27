@@ -281,6 +281,11 @@ async def run_lead_gen(deps: AgentDeps) -> tuple:
             agent_reasoning_parts.append(f"Email error: {e}")
 
     # Step 4: Build person profiles with reach scores and outreach tones
+    logger.info(
+        f"Lead gen step 4: building profiles from "
+        f"{len(deps._contacts)} contacts, {len(deps._outreach)} outreach, "
+        f"{len(deps._impacts)} impacts, {len(deps._companies)} companies"
+    )
     try:
         profiles = _build_person_profiles(
             contacts=deps._contacts,
@@ -291,11 +296,12 @@ async def run_lead_gen(deps: AgentDeps) -> tuple:
         deps._person_profiles = profiles
         dm_count = sum(1 for p in profiles if p.seniority_tier == "decision_maker")
         inf_count = sum(1 for p in profiles if p.seniority_tier == "influencer")
+        logger.info(f"Lead gen step 4: built {len(profiles)} profiles ({dm_count} DMs, {inf_count} inf)")
         agent_reasoning_parts.append(
             f"Built {len(profiles)} person profiles ({dm_count} DMs, {inf_count} influencers)"
         )
     except Exception as e:
-        logger.error(f"Lead gen: person profile build failed: {e}")
+        logger.error(f"Lead gen: person profile build failed: {e}", exc_info=True)
         deps._person_profiles = []
         agent_reasoning_parts.append(f"Profile build error: {e}")
 

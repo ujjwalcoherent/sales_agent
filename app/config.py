@@ -226,7 +226,7 @@ class Settings(BaseSettings):
 
     # ── RSS Throughput ──
     rss_max_per_source: int = Field(default=25, alias="RSS_MAX_PER_SOURCE")
-    rss_hours_ago: int = Field(default=72, alias="RSS_HOURS_AGO")
+    rss_hours_ago: int = Field(default=120, alias="RSS_HOURS_AGO")
 
     # ── Quality Gates (V9) ──
     min_synthesis_confidence: float = Field(default=0.40, alias="MIN_SYNTHESIS_CONFIDENCE")
