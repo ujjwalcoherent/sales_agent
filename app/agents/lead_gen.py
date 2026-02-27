@@ -102,6 +102,94 @@ async def _build_companies_from_leads(
     return list(seen.values())
 
 
+# ── Person profile builder ────────────────────────────────────────────
+
+def _build_person_profiles(
+    contacts: list,
+    outreach_emails: list,
+    impacts: list,
+    companies: list,
+) -> list:
+    """Build PersonProfile objects from contacts + outreach, with reach scores.
+
+    Each contact becomes a PersonProfile with:
+    - seniority_tier (from role classification)
+    - reach_score (0-100 composite)
+    - outreach_tone (executive/consultative/professional)
+    - outreach_subject/body (if email was generated for this contact)
+    """
+    from app.schemas.sales import PersonProfile
+    from app.agents.workers.contact_agent import ContactFinder
+
+    # Build outreach index: contact_id -> OutreachEmail
+    outreach_by_contact = {}
+    for em in outreach_emails:
+        cid = getattr(em, "contact_id", "")
+        if cid:
+            outreach_by_contact[cid] = em
+
+    # Build impact index: trend_id -> target_roles set (lowercased)
+    impact_roles: dict[str, set] = {}
+    for imp in impacts:
+        tid = getattr(imp, "trend_id", "")
+        roles = {r.lower() for r in getattr(imp, "target_roles", [])}
+        impact_roles[tid] = roles
+
+    # Build company -> trend_id map
+    company_trend: dict[str, str] = {}
+    for c in companies:
+        company_trend[getattr(c, "company_name", "")] = getattr(c, "trend_id", "")
+
+    profiles = []
+    for ct in contacts:
+        try:
+            tier = ContactFinder.classify_tier(ct.role)
+            tone = ContactFinder.get_outreach_tone(tier)
+
+            # Role relevance: does this role match impact target_roles?
+            trend_id = company_trend.get(ct.company_name, "")
+            target_roles = impact_roles.get(trend_id, set())
+            role_relevance = 0.7 if ct.role.lower() in target_roles else 0.3
+
+            reach = ContactFinder.compute_reach_score(
+                email=ct.email,
+                email_confidence=ct.email_confidence,
+                verified=ct.verified,
+                linkedin_url=ct.linkedin_url,
+                seniority_tier=tier,
+                role_relevance=role_relevance,
+            )
+
+            outreach = outreach_by_contact.get(ct.id)
+
+            profiles.append(PersonProfile(
+                id=ct.id,
+                company_id=ct.company_id,
+                company_name=ct.company_name,
+                person_name=ct.person_name,
+                role=ct.role,
+                seniority_tier=tier,
+                linkedin_url=ct.linkedin_url,
+                email=ct.email,
+                email_confidence=ct.email_confidence,
+                email_source=ct.email_source,
+                verified=ct.verified,
+                reach_score=reach,
+                outreach_tone=tone,
+                outreach_subject=getattr(outreach, "subject", "") if outreach else "",
+                outreach_body=getattr(outreach, "body", "") if outreach else "",
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to build profile for {getattr(ct, 'person_name', '?')}: {e}")
+            continue
+
+    # Sort: decision_makers first, then by reach_score descending
+    tier_order = {"decision_maker": 0, "influencer": 1, "gatekeeper": 2}
+    profiles.sort(key=lambda p: (tier_order.get(p.seniority_tier, 1), -p.reach_score))
+
+    return profiles
+
+
 # ── Public runner ─────────────────────────────────────────────────────
 
 async def run_lead_gen(deps: AgentDeps) -> tuple:
@@ -191,6 +279,25 @@ async def run_lead_gen(deps: AgentDeps) -> tuple:
         except Exception as e:
             logger.error(f"Lead gen: email generation failed: {e}")
             agent_reasoning_parts.append(f"Email error: {e}")
+
+    # Step 4: Build person profiles with reach scores and outreach tones
+    try:
+        profiles = _build_person_profiles(
+            contacts=deps._contacts,
+            outreach_emails=deps._outreach,
+            impacts=deps._impacts,
+            companies=deps._companies,
+        )
+        deps._person_profiles = profiles
+        dm_count = sum(1 for p in profiles if p.seniority_tier == "decision_maker")
+        inf_count = sum(1 for p in profiles if p.seniority_tier == "influencer")
+        agent_reasoning_parts.append(
+            f"Built {len(profiles)} person profiles ({dm_count} DMs, {inf_count} influencers)"
+        )
+    except Exception as e:
+        logger.error(f"Lead gen: person profile build failed: {e}")
+        deps._person_profiles = []
+        agent_reasoning_parts.append(f"Profile build error: {e}")
 
     agent_result = LeadGenResult(
         companies_found=len(deps._companies),

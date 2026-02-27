@@ -290,7 +290,7 @@ class Settings(BaseSettings):
     country_code: str = Field(default="IN", alias="COUNTRY_CODE")
     max_trends: int = Field(default=12, alias="MAX_TRENDS")
     max_companies_per_trend: int = Field(default=15, alias="MAX_COMPANIES_PER_TREND")
-    max_contacts_per_company: int = Field(default=3, alias="MAX_CONTACTS_PER_COMPANY")
+    max_contacts_per_company: int = Field(default=6, alias="MAX_CONTACTS_PER_COMPANY")  # 3 DMs + 3 influencers
     email_confidence_threshold: int = Field(default=70, alias="EMAIL_CONFIDENCE_THRESHOLD")
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
     show_tooltips: bool = Field(default=True, alias="SHOW_TOOLTIPS")

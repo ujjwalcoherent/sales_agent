@@ -59,6 +59,7 @@ class AgentDeps:
     _companies: List[Any] = field(default_factory=list, repr=False)
     _contacts: List[Any] = field(default_factory=list, repr=False)
     _outreach: List[Any] = field(default_factory=list, repr=False)
+    _person_profiles: List[Any] = field(default_factory=list, repr=False)
 
     # Pipeline agents (causal chain + lead crystallization)
     _search_manager: Optional[object] = field(default=None, repr=False)

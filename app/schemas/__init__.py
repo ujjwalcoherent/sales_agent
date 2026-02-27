@@ -33,7 +33,7 @@ from app.schemas.pipeline import NewsIngestionState, ClusteringState, TrendSynth
 # sales.py — sales pipeline models
 from app.schemas.sales import (
     SectorImpact, TrendData, ImpactAnalysis,
-    CompanyData, ContactData, OutreachEmail,
+    CompanyData, ContactData, SeniorityTier, PersonProfile, OutreachEmail,
     LeadRecord, PipelineResult, EmailFinderResult, AgentState,
 )
 
@@ -57,7 +57,7 @@ __all__ = [
     "NewsIngestionState", "ClusteringState", "TrendSynthesisState",
     # sales
     "SectorImpact", "TrendData", "ImpactAnalysis",
-    "CompanyData", "ContactData", "OutreachEmail",
+    "CompanyData", "ContactData", "SeniorityTier", "PersonProfile", "OutreachEmail",
     "LeadRecord", "PipelineResult", "EmailFinderResult", "AgentState",
     # validation
     "ValidationVerdict", "FieldGroundedness", "ValidationRound", "ValidationResult",

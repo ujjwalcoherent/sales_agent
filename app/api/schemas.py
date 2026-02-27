@@ -79,6 +79,23 @@ class TrendResponse(BaseModel):
     council_confidence: float = 0.0
 
 
+# -- People (per company) --
+
+class PersonResponse(BaseModel):
+    """Person at a company with reach score and outreach strategy."""
+    person_name: str = ""
+    role: str = ""
+    seniority_tier: str = "influencer"
+    linkedin_url: str = ""
+    email: str = ""
+    email_confidence: int = 0
+    verified: bool = False
+    reach_score: int = 0
+    outreach_tone: str = "consultative"
+    outreach_subject: str = ""
+    outreach_body: str = ""
+
+
 # -- Leads (call sheets) --
 
 class LeadResponse(BaseModel):
@@ -114,6 +131,8 @@ class LeadResponse(BaseModel):
     oss_score: float = 0.0
     data_sources: List[str] = Field(default_factory=list)
     company_news: List[Dict[str, Any]] = Field(default_factory=list)
+    # People at this company (multiple contacts with reach scores)
+    people: List["PersonResponse"] = Field(default_factory=list)
 
 
 class LeadListResponse(BaseModel):
@@ -153,5 +172,6 @@ class HealthResponse(BaseModel):
 # Resolve forward references so FastAPI serializes all fields correctly.
 # Without this, List["LeadResponse"] / List["TrendResponse"] remain unresolved
 # ForwardRefs and FastAPI's schema-based serialization silently drops new fields.
+LeadResponse.model_rebuild()
 PipelineResultResponse.model_rebuild()
 LeadListResponse.model_rebuild()

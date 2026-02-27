@@ -17,17 +17,83 @@ logger = logging.getLogger(__name__)
 
 class ContactFinder:
     """
-    Finds decision-makers at target companies.
+    Finds decision-makers and influencers at target companies.
 
-    For each company:
-    - Determines the best role to target based on trend
-    - Searches for contact information (Apollo + web search)
-    - Extracts name, role, and LinkedIn URL
+    Smart tiered approach:
+    - Phase 1: Find 2-3 decision-makers (C-suite, VP, Director)
+    - Phase 2: Find 2-3 influencers (Manager, Lead, Sr. Engineer)
+    - Assigns seniority tier, reach score, and outreach tone per person
 
     NOTE: This is a deterministic pipeline stage, not an autonomous agent.
-    Renamed from ContactAgent for honest naming.
     """
-    
+
+    # ── Seniority classification keywords ──
+    _DECISION_MAKER_KEYWORDS = frozenset({
+        "ceo", "cfo", "cto", "coo", "cmo", "cio", "ciso", "cpo",
+        "founder", "co-founder", "cofounder", "managing director",
+        "president", "vice president", "vp", "svp", "evp",
+        "director", "head of", "chief", "partner", "owner",
+        "general manager", "gm",
+    })
+    _GATEKEEPER_KEYWORDS = frozenset({
+        "assistant", "secretary", "receptionist", "office manager",
+        "executive assistant", "admin", "coordinator",
+    })
+
+    @staticmethod
+    def classify_tier(role: str) -> str:
+        """Classify a job title into seniority tier."""
+        role_lower = role.lower().strip()
+        for kw in ContactFinder._DECISION_MAKER_KEYWORDS:
+            if kw in role_lower:
+                return "decision_maker"
+        for kw in ContactFinder._GATEKEEPER_KEYWORDS:
+            if kw in role_lower:
+                return "gatekeeper"
+        return "influencer"
+
+    @staticmethod
+    def compute_reach_score(
+        email: str,
+        email_confidence: int,
+        verified: bool,
+        linkedin_url: str,
+        seniority_tier: str,
+        role_relevance: float = 0.5,
+    ) -> int:
+        """Compute reach score (0-100) from multiple signals.
+
+        Weights:
+          - Email deliverability (40%): verified=40, confidence-based otherwise
+          - LinkedIn presence (15%): URL exists = 15
+          - Seniority match (25%): decision_maker=25, influencer=18, gatekeeper=8
+          - Role relevance (20%): from impact target_roles match (0.0-1.0 * 20)
+        """
+        score = 0.0
+        # Email deliverability (0-40)
+        if verified:
+            score += 40
+        elif email:
+            score += min(email_confidence * 0.4, 35)
+        # LinkedIn (0-15)
+        if linkedin_url:
+            score += 15
+        # Seniority (0-25)
+        tier_scores = {"decision_maker": 25, "influencer": 18, "gatekeeper": 8}
+        score += tier_scores.get(seniority_tier, 12)
+        # Role relevance (0-20)
+        score += role_relevance * 20
+        return max(0, min(100, int(round(score))))
+
+    @staticmethod
+    def get_outreach_tone(seniority_tier: str) -> str:
+        """Map seniority tier to outreach email tone."""
+        return {
+            "decision_maker": "executive",     # Brief, ROI-focused, strategic
+            "influencer": "consultative",      # Helpful, insight-driven, problem-solving
+            "gatekeeper": "professional",      # Formal, request-based, respectful
+        }.get(seniority_tier, "consultative")
+
     def __init__(self, mock_mode: bool = False, deps=None):
         """Initialize contact agent."""
         self.settings = get_settings()
@@ -63,6 +129,7 @@ class ContactFinder:
         
         all_contacts = []
         max_contacts = self.settings.max_contacts_per_company
+        search_errors = []
 
         # Parallel contact search — semaphore limits concurrent API calls
         import asyncio
@@ -80,6 +147,7 @@ class ContactFinder:
                     logger.info(f"Found {len(contacts)} contacts at: {company.company_name}")
                     return contacts
                 except Exception as e:
+                    search_errors.append(f"{company.company_name}: {str(e)[:100]}")
                     logger.warning(f"Failed to find contacts for {company.company_name}: {e}")
                     return []
 
@@ -89,7 +157,11 @@ class ContactFinder:
 
         state.contacts = all_contacts
         state.current_step = "contacts_found"
-        logger.info(f"Found {len(all_contacts)} total contacts")
+
+        if search_errors:
+            state.errors.extend([f"contact_search: {e}" for e in search_errors])
+            logger.warning(f"Contact search: {len(search_errors)}/{len(state.companies)} companies failed")
+        logger.info(f"Found {len(all_contacts)} total contacts across {len(state.companies)} companies")
         
         return state
     
@@ -99,33 +171,50 @@ class ContactFinder:
         target_roles: List[str],
         limit: int
     ) -> List[ContactData]:
-        """
-        Find contacts at a specific company.
-        
-        Args:
-            company: Company to search
-            target_roles: List of roles to target
-            limit: Maximum contacts to find
-            
-        Returns:
-            List of ContactData objects
-        """
+        """Find contacts at a company — tiered: decision-makers first, then influencers."""
         contacts = []
-        
-        # Method 1: Try Apollo first if we have a valid domain
+
+        # Split roles into tiers
+        dm_roles = [r for r in target_roles if self.classify_tier(r) == "decision_maker"]
+        other_roles = [r for r in target_roles if self.classify_tier(r) != "decision_maker"]
+
+        # Fallback defaults if impact analysis didn't provide tier-specific roles
+        if not dm_roles:
+            dm_roles = ["CEO", "Founder", "CTO", "VP Operations"]
+        if not other_roles:
+            other_roles = ["Engineering Manager", "Product Manager", "Senior Engineer"]
+
+        # Phase 1: Decision makers (up to half the limit)
+        dm_limit = min(3, (limit + 1) // 2)
         if company.domain:
             try:
-                apollo_contacts = await self._find_via_apollo(
-                    company, target_roles, limit
-                )
-                contacts.extend(apollo_contacts)
+                apollo_dms = await self._find_via_apollo(company, dm_roles, dm_limit)
+                contacts.extend(apollo_dms)
             except Exception as e:
-                logger.debug(f"Apollo search failed for {company.company_name}: {e}")
-        
-        # Method 2: Web search for additional contacts
+                logger.debug(f"Apollo DM search failed for {company.company_name}: {e}")
+
+        if len(contacts) < dm_limit:
+            for role in dm_roles[:dm_limit - len(contacts)]:
+                try:
+                    contact = await self._find_via_search(company, role)
+                    if contact and not self._contact_exists(contact, contacts):
+                        contacts.append(contact)
+                except Exception as e:
+                    logger.debug(f"Search DM failed for {role} at {company.company_name}: {e}")
+
+        # Phase 2: Influencers (remaining quota)
+        inf_limit = limit - len(contacts)
+        if inf_limit > 0 and company.domain:
+            try:
+                inf_contacts = await self._find_via_apollo(company, other_roles, inf_limit)
+                for c in inf_contacts:
+                    if not self._contact_exists(c, contacts):
+                        contacts.append(c)
+            except Exception as e:
+                logger.debug(f"Apollo influencer search failed for {company.company_name}: {e}")
+
         if len(contacts) < limit:
-            remaining = limit - len(contacts)
-            for role in target_roles[:remaining]:
+            for role in other_roles[:limit - len(contacts)]:
                 try:
                     contact = await self._find_via_search(company, role)
                     if contact and not self._contact_exists(contact, contacts):
@@ -133,8 +222,8 @@ class ContactFinder:
                         if len(contacts) >= limit:
                             break
                 except Exception as e:
-                    logger.debug(f"Search failed for {role} at {company.company_name}: {e}")
-        
+                    logger.debug(f"Search influencer failed for {role} at {company.company_name}: {e}")
+
         return contacts[:limit]
     
     async def _find_via_apollo(

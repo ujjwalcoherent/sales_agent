@@ -14,6 +14,7 @@ are checked. Every coercion is logged for observability.
 import logging
 import re
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
@@ -332,6 +333,55 @@ class ContactData(BaseModel):
             logger.debug(f"Invalid email format '{v}', clearing")
             return ""
         return v
+
+
+class SeniorityTier(str, Enum):
+    """Seniority tier for outreach prioritization."""
+    DECISION_MAKER = "decision_maker"   # C-suite, VP, Director — signs the deal
+    INFLUENCER = "influencer"           # Manager, Lead, Sr. Engineer — champions internally
+    GATEKEEPER = "gatekeeper"           # Admin, EA, Office Manager — controls access
+
+
+class PersonProfile(BaseModel):
+    """Person at a company with reach score and outreach strategy.
+
+    reach_score (0-100): Higher = more likely to respond to cold outreach.
+    Factors: seniority match, email confidence, LinkedIn presence, role relevance.
+    """
+    id: str = ""
+    company_id: str = ""
+    company_name: str
+    person_name: str
+    role: str
+    seniority_tier: str = "influencer"  # decision_maker | influencer | gatekeeper
+    linkedin_url: str = ""
+    email: str = ""
+    email_confidence: int = 0
+    email_source: str = ""
+    verified: bool = False
+    reach_score: int = 0          # 0-100, computed from multiple signals
+    outreach_tone: str = "consultative"  # executive | consultative | professional
+    outreach_subject: str = ""
+    outreach_body: str = ""
+
+    @field_validator('email', mode='before')
+    @classmethod
+    def validate_email_format(cls, v):
+        if not v:
+            return ""
+        v = str(v).strip()
+        if not _EMAIL_RE.match(v):
+            logger.debug(f"Invalid email in PersonProfile: '{v}'")
+            return ""
+        return v
+
+    @field_validator('reach_score', mode='before')
+    @classmethod
+    def clamp_reach_score(cls, v):
+        try:
+            return max(0, min(100, int(v)))
+        except (TypeError, ValueError):
+            return 0
 
 
 class OutreachEmail(BaseModel):

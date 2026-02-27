@@ -100,6 +100,28 @@ class CallSheetModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class LeadContactModel(Base):
+    """Multiple contacts per lead — person profiles with reach scores."""
+    __tablename__ = "lead_contacts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(50), nullable=False, index=True)
+    company_name = Column(String(300), nullable=False, index=True)
+    person_name = Column(String(300), nullable=False)
+    role = Column(String(200))
+    seniority_tier = Column(String(30), default="influencer")
+    linkedin_url = Column(String(500), default="")
+    email = Column(String(300), default="")
+    email_confidence = Column(Integer, default=0)
+    email_source = Column(String(30), default="")
+    verified = Column(Boolean, default=False)
+    reach_score = Column(Integer, default=0)
+    outreach_tone = Column(String(30), default="consultative")
+    outreach_subject = Column(String(500), default="")
+    outreach_body = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class TrendModel(Base):
     """Detected trend per run."""
     __tablename__ = "trends"
@@ -319,6 +341,31 @@ class Database:
             session.add(row)
             session.flush()
             return row.id
+
+    def save_lead_contacts(self, run_id: str, profiles: list) -> int:
+        """Save person profiles for a run. Returns count saved."""
+        saved = 0
+        with self.get_session() as session:
+            for p in profiles:
+                row = LeadContactModel(
+                    run_id=run_id,
+                    company_name=getattr(p, "company_name", ""),
+                    person_name=getattr(p, "person_name", ""),
+                    role=getattr(p, "role", ""),
+                    seniority_tier=getattr(p, "seniority_tier", "influencer"),
+                    linkedin_url=getattr(p, "linkedin_url", ""),
+                    email=getattr(p, "email", ""),
+                    email_confidence=getattr(p, "email_confidence", 0),
+                    email_source=getattr(p, "email_source", ""),
+                    verified=getattr(p, "verified", False),
+                    reach_score=getattr(p, "reach_score", 0),
+                    outreach_tone=getattr(p, "outreach_tone", "consultative"),
+                    outreach_subject=getattr(p, "outreach_subject", ""),
+                    outreach_body=getattr(p, "outreach_body", ""),
+                )
+                session.add(row)
+                saved += 1
+        return saved
 
     def get_call_sheets(
         self,

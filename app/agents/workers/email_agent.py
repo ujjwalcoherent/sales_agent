@@ -66,6 +66,7 @@ class EmailGenerator:
         # Parallel email lookup + outreach generation (semaphore limits API calls)
         import asyncio
         semaphore = asyncio.Semaphore(4)
+        email_failures = []
 
         async def _process_one(contact) -> OutreachEmail | None:
             async with semaphore:
@@ -99,7 +100,6 @@ class EmailGenerator:
                         )
                         conf = contact.email_confidence
                         threshold = self.settings.email_confidence_threshold
-                        level = "info" if conf >= threshold else "warning"
                         logger.log(
                             logging.INFO if conf >= threshold else logging.WARNING,
                             f"{'Generated' if conf >= threshold else 'Low-confidence'} "
@@ -108,12 +108,17 @@ class EmailGenerator:
                         return outreach
                     return None
                 except Exception as e:
+                    email_failures.append(f"{contact.person_name}: {str(e)[:100]}")
                     logger.warning(f"Failed to process email for {contact.person_name}: {e}")
                     return None
 
         results = await asyncio.gather(*[_process_one(c) for c in state.contacts])
         outreach_emails = [r for r in results if r is not None]
         emails_found = sum(1 for c in state.contacts if c.email)
+
+        if email_failures:
+            state.errors.extend([f"email_gen: {e}" for e in email_failures])
+            logger.warning(f"Email gen: {len(email_failures)}/{len(state.contacts)} contacts failed")
 
         state.outreach_emails = outreach_emails
         state.current_step = "emails_generated"
@@ -231,7 +236,30 @@ class EmailGenerator:
             service_offerings = ["Market sizing and competitive analysis", "Strategic advisory services"]
         
         first_name = contact.person_name.split()[0] if contact.person_name else "there"
-        
+
+        # Determine outreach tone from contact seniority
+        from app.agents.workers.contact_agent import ContactFinder
+        tier = ContactFinder.classify_tier(contact.role)
+        tone = ContactFinder.get_outreach_tone(tier)
+
+        tone_instructions = {
+            "executive": (
+                "TONE: Executive-level. Brief (under 100 words). Lead with ROI/strategic impact. "
+                "No jargon. One clear ask. Respect their time — every sentence must earn its place."
+            ),
+            "consultative": (
+                "TONE: Consultative. Insight-driven (under 150 words). Show you understand their "
+                "specific challenge. Position as a helpful peer, not a vendor. Reference the trend "
+                "impact on their role specifically."
+            ),
+            "professional": (
+                "TONE: Professional. Formal and respectful (under 120 words). Request a brief "
+                "introduction or meeting. Reference the trend as context. Be clear about who you "
+                "are and why you're reaching out."
+            ),
+        }
+        tone_instruction = tone_instructions.get(tone, tone_instructions["consultative"])
+
         prompt = f"""Write a CONSULTING PITCH email from Coherent Market Insights to a potential client.
 
 ABOUT COHERENT MARKET INSIGHTS:
@@ -259,14 +287,13 @@ OUR RELEVANT SERVICES:
 
 EMAIL REQUIREMENTS:
 1. Subject line: Reference the news/trend + value proposition (max 60 chars)
-2. Opening: "I noticed [the news/trend] and thought of {company.company_name}..."
-3. Show understanding of their challenge: What problem does this news create for them?
-4. Position CMI as the solution: How can our research/consulting help them navigate this?
-5. Mention 1-2 specific services we can offer
+2. Opening: Reference the news/trend and connect to {company.company_name}
+3. Show understanding of their challenge based on the trend
+4. Position CMI as the solution
+5. Mention 1-2 specific services
 6. CTA: Offer a 15-minute discovery call
-7. Keep it under 150 words
-8. Tone: Helpful consultant, not salesy
-9. Sign off as: "Best regards, [Coherent Market Insights Team]"
+7. {tone_instruction}
+8. Sign off as: "Best regards, [Coherent Market Insights Team]"
 
 Respond as JSON with:
 - subject: Email subject line (max 60 chars)

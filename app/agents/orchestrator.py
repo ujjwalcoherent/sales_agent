@@ -369,12 +369,15 @@ async def lead_gen_node(state: GraphState) -> dict:
         companies, contacts, outreach = [], [], []
         result = None
 
+    people = getattr(deps, "_person_profiles", [])
     _record(deps, "lead_gen_complete", {
         "companies": [c.model_dump() if hasattr(c, "model_dump") else {} for c in (companies or [])],
         "contacts": [c.model_dump() if hasattr(c, "model_dump") else {} for c in (contacts or [])],
         "outreach": [o.model_dump() if hasattr(o, "model_dump") else {} for o in (outreach or [])],
+        "people": [p.model_dump() if hasattr(p, "model_dump") else {} for p in people],
         "company_count": len(companies or []),
         "contact_count": len(contacts or []),
+        "people_count": len(people),
     }, t0)
 
     return {
@@ -1581,6 +1584,12 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
                 "contact": lead["contact"],
                 "outreach": lead["outreach"],
             })
+
+        # Save person profiles (multiple contacts per company with reach scores)
+        person_profiles = getattr(deps, "_person_profiles", []) if deps else []
+        if person_profiles:
+            saved_count = db.save_lead_contacts(run_id, person_profiles)
+            logger.info(f"DB: saved {saved_count} person profiles")
 
         logger.info(
             f"DB: saved run + {len(trends)} trends + "

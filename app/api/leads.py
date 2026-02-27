@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.run_manager import run_manager
-from app.api.schemas import LeadListResponse, LeadResponse
+from app.api.schemas import LeadListResponse, LeadResponse, PersonResponse
 from app.database import get_database
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,10 @@ def _leads_from_run(run) -> list:
             cname = em.get("company_name", "")
             if cname not in _outreach_by_company:
                 _outreach_by_company[cname] = em
+        _profiles_by_company: dict[str, list] = {}
+        for p in run.result.get("people", []):
+            cname = p.get("company_name", "")
+            _profiles_by_company.setdefault(cname, []).append(p)
 
         results = []
         for i, s in enumerate(sheets):
@@ -83,6 +87,22 @@ def _leads_from_run(run) -> list:
                 oss_score=s.get("oss_score", 0.0),
                 data_sources=s.get("data_sources", []),
                 company_news=s.get("company_news", []),
+                people=[
+                    PersonResponse(
+                        person_name=p.get("person_name", ""),
+                        role=p.get("role", ""),
+                        seniority_tier=p.get("seniority_tier", "influencer"),
+                        linkedin_url=p.get("linkedin_url", ""),
+                        email=p.get("email", ""),
+                        email_confidence=int(p.get("email_confidence", 0)),
+                        verified=p.get("verified", False),
+                        reach_score=int(p.get("reach_score", 0)),
+                        outreach_tone=p.get("outreach_tone", "consultative"),
+                        outreach_subject=p.get("outreach_subject", ""),
+                        outreach_body=p.get("outreach_body", ""),
+                    )
+                    for p in _profiles_by_company.get(cname, [])
+                ],
             ))
         return results
 
@@ -106,6 +126,10 @@ def _leads_from_run(run) -> list:
         cname = getattr(em, "company_name", "")
         if cname not in _outreach_by_company:
             _outreach_by_company[cname] = em
+    _profiles_by_company = {}
+    for p in getattr(deps, "_person_profiles", []):
+        cname = getattr(p, "company_name", "")
+        _profiles_by_company.setdefault(cname, []).append(p)
 
     sheets = getattr(deps, "_lead_sheets", [])
     results = []
@@ -145,6 +169,22 @@ def _leads_from_run(run) -> list:
             oss_score=getattr(sheet, "oss_score", 0.0),
             data_sources=getattr(sheet, "data_sources", []),
             company_news=getattr(sheet, "company_news", []),
+            people=[
+                PersonResponse(
+                    person_name=getattr(p, "person_name", ""),
+                    role=getattr(p, "role", ""),
+                    seniority_tier=getattr(p, "seniority_tier", "influencer"),
+                    linkedin_url=getattr(p, "linkedin_url", ""),
+                    email=getattr(p, "email", ""),
+                    email_confidence=getattr(p, "email_confidence", 0),
+                    verified=getattr(p, "verified", False),
+                    reach_score=getattr(p, "reach_score", 0),
+                    outreach_tone=getattr(p, "outreach_tone", "consultative"),
+                    outreach_subject=getattr(p, "outreach_subject", ""),
+                    outreach_body=getattr(p, "outreach_body", ""),
+                )
+                for p in _profiles_by_company.get(cname, [])
+            ],
         ))
     return results
 

@@ -500,11 +500,6 @@ function OutreachTab({ lead }: { lead: LeadRecord }) {
                 <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.85, whiteSpace: "pre-wrap", borderLeft: "2px solid var(--border)", paddingLeft: 14 }}>
                   {lead.email_body}
                 </div>
-                <button onClick={() => copy(lead.email_body ?? "", "body")}
-                  style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, padding: "4px 10px", color: copiedKey === "body" ? "var(--green)" : "var(--text-xmuted)", background: copiedKey === "body" ? "var(--green-light)" : "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 5, cursor: "pointer" }}>
-                  {copiedKey === "body" ? <Check size={10} /> : <Copy size={10} />}
-                  {copiedKey === "body" ? "Body copied!" : "Copy body only"}
-                </button>
               </div>
             </>
           ) : (

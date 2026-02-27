@@ -415,6 +415,7 @@ def _load_run_from_recording(run_id: str, recording_dir: Path) -> PipelineRun:
     replay_companies = []
     replay_contacts = []
     replay_outreach = []
+    replay_people = []
 
     for step_info in manifest["steps"]:
         step_name = step_info["step"]
@@ -435,6 +436,7 @@ def _load_run_from_recording(run_id: str, recording_dir: Path) -> PipelineRun:
             replay_companies = sd.get("companies", [])
             replay_contacts = sd.get("contacts", [])
             replay_outreach = sd.get("outreach", [])
+            replay_people = sd.get("people", [])
 
     run.result = {
         "recording": str(recording_dir),
@@ -445,6 +447,7 @@ def _load_run_from_recording(run_id: str, recording_dir: Path) -> PipelineRun:
         "companies": replay_companies,
         "contacts": replay_contacts,
         "outreach": replay_outreach,
+        "people": replay_people,
     }
     run.status = "completed"
     run.completed_at = datetime.now(timezone.utc)
@@ -534,6 +537,7 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
         replay_companies = []
         replay_contacts = []
         replay_outreach = []
+        replay_people = []
         for step_info in manifest["steps"]:
             step_name = step_info["step"]
             sf = recording_dir / f"{step_info['order']:02d}_{step_name}.json"
@@ -553,6 +557,7 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
                 replay_companies = sd.get("companies", [])
                 replay_contacts = sd.get("contacts", [])
                 replay_outreach = sd.get("outreach", [])
+                replay_people = sd.get("people", [])
 
         run.result = {
             "recording": str(recording_dir),
@@ -563,6 +568,7 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
             "companies": replay_companies,
             "contacts": replay_contacts,
             "outreach": replay_outreach,
+            "people": replay_people,
         }
 
         run.status = "completed"
