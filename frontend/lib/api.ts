@@ -6,6 +6,8 @@ import type {
   PipelineStreamEvent,
   HealthResponse,
   LearningStatus,
+  EmailSettings,
+  SendEmailResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -83,6 +85,19 @@ export const api = {
   /** GET /api/v1/leads/latest — leads from most recent completed run */
   getLatestLeads(limit = 50): Promise<LeadListResponse> {
     return apiFetch(`/api/v1/leads/latest?limit=${limit}`);
+  },
+
+  /** GET /api/v1/leads/email/settings — email sending config (safe, no secrets) */
+  getEmailSettings(): Promise<EmailSettings> {
+    return apiFetch("/api/v1/leads/email/settings");
+  },
+
+  /** POST /api/v1/leads/{leadId}/send-email — send outreach email via Brevo */
+  sendEmail(leadId: number, personIndex = 0, dryRun = false): Promise<SendEmailResponse> {
+    return apiFetch(`/api/v1/leads/${leadId}/send-email`, {
+      method: "POST",
+      body: JSON.stringify({ person_index: personIndex, dry_run: dryRun }),
+    });
   },
 
   /** GET /api/v1/learning/status — all 6 self-learning loop states */

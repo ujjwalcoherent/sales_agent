@@ -37,6 +37,22 @@ export interface TrendData {
   council_confidence: number;
 }
 
+// ── Person at a company (from people extraction pipeline) ──
+
+export interface PersonRecord {
+  person_name: string;
+  role: string;
+  seniority_tier: string; // "decision_maker" | "influencer" | "gatekeeper"
+  linkedin_url: string;
+  email: string;
+  email_confidence: number;
+  verified: boolean;
+  reach_score: number;
+  outreach_tone: string; // "executive" | "consultative" | "professional"
+  outreach_subject: string;
+  outreach_body: string;
+}
+
 // ── Lead / Call Sheet (flat — matches backend LeadResponse) ──
 
 export interface LeadRecord {
@@ -73,6 +89,30 @@ export interface LeadRecord {
   oss_score: number;
   data_sources: string[];
   company_news: { title: string; url: string; date?: string }[];
+  // People extraction (tiered contacts with per-person outreach)
+  people?: PersonRecord[];
+}
+
+// ── Email sending ────────────────────────────
+
+export interface EmailSettings {
+  sending_enabled: boolean;
+  test_mode: boolean;
+  test_recipient: string;
+  brevo_configured: boolean;
+  sender_email: string;
+  sender_name: string;
+}
+
+export interface SendEmailResponse {
+  success: boolean;
+  message_id: string;
+  recipient: string;
+  subject: string;
+  error: string;
+  test_mode: boolean;
+  dry_run: boolean;
+  sent_at: string;
 }
 
 export interface LeadListResponse {

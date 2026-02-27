@@ -8,10 +8,11 @@ import {
   Mail, User, ExternalLink, Globe, Newspaper, Copy, Check,
   BarChart3, Zap, MapPin, Hash, Link2, ChevronRight,
   GitBranch, ShieldCheck, Users, BrainCircuit,
+  Send, AlertTriangle, Shield, Loader2,
 } from "lucide-react";
 import { usePipelineContext } from "@/contexts/pipeline-context";
 import { api } from "@/lib/api";
-import type { LeadRecord, TrendData } from "@/lib/types";
+import type { LeadRecord, TrendData, PersonRecord, EmailSettings, SendEmailResponse } from "@/lib/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -284,6 +285,20 @@ function BriefingTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: 
             </div>
           </Section>
         )}
+
+        {/* 5W1H Event Analysis */}
+        {matchedTrend?.event_5w1h && Object.keys(matchedTrend.event_5w1h).length > 0 && (
+          <Section title="5W1H EVENT ANALYSIS" icon={Zap} accent="var(--amber)">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {Object.entries(matchedTrend.event_5w1h).map(([key, val]) => (
+                <div key={key} style={{ padding: "10px 12px", borderRadius: 8, background: "var(--bg)", border: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>{key}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>{val}</div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
       </div>
 
       {/* ── Right ── */}
@@ -363,6 +378,29 @@ function BriefingTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: 
           </Section>
         )}
 
+        {/* Midsize pain points — what hurts companies like this one */}
+        {matchedTrend?.midsize_pain_points && matchedTrend.midsize_pain_points.length > 0 && (
+          <Section title="MIDSIZE PAIN POINTS" icon={Target} accent="var(--red)">
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {matchedTrend.midsize_pain_points.map((pt, i) => (
+                <div key={i} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--red)", flexShrink: 0, marginTop: 5 }} />
+                  <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>{pt}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Who needs help */}
+        {matchedTrend?.who_needs_help && (
+          <Section title="WHO NEEDS HELP" icon={Users} accent="var(--green)">
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.75, margin: 0, padding: "11px 14px", background: "var(--green-light)", borderRadius: 8, borderLeft: "3px solid var(--green)" }}>
+              {matchedTrend.who_needs_help}
+            </p>
+          </Section>
+        )}
+
         {/* News — fully clickable rows */}
         {lead.company_news?.length > 0 && (
           <Section title="RECENT NEWS" icon={Newspaper} accent="var(--text-muted)">
@@ -394,6 +432,18 @@ function BriefingTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: 
             </div>
           </Section>
         )}
+
+        {/* Affected companies in same trend */}
+        {matchedTrend?.affected_companies && matchedTrend.affected_companies.length > 0 && (
+          <Section title="AFFECTED COMPANIES" icon={Building2} accent="var(--text-muted)">
+            <p style={{ fontSize: 11, color: "var(--text-xmuted)", margin: "0 0 8px" }}>Other companies impacted by this trend:</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {matchedTrend.affected_companies.map((co) => (
+                <span key={co} className="badge badge-muted">{co}</span>
+              ))}
+            </div>
+          </Section>
+        )}
       </div>
     </div>
   );
@@ -404,6 +454,24 @@ function BriefingTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: 
 function OutreachTab({ lead }: { lead: LeadRecord }) {
   const { copiedKey, copy } = useCopy();
   const [feedbackSent, setFeedbackSent] = useState<string | null>(null);
+  const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
+  const [sendState, setSendState] = useState<Record<string, { loading: boolean; result?: SendEmailResponse; error?: string }>>({});
+
+  // Fetch email settings on mount
+  useEffect(() => {
+    api.getEmailSettings().then(setEmailSettings).catch(() => {});
+  }, []);
+
+  const handleSendEmail = async (key: string, personIndex: number, dryRun: boolean) => {
+    if (lead.id == null) return;
+    setSendState(prev => ({ ...prev, [key]: { loading: true } }));
+    try {
+      const result = await api.sendEmail(lead.id, personIndex, dryRun);
+      setSendState(prev => ({ ...prev, [key]: { loading: false, result } }));
+    } catch (err) {
+      setSendState(prev => ({ ...prev, [key]: { loading: false, error: err instanceof Error ? err.message : "Send failed" } }));
+    }
+  };
 
   const submitFeedback = async (rating: string) => {
     try {
@@ -412,8 +480,40 @@ function OutreachTab({ lead }: { lead: LeadRecord }) {
     } catch { /* silent */ }
   };
 
+  const emailEnabled = emailSettings?.sending_enabled && emailSettings?.brevo_configured;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100 }}>
+
+      {/* ── Email Settings Banner ── */}
+      {emailSettings && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "10px 16px",
+          borderRadius: 10, fontSize: 12,
+          background: emailEnabled ? (emailSettings.test_mode ? "var(--amber-light)" : "var(--green-light)") : "var(--surface-raised)",
+          border: `1px solid ${emailEnabled ? (emailSettings.test_mode ? "var(--amber)44" : "var(--green)44") : "var(--border)"}`,
+          color: emailEnabled ? (emailSettings.test_mode ? "var(--amber)" : "var(--green)") : "var(--text-muted)",
+        }}>
+          {emailEnabled ? (
+            emailSettings.test_mode ? (
+              <>
+                <Shield size={14} />
+                <span><strong>Test Mode</strong> — emails redirect to <code style={{ fontSize: 11, background: "var(--surface)", padding: "1px 5px", borderRadius: 3 }}>{emailSettings.test_recipient}</code></span>
+              </>
+            ) : (
+              <>
+                <Send size={14} />
+                <span><strong>Live Mode</strong> — emails will be sent to real recipients via {emailSettings.sender_email}</span>
+              </>
+            )
+          ) : (
+            <>
+              <AlertTriangle size={14} />
+              <span>Email sending is <strong>disabled</strong>{!emailSettings.brevo_configured ? " — Brevo API key not configured" : ""}</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Opening line hero ── */}
       {lead.opening_line && (
@@ -462,13 +562,15 @@ function OutreachTab({ lead }: { lead: LeadRecord }) {
                 </span>
               )}
             </div>
-            {lead.email_subject && (
-              <CopyBtn
-                onCopy={() => copy(`Subject: ${lead.email_subject}\n\n${lead.email_body ?? ""}`, "email-full")}
-                copied={copiedKey === "email-full"}
-                label="Copy full email"
-              />
-            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              {lead.email_subject && (
+                <CopyBtn
+                  onCopy={() => copy(`Subject: ${lead.email_subject}\n\n${lead.email_body ?? ""}`, "email-full")}
+                  copied={copiedKey === "email-full"}
+                  label="Copy full email"
+                />
+              )}
+            </div>
           </div>
 
           {lead.email_subject ? (
@@ -501,6 +603,39 @@ function OutreachTab({ lead }: { lead: LeadRecord }) {
                   {lead.email_body}
                 </div>
               </div>
+
+              {/* ── Send Email Actions ── */}
+              {lead.email_subject && lead.contact_email && (
+                <div style={{ padding: "12px 20px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <SendEmailBtn
+                    label="Send Email"
+                    enabled={!!emailEnabled}
+                    testMode={emailSettings?.test_mode ?? true}
+                    state={sendState["primary"]}
+                    onSend={() => handleSendEmail("primary", 0, false)}
+                  />
+                  {!sendState["primary-dry"]?.result && !sendState["primary"]?.result && (
+                    <button
+                      onClick={() => handleSendEmail("primary-dry", 0, true)}
+                      disabled={!emailEnabled || sendState["primary-dry"]?.loading}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", fontSize: 11,
+                        color: "var(--text-secondary)", background: "var(--bg)",
+                        border: "1px solid var(--border)", borderRadius: 7, cursor: emailEnabled ? "pointer" : "not-allowed",
+                        opacity: emailEnabled ? 1 : 0.5, fontWeight: 600,
+                      }}
+                    >
+                      {sendState["primary-dry"]?.loading ? <Loader2 size={12} className="spin" /> : <Shield size={12} />}
+                      Dry Run
+                    </button>
+                  )}
+                  {sendState["primary-dry"]?.result && (
+                    <span style={{ fontSize: 11, color: "var(--green)", display: "flex", alignItems: "center", gap: 4 }}>
+                      <Check size={11} /> Dry run OK — would send to {sendState["primary-dry"].result.recipient}
+                    </span>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <div style={{ padding: "30px 20px", textAlign: "center" }}>
@@ -513,6 +648,19 @@ function OutreachTab({ lead }: { lead: LeadRecord }) {
           )}
         </div>
       </div>
+
+      {/* ── People Panel — tiered contacts with per-person outreach ── */}
+      {lead.people && lead.people.length > 0 && (
+        <PeoplePanel
+          people={lead.people}
+          emailEnabled={!!emailEnabled}
+          testMode={emailSettings?.test_mode ?? true}
+          sendState={sendState}
+          onSend={handleSendEmail}
+          copiedKey={copiedKey}
+          onCopy={copy}
+        />
+      )}
 
       {/* ── Feedback ── */}
       <div style={{ borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", padding: "18px 20px" }}>
@@ -557,6 +705,8 @@ function OutreachTab({ lead }: { lead: LeadRecord }) {
 
 function IntelTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: TrendData }) {
   const { text: confColor } = confidenceColor(lead.confidence);
+  const { leads: allLeads } = usePipelineContext();
+  const relatedLeads = allLeads.filter((l) => l.trend_title === lead.trend_title && l.company_name !== lead.company_name);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, maxWidth: 1100, alignItems: "start" }}>
@@ -615,15 +765,49 @@ function IntelTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: Tre
           <Section title="RUN METADATA" icon={Hash} accent="var(--text-xmuted)">
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
               {[
-                { label: "Run ID",  value: lead.run_id,    mono: true  },
-                ...(lead.id != null ? [{ label: "Lead ID", value: `#${lead.id}`, mono: true }] : []),
-                { label: "Event",   value: lead.event_type, mono: false },
+                { label: "Run ID",    value: lead.run_id,                         mono: true  },
+                ...(lead.id != null ? [{ label: "Lead ID",   value: `#${lead.id}`,    mono: true }] : []),
+                { label: "Event",     value: lead.event_type,                     mono: false },
+                ...(matchedTrend?.trend_type ? [{ label: "Trend Type", value: matchedTrend.trend_type, mono: false }] : []),
               ].map(({ label, value, mono }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                   <span style={{ fontSize: 11, color: "var(--text-xmuted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
                   <span style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: mono ? "monospace" : undefined }}>{value}</span>
                 </div>
               ))}
+              {lead.run_id && (
+                <div style={{ paddingTop: 10 }}>
+                  <Link href={`/history/${lead.run_id}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+                    <ExternalLink size={10} /> View Pipeline Run Tree
+                  </Link>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* Other leads from the same trend */}
+        {relatedLeads.length > 0 && (
+          <Section title="OTHER LEADS IN THIS TREND" icon={Users} accent="var(--blue)">
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {relatedLeads.slice(0, 6).map((rl, i) => {
+                const c = TYPE_COLORS[rl.lead_type]?.accent ?? "var(--text-muted)";
+                return (
+                  <Link key={i} href={`/leads/${rl.id ?? i}`} style={{ textDecoration: "none" }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)", transition: "all 140ms", cursor: "pointer" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)"; (e.currentTarget as HTMLElement).style.background = "var(--surface)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLElement).style.background = "var(--bg)"; }}
+                    >
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rl.company_name}</span>
+                      <span className={`badge ${TYPE_COLORS[rl.lead_type]?.badge ?? "badge-muted"}`} style={{ fontSize: 9 }}>{rl.lead_type}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: c }}>{Math.round(rl.confidence * 100)}</span>
+                      <ChevronRight size={10} style={{ color: "var(--text-xmuted)" }} />
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </Section>
         )}
@@ -641,6 +825,79 @@ function IntelTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: Tre
                     <div key={signal} style={{ padding: "10px 12px", background: "var(--green-light)", borderRadius: 8, border: "1px solid var(--green)22" }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: "var(--green)", marginBottom: 3 }}>{signal}</div>
                       <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>{detail}</div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Impact Analysis — direct + indirect */}
+            {((matchedTrend.direct_impact && matchedTrend.direct_impact.length > 0) || (matchedTrend.indirect_impact && matchedTrend.indirect_impact.length > 0)) && (
+              <Section title="IMPACT ANALYSIS" icon={Layers} accent="var(--red)">
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {matchedTrend.direct_impact && matchedTrend.direct_impact.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--red)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Direct Impact</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        {matchedTrend.direct_impact.map((item, i) => (
+                          <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)", flexShrink: 0, marginTop: 5 }} />
+                            <span style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {matchedTrend.indirect_impact && matchedTrend.indirect_impact.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Indirect Impact</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        {matchedTrend.indirect_impact.map((item, i) => (
+                          <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--amber)", flexShrink: 0, marginTop: 5 }} />
+                            <span style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+
+            {/* Market Keywords */}
+            {matchedTrend.keywords && matchedTrend.keywords.length > 0 && (
+              <Section title="MARKET KEYWORDS" icon={Hash} accent="var(--blue)">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {matchedTrend.keywords.map((kw, i) => (
+                    <div key={i} style={{
+                      padding: "4px 10px", borderRadius: 6,
+                      background: "var(--bg)", border: "1px solid var(--border)",
+                      fontSize: 11, fontFamily: "var(--font-mono, monospace)",
+                      color: "var(--blue)", fontWeight: 600, letterSpacing: "0.02em",
+                    }}>
+                      #{kw}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Evidence citations */}
+            {matchedTrend.evidence_citations && matchedTrend.evidence_citations.length > 0 && (
+              <Section title="EVIDENCE CITATIONS" icon={BarChart3} accent="var(--text-muted)">
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {matchedTrend.evidence_citations.map((cite, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, padding: "8px 12px", background: "var(--bg)", borderRadius: 7, border: "1px solid var(--border)" }}>
+                      <div style={{
+                        flexShrink: 0, width: 20, height: 20, borderRadius: "50%",
+                        background: "var(--surface-raised)", border: "1px solid var(--border-strong)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 9, fontWeight: 700, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums",
+                      }}>
+                        {i + 1}
+                      </div>
+                      <span style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, flex: 1 }}>{cite}</span>
                     </div>
                   ))}
                 </div>
@@ -768,6 +1025,166 @@ function CopyBtn({ onCopy, copied, label = "Copy" }: { onCopy: () => void; copie
     }}>
       {copied ? <Check size={11} /> : <Copy size={11} />}
       {copied ? "Copied!" : label}
+    </button>
+  );
+}
+
+// ── People panel — tiered contacts with reach scores ─────────────────
+
+const TIER_META: Record<string, { label: string; color: string; bg: string }> = {
+  decision_maker: { label: "Decision Maker", color: "var(--green)", bg: "var(--green-light)" },
+  influencer: { label: "Influencer", color: "var(--blue)", bg: "var(--blue-light)" },
+  gatekeeper: { label: "Gatekeeper", color: "var(--text-muted)", bg: "var(--surface-raised)" },
+};
+
+const TONE_META: Record<string, { label: string }> = {
+  executive: { label: "Executive" },
+  consultative: { label: "Consultative" },
+  professional: { label: "Professional" },
+};
+
+function PeoplePanel({ people, emailEnabled, testMode, sendState, onSend, copiedKey, onCopy }: {
+  people: PersonRecord[];
+  emailEnabled: boolean;
+  testMode: boolean;
+  sendState: Record<string, { loading: boolean; result?: SendEmailResponse; error?: string }>;
+  onSend: (key: string, personIndex: number, dryRun: boolean) => void;
+  copiedKey: string | null;
+  onCopy: (text: string, key: string) => void;
+}) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  return (
+    <Section title={`PEOPLE (${people.length})`} icon={Users} accent="var(--blue)">
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {people.map((person, i) => {
+          const tier = TIER_META[person.seniority_tier] ?? TIER_META.influencer;
+          const tone = TONE_META[person.outreach_tone] ?? TONE_META.consultative;
+          const isExpanded = expanded === i;
+          const sendKey = `person-${i}`;
+          const pState = sendState[sendKey];
+
+          return (
+            <div key={i} style={{
+              borderRadius: 10,
+              border: `1px solid ${isExpanded ? tier.color + "44" : "var(--border)"}`,
+              background: isExpanded ? tier.bg : "var(--bg)",
+              transition: "all 200ms",
+            }}>
+              <div
+                onClick={() => setExpanded(isExpanded ? null : i)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", cursor: "pointer" }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+                  background: `conic-gradient(${tier.color} ${person.reach_score * 3.6}deg, var(--surface-raised) 0deg)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: "50%",
+                    background: isExpanded ? tier.bg : "var(--bg)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, fontWeight: 800, color: tier.color, fontFamily: "var(--font-display)",
+                  }}>
+                    {person.reach_score}
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: 6 }}>
+                    {person.person_name}
+                    <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: tier.bg, color: tier.color, border: `1px solid ${tier.color}33`, fontWeight: 700 }}>
+                      {tier.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{person.role}</div>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                  {person.email && (
+                    <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: person.verified ? "var(--green)" : "var(--text-muted)" }}>
+                      <Mail size={10} /> {person.email_confidence}%
+                    </span>
+                  )}
+                  {person.linkedin_url && (
+                    <a href={person.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", color: "var(--blue)", padding: 2 }}>
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
+                  <span style={{ fontSize: 9, color: "var(--text-xmuted)", padding: "2px 6px", background: "var(--surface-raised)", borderRadius: 4 }}>{tone.label}</span>
+                  <ChevronRight size={12} style={{ color: "var(--text-xmuted)", transition: "transform 200ms", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }} />
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div style={{ padding: "0 16px 16px", borderTop: "1px solid var(--border)" }}>
+                  {person.outreach_subject ? (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, color: "var(--text-xmuted)", fontWeight: 600 }}>Subject:</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", flex: 1 }}>{person.outreach_subject}</span>
+                        <button onClick={() => onCopy(`Subject: ${person.outreach_subject}\n\n${person.outreach_body}`, `person-${i}-email`)}
+                          style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 8px", fontSize: 9, color: copiedKey === `person-${i}-email` ? "var(--green)" : "var(--text-xmuted)", background: copiedKey === `person-${i}-email` ? "var(--green-light)" : "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 4, cursor: "pointer", flexShrink: 0 }}>
+                          {copiedKey === `person-${i}-email` ? <Check size={9} /> : <Copy size={9} />}
+                          {copiedKey === `person-${i}-email` ? "Copied" : "Copy"}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.8, whiteSpace: "pre-wrap", padding: "12px 14px", background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                        {person.outreach_body}
+                      </div>
+                      {person.email && (
+                        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <SendEmailBtn label={`Send to ${person.person_name.split(" ")[0]}`} enabled={emailEnabled} testMode={testMode} state={pState} onSend={() => onSend(sendKey, i, false)} />
+                          {!pState?.result && !sendState[`${sendKey}-dry`]?.result && (
+                            <button onClick={() => onSend(`${sendKey}-dry`, i, true)} disabled={!emailEnabled || sendState[`${sendKey}-dry`]?.loading}
+                              style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 10, color: "var(--text-secondary)", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, cursor: emailEnabled ? "pointer" : "not-allowed", opacity: emailEnabled ? 1 : 0.5, fontWeight: 600 }}>
+                              {sendState[`${sendKey}-dry`]?.loading ? <Loader2 size={10} className="spin" /> : <Shield size={10} />} Dry Run
+                            </button>
+                          )}
+                          {sendState[`${sendKey}-dry`]?.result && (
+                            <span style={{ fontSize: 10, color: "var(--green)", display: "flex", alignItems: "center", gap: 3 }}><Check size={10} /> Dry run OK</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ padding: "16px 0", textAlign: "center" }}>
+                      <p style={{ fontSize: 11, color: "var(--text-xmuted)", margin: 0 }}>{person.email ? "No personalized outreach generated" : "No email found"}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+
+function SendEmailBtn({ label, enabled, testMode, state, onSend }: {
+  label: string; enabled: boolean; testMode: boolean;
+  state?: { loading: boolean; result?: SendEmailResponse; error?: string };
+  onSend: () => void;
+}) {
+  if (state?.result) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 11, fontWeight: 600, background: state.result.success ? "var(--green-light)" : "var(--red-light)", color: state.result.success ? "var(--green)" : "var(--red)", border: `1px solid ${state.result.success ? "var(--green)" : "var(--red)"}44` }}>
+        {state.result.success ? <Check size={12} /> : <AlertTriangle size={12} />}
+        {state.result.success ? (state.result.dry_run ? `Dry run OK — would send to ${state.result.recipient}` : `Sent to ${state.result.recipient}`) : (state.result.error || "Send failed")}
+        {state.result.test_mode && !state.result.dry_run && <span className="badge badge-amber" style={{ fontSize: 8, marginLeft: 4 }}>TEST MODE</span>}
+      </div>
+    );
+  }
+  if (state?.error) {
+    return <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--red)" }}><AlertTriangle size={12} /> {state.error}</div>;
+  }
+  return (
+    <button onClick={onSend} disabled={!enabled || state?.loading}
+      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", fontSize: 11, fontWeight: 700, borderRadius: 7, cursor: enabled ? "pointer" : "not-allowed", color: enabled ? "#fff" : "var(--text-muted)", background: enabled ? (testMode ? "var(--amber)" : "var(--green)") : "var(--surface-raised)", border: "1px solid transparent", opacity: state?.loading ? 0.7 : 1, transition: "all 180ms" }}>
+      {state?.loading ? <Loader2 size={12} className="spin" /> : <Send size={12} />}
+      {state?.loading ? "Sending..." : label}
+      {testMode && enabled && <span style={{ fontSize: 8, opacity: 0.8, marginLeft: 2 }}>TEST</span>}
     </button>
   );
 }
