@@ -211,14 +211,7 @@ def score_company_activity(
 
 # Generic entities that appear in most articles from the same domain.
 # These should NOT count toward entity coherence — they don't discriminate.
-_GENERIC_ENTITIES = frozenset({
-    "india", "indian", "us", "china", "uk", "eu", "new delhi", "delhi",
-    "mumbai", "bangalore", "bengaluru", "government", "ministry",
-    "artificial intelligence", "ai", "market", "markets", "digital",
-    "technology", "business", "economy", "global", "world",
-    "million", "billion", "crore", "lakh", "percent", "%",
-    "fy25", "fy26", "fy2025", "fy2026", "q1", "q2", "q3", "q4",
-})
+from app.shared.stopwords import GENERIC_ENTITIES as _GENERIC_ENTITIES
 
 
 def validate_cluster(
@@ -325,17 +318,7 @@ def validate_cluster(
 
     # ── Title vocabulary coherence ──
     # Extract stemmed title words, compute pairwise overlap
-    _title_stop = frozenset({
-        "the", "a", "an", "in", "on", "at", "to", "for", "of", "and", "or",
-        "is", "are", "was", "were", "be", "been", "has", "have", "had",
-        "with", "from", "by", "its", "it", "this", "that", "how", "what",
-        "why", "who", "will", "can", "may", "could", "would", "should",
-        "not", "no", "but", "if", "as", "up", "out", "about", "after",
-        "new", "more", "most", "top", "big", "all", "over", "into",
-        "says", "said", "set", "get", "gets", "here", "now", "also",
-        "amid", "check", "know", "things", "need", "five", "three",
-        "india", "indian", "market", "business", "economy",
-    })
+    from app.shared.stopwords import TITLE_STOP as _title_stop
     title_vocabs = []
     for a in articles:
         words = set()
@@ -582,7 +565,7 @@ async def validate_all_clusters_llm(
     )
 
     # Run validations concurrently (semaphore limits parallel LLM calls)
-    sem = asyncio.Semaphore(3)  # Max 3 concurrent LLM calls
+    sem = asyncio.Semaphore(2)  # Max 2 concurrent — DSQ ~30 RPM
 
     async def _validate_one(cid, arts, enr):
         async with sem:
@@ -618,13 +601,13 @@ async def validate_all_clusters_llm(
 # ── Cross-cluster entity linking ─────────────────────────────────────────
 
 def link_entities_across_clusters(
-    cluster_enrichments: List[Dict],
+    enrichments: List[Dict],
 ) -> Dict[str, Dict]:
     """Track ORG entities across all clusters. Companies appearing in
     multiple clusters are stronger lead signals (multi-trend involvement).
 
     Args:
-        cluster_enrichments: List of enrichment dicts from enrich_cluster().
+        enrichments: List of enrichment dicts from enrich_cluster().
 
     Returns:
         Dict mapping company name → {
@@ -636,7 +619,7 @@ def link_entities_across_clusters(
     """
     company_clusters: Dict[str, Dict] = {}
 
-    for enrichment in cluster_enrichments:
+    for enrichment in enrichments:
         cluster_id = enrichment.get("cluster_id", -1)
         for company in enrichment.get("companies", []):
             name = company["name"]
@@ -735,12 +718,12 @@ def enrich_all_clusters(
         activity_window_days: recency window
 
     Returns:
-        (cluster_enrichments, cross_cluster_companies)
+        (enrichments, cross_cluster_companies)
     """
     import numpy as np
 
     unique_labels = sorted(set(labels))
-    cluster_enrichments = []
+    enrichments = []
 
     for cl_id in unique_labels:
         if cl_id == -1:
@@ -752,10 +735,10 @@ def enrich_all_clusters(
             articles=cluster_articles,
             activity_window_days=activity_window_days,
         )
-        cluster_enrichments.append(enrichment)
+        enrichments.append(enrichment)
 
     # Cross-cluster entity linking
-    cross_cluster = link_entities_across_clusters(cluster_enrichments)
+    cross_cluster = link_entities_across_clusters(enrichments)
 
     # Log cross-cluster summary
     multi_cluster = {
@@ -775,4 +758,4 @@ def enrich_all_clusters(
             )
         )
 
-    return cluster_enrichments, cross_cluster
+    return enrichments, cross_cluster

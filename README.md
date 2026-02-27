@@ -1,311 +1,160 @@
----
-title: India Trend Lead Generation Agent
-emoji: "\U0001F4C8"
-colorFrom: yellow
-colorTo: blue
-sdk: streamlit
-sdk_version: "1.31.0"
-app_file: streamlit_app.py
-pinned: false
-python_version: "3.11"
----
+# Sales Agent -- India Trend-to-Lead Pipeline
 
-# India Trend Lead Generation Agent
+AI pipeline that scrapes 22+ RSS sources, clusters articles into business trends via Leiden community detection, then runs a LangGraph agent pipeline to find target companies, contacts, and generate outreach emails. Self-learns through 6 feedback loops (Thompson Sampling, EMA drift, weight adaptation).
 
-AI-powered market trend detection and B2B lead generation for Indian mid-size companies. Ingests news from 22+ sources, clusters articles with a 12-phase ML pipeline, detects business trends via LLM, and generates targeted sales outreach with lead scoring.
+## Dev Setup
 
-## What It Does
+Prerequisites: Python 3.11+, Node 20+, Docker (for SearXNG only).
 
-```
-153 articles from 25 sources
-    -> 132 unique after dedup
-    -> 16 major trends detected
-    -> 14 impacts analyzed
-    -> 36 target companies found
-    -> Decision makers identified
-    -> Personalized pitch emails generated
-    -> Leads scored 0-100, exported as JSON/CSV
+```bash
+git clone <repo> && cd sales_agent
+
+# 1. Install everything
+npm run install:all    # pip install + spacy model + frontend npm install
+
+# 2. Configure
+cp .env.example .env   # fill in at least GEMINI_API_KEY or OPENAI_API_KEY
+
+# 3. Start SearXNG (Docker — only external service needed)
+npm run searxng         # runs searxng/searxng on port 8888
+
+# 4. Run
+npm run dev             # starts api (port 8000) + frontend (port 3000) in parallel
 ```
 
-The system automatically:
-1. **Fetches News** — 22+ sources (RSS feeds + APIs) in parallel
-2. **Detects Trends** — 12-phase ML pipeline: NER, embeddings, UMAP, HDBSCAN, LLM synthesis
-3. **Analyzes Impact** — Identifies which sectors win/lose, pain points, consulting opportunities
-4. **Finds Companies** — Discovers real mid-size Indian companies via Tavily search + NER verification
-5. **Locates Decision Makers** — Finds CTOs, CEOs, VPs via Apollo.io + web search
-6. **Generates Outreach** — Personalized consulting pitch emails with lead scores
+### Individual commands
+
+```bash
+npm run api             # uvicorn app.main:app --reload --port 8000
+npm run frontend        # next dev on port 3000
+npm run pipeline:run    # headless pipeline run (no server needed)
+npm run pipeline:mock   # replay recorded data (~45s)
+npm run searxng:stop    # stop SearXNG container
+```
+
+Backend and frontend run locally (no Docker). Only SearXNG needs Docker because it's a standalone search engine. The frontend connects to `http://localhost:8000` by default (configured in `frontend/lib/api.ts`).
+
+### Full Docker deployment (optional)
+
+For deploying the entire stack in containers:
+
+```bash
+docker compose up -d    # searxng + api + frontend
+docker compose logs -f
+```
+
+Note: `NEXT_PUBLIC_API_URL` is a build-time arg in the frontend Dockerfile (Next.js inlines `NEXT_PUBLIC_*` at build time, not runtime).
 
 ## Architecture
 
 ```
-Raw News (22+ sources)
-        |
-        v
-+---------------------------+
-|  12-Phase Trend Engine    |   RSS/API -> Scrape -> Event Classify -> Dedup
-|  (RecursiveTrendEngine)   |   -> NER -> Embed -> UMAP -> HDBSCAN
-|                           |   -> Signals -> LLM Synthesis -> Tree
-+----------+----------------+
-           |
-           v
-+-------------------------------------------+
-|          LANGGRAPH PIPELINE               |
-|                                           |
-|  Impact Agent -> Company Agent -> Contact |
-|  (LLM)          (Tavily+NER)     (Apollo) |
-|                                     |     |
-|                               Email Agent |
-|                            (Apollo+Hunter) |
-+-------------------------------------------+
-           |
-           v
-   Scored Leads (JSON/CSV)
+22+ RSS Sources ──> source_intel ──> analysis ──> impact ──> quality
+                                     (embed,      (LLM per    (confidence
+                                      Leiden,      trend)       gate)
+                                      LLM synth)
+                                                                  |
+                                                                  v
+                    learning_update <── lead_gen <── lead_crystallize <── causal_council
+                    (6 loops)          (SearXNG,     (causal hops       (4-agent
+                                       Apollo,       to lead sheets)     reasoning)
+                                       Hunter)
 ```
 
-### LLM Provider Chain (Auto-Failover)
+Pipeline runs ~25-40 min real, ~45s mock replay. Each step is a LangGraph node in `app/agents/orchestrator.py`.
 
-```
-NVIDIA (kimi-k2.5) -> Ollama (local) -> OpenRouter -> Gemini -> Groq
-```
+### LLM Provider Chain (auto-failover with exponential backoff)
 
-Each provider has a 5-minute cooldown on failure. First available provider is used.
+| Chain | Order (position 1 tried first) |
+|-------|------|
+| General | OpenAI (gpt-4.1-mini) -> GeminiDirect -> VertexLlama -> NVIDIA -> Groq -> OpenRouter -> Ollama |
+| Structured | OpenAI -> GeminiDirect -> Groq -> Ollama |
+| Tool calling | OpenAI -> GeminiDirect -> Groq -> VertexLlama -> Ollama |
+| Lite | OpenAI Nano (gpt-4.1-nano) -> GeminiDirectLite -> Groq -> standard |
+| Embeddings | NVIDIA nv-embedqa-e5-v5 -> OpenAI text-embedding-3-large -> HF API -> Local -> Ollama |
 
-### Embedding Strategy (3-Tier)
+OpenAI is position 1 for reliability (500+ RPM, best structured output). GeminiDirect at position 2 uses $300 GCP free credits as fallback. All embeddings are 1024-dim (OpenAI uses `dimensions=1024` param to match NVIDIA).
 
-```
-Local SentenceTransformers (384-dim) -> Ollama -> HuggingFace API
-```
+### API Endpoints
 
-Local model auto-detects CUDA GPU for acceleration (1.6x faster on NVIDIA MX550). Falls back to CPU if no GPU. No API key needed. Dimension locking prevents silent mixing.
-
-## Quick Start
-
-### 1. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-```
-
-### 2. Configure Environment
-
-Create `.env` in the project root:
-
-```env
-# LLM Providers (configure at least one)
-NVIDIA_API_KEY=your_nvidia_key           # Highest priority
-USE_OLLAMA=true                          # Local, unlimited
-OLLAMA_MODEL=mistral
-OLLAMA_BASE_URL=http://localhost:11434
-OPENROUTER_API_KEY=your_openrouter_key
-OPENROUTER_MODEL=google/gemini-2.0-flash-001
-GEMINI_API_KEY=your_gemini_key
-GEMINI_MODEL=gemini-2.0-flash
-GROQ_API_KEY=your_groq_key
-GROQ_MODEL=openai/gpt-oss-120b
-
-# Embeddings (optional - local model works without API key)
-HF_API_KEY=your_huggingface_token
-
-# News APIs (more = better coverage)
-NEWSAPI_KEY=your_newsapi_key
-GNEWS_API_KEY=your_gnews_key
-MEDIASTACK_KEY=your_mediastack_key
-THENEWSAPI_KEY=your_thenewsapi_key
-
-# Company Search
-TAVILY_API_KEY=your_tavily_key
-
-# Contact Finding
-APOLLO_API_KEY=your_apollo_key
-HUNTER_API_KEY=your_hunter_key
-
-# Settings
-COUNTRY=India
-COUNTRY_CODE=IN
-MAX_TRENDS=3
-MAX_COMPANIES_PER_TREND=3
-MAX_CONTACTS_PER_COMPANY=2
-EMAIL_CONFIDENCE_THRESHOLD=70
-MOCK_MODE=false
-```
-
-### 3. Run the Streamlit Dashboard
-
-```bash
-streamlit run streamlit_app.py
-```
-
-This gives you:
-- **5-step wizard** with human-in-the-loop review at each stage
-- **React Flow graph** visualization of trend hierarchy
-- **Provider transparency** — see which LLM/embedding provider handled each step
-- **Real-time pipeline log** with timestamped phase progress
-- **Manual selection** of trends, companies, and contacts
-- **Export to JSON/CSV** with one click
-
-### 4. Run via FastAPI (Optional)
-
-```bash
-# Start server
-python -m app.main --server --port 8000
-
-# Call the API
-curl -X POST http://localhost:8000/run
-```
-
-## The 12-Phase Trend Detection Pipeline
-
-| Phase | Name | What it does |
-|-------|------|-------------|
-| 0 | News Fetching | Parallel fetch from 22+ sources (RSS + APIs) |
-| 0.5 | Event Classification | Embedding-based event type detection (15 categories) |
-| 0.5 | Content Scraping | Full article extraction via trafilatura |
-| 0.7 | Relevance Filter | Remove non-business content |
-| 1 | Deduplication | MinHash LSH near-duplicate removal |
-| 2 | NER | spaCy named entity recognition |
-| 2.3 | Geo Filter | Entity-based geographic relevance |
-| 2.5 | Co-occurrence | Entity relationship graph |
-| 2.7 | Sentiment | VADER sentiment analysis |
-| 3 | Embedding | Local SentenceTransformers (384-dim) |
-| 3.5 | Semantic Dedup | Cosine similarity deduplication |
-| 4 | UMAP | 384-dim -> 5-dim reduction |
-| 5 | HDBSCAN | Density-based clustering |
-| 5.5 | Coherence | Cluster quality validation in original space |
-| 6 | Keywords | TF-IDF extraction |
-| 7 | Signals | 7-module scoring (temporal, content, entity, source, market, search, composite) |
-| 7.1 | Entity Graph | Bridge entity detection |
-| 7.5 | Google Trends | Search interest validation |
-| 7.7 | Trend Memory | Historical trend matching |
-| 8 | LLM Synthesis | Human-readable summaries + 5W1H |
-| 9 | Quality Gate | Drop low-quality clusters + tree assembly |
-| 10 | Trend Linking | Cross-trend relationships |
-
-## Anti-Hallucination System
-
-| Layer | Protection |
-|-------|-----------|
-| V2 | JSON structure validation |
-| V3 | Synthesis quality checks |
-| V6 | Event classification accuracy |
-| V7 | Company NER verification + Wikipedia |
-| V9 | Cluster quality gate |
-| V10 | Cross-validation with retry |
-| Pydantic | Field-level schema validation |
-| Dimension Lock | Embedding consistency |
-| Dedup Safety | Degenerate embedding detection |
-
-## News Sources
-
-| Category | Sources |
-|----------|---------|
-| **Tier 1** | Economic Times, ET Industry, ET Tech, Mint, Business Standard, Moneycontrol, Financial Express, PIB, RBI |
-| **Tier 2** | YourStory, Inc42, NDTV Profit, Hindu Business Line |
-| **Tier 3** | Google News India (Business + Tech) |
-| **APIs** | NewsAPI.org, MediaStack, TheNewsAPI, GNews, GDELT (2 feeds) |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Provider status, cooldown state |
+| `POST` | `/api/v1/pipeline/run` | Start pipeline, returns `run_id` |
+| `GET` | `/api/v1/pipeline/stream/{run_id}` | SSE real-time progress |
+| `GET` | `/api/v1/pipeline/status/{run_id}` | Polling fallback |
+| `GET` | `/api/v1/pipeline/result/{run_id}` | Full results (trends, leads, impacts) |
+| `GET` | `/api/v1/leads` | Filtered leads (`?hop=&lead_type=&min_confidence=`) |
+| `POST` | `/api/v1/feedback` | Trend/lead ratings for learning |
+| `GET` | `/api/v1/feedback/summary` | Feedback stats |
 
 ## Project Structure
 
 ```
 sales_agent/
-├── streamlit_app.py              # Streamlit UI (5-step wizard)
-├── requirements.txt
-├── .env                          # API keys (gitignored)
-├── SYSTEM_GUIDE.md               # Detailed developer reference
-│
-├── app/
-│   ├── config.py                 # Settings + source definitions
-│   ├── main.py                   # FastAPI entry point
-│   │
-│   ├── agents/                   # LangGraph pipeline agents
-│   │   ├── impact_agent.py       # Trend impact analysis
-│   │   ├── company_agent.py      # Company discovery + V7 verification
-│   │   ├── contact_agent.py      # Decision maker finding
-│   │   ├── email_agent.py        # Email finding + pitch generation
-│   │   └── orchestrator.py       # Pipeline orchestration
-│   │
-│   ├── news/                     # News processing modules
-│   │   ├── dedup.py              # MinHash LSH
-│   │   ├── entity_extractor.py   # spaCy NER
-│   │   ├── event_classifier.py   # Embedding-based classification
-│   │   └── scraper.py            # Article content extraction
-│   │
-│   ├── schemas/                  # Pydantic data models
-│   │   ├── base.py               # Enums (Severity, SignalStrength, etc.)
-│   │   ├── news.py               # NewsArticle, Entity
-│   │   ├── trends.py             # TrendNode, TrendTree
-│   │   ├── sales.py              # CompanyData, ContactData, OutreachEmail
-│   │   └── pipeline.py           # AgentState
-│   │
-│   ├── tools/                    # External service integrations
-│   │   ├── llm_tool.py           # Multi-provider LLM (5 providers)
-│   │   ├── embeddings.py         # 3-tier embeddings
-│   │   ├── rss_tool.py           # 22+ source news fetcher
-│   │   ├── tavily_tool.py        # Company search
-│   │   ├── apollo_tool.py        # Contact + email finding
-│   │   └── hunter_tool.py        # Email finding (fallback)
-│   │
-│   ├── trends/                   # ML pipeline modules
-│   │   ├── engine.py             # RecursiveTrendEngine (12 phases)
-│   │   ├── coherence.py          # Cluster validation
-│   │   ├── keywords.py           # TF-IDF extraction
-│   │   ├── reduction.py          # UMAP
-│   │   ├── subclustering.py      # Recursive sub-trends
-│   │   ├── tree_builder.py       # Hierarchy assembly
-│   │   ├── trend_memory.py       # Historical persistence
-│   │   └── signals/              # 7 signal modules
-│   │
-│   └── shared/                   # UI utilities
-│       ├── styles.py             # CSS theme
-│       ├── sidebar.py            # Settings panel
-│       ├── helpers.py            # HTML escaping, data conversion
-│       └── visualizations.py     # React Flow graph
-│
-└── tests/
-    ├── test_validation_layers.py # 31 validation tests
-    ├── test_pipeline.py          # Pipeline diagnostics
-    ├── test_llm_providers.py     # Provider connectivity
-    └── test_stress.py            # Load testing
+├── app/                  # Python backend (see app/README.md)
+│   ├── agents/           # LangGraph pipeline nodes + workers + council
+│   ├── api/              # FastAPI routers
+│   ├── learning/         # 6 self-learning loops
+│   ├── news/             # RSS, dedup, NER, event classification
+│   ├── schemas/          # Pydantic models
+│   ├── search/           # SearXNG, BM25
+│   ├── shared/           # Helpers (geo, stopwords)
+│   ├── tools/            # LLM, embeddings, Apollo, Hunter
+│   ├── trends/           # Trend engine, clustering, signals
+│   ├── ui/               # Streamlit components (legacy)
+│   └── main.py           # FastAPI app factory
+├── frontend/             # Next.js dashboard (see frontend/README.md)
+├── docker/               # Dockerfiles + SearXNG config
+├── data/                 # Runtime: SQLite, JSONL logs, learned weights
+├── package.json          # Monorepo scripts (npm run dev/api/frontend)
+├── docker-compose.yml    # Full stack: searxng + api + frontend
+└── .env.example          # Template with all vars
 ```
 
-## API Rate Limits
+## Gotchas and Architecture Decisions
 
-| Service | Free Tier | Notes |
-|---------|-----------|-------|
-| Tavily | 1,000/month | Company search |
-| NewsAPI.org | 100/day | News ingestion |
-| GNews | 100/day | News ingestion |
-| MediaStack | 500/month | News ingestion |
-| Apollo.io | 600/month | Primary contact finder |
-| Hunter.io | 25/month | Fallback email finder |
-| Gemini | 60 RPM | LLM provider |
-| OpenRouter | Pay-per-use | LLM provider |
-| Ollama | Unlimited | Local, recommended |
+### LangGraph stream_mode
+MUST use `stream_mode="updates"` not `"values"`. The `"values"` mode tries to msgpack-serialize `AgentDeps` which contains ChromaDB clients and LLM model objects -- instant crash.
 
-## Testing
+### Embedding dimension locking
+All embedding providers produce 1024-dim vectors. The `_dim_locked` mechanism in `embeddings.py` rejects any fallback provider that returns different dimensions. If you see "DIMENSION MISMATCH" in logs, a provider fell back to one with incompatible vector size (usually Ollama's 768-dim nomic-embed-text).
+
+### Provider cooldown state is class-level
+`ProviderManager._failed_providers` is a class-level dict shared across all instances. A 429 on GeminiDirect in the analysis step also affects the impact step. This is intentional -- prevents hammering a rate-limited provider.
+
+### TrendData field name mismatch
+Internal pipeline uses `trend_title` / `industries_affected`. The API `TrendResponse` uses `title` / `industries`. The result endpoint maps both -- check `app/api/pipeline.py` if you're adding fields.
+
+### Provider reset between runs
+Each API pipeline run MUST call `provider_health.reset_for_new_run()`, `ProviderManager.reset_cooldowns()`, and `LLMService.clear_cache()`. The CLI `run_pipeline()` does this. The API `_execute_pipeline` does this. If you add a third entry point, you must too.
+
+### NEXT_PUBLIC_API_URL
+In dev mode, the frontend defaults to `http://localhost:8000` (hardcoded fallback in `frontend/lib/api.ts`). In Docker, it's passed as a build arg because Next.js inlines `NEXT_PUBLIC_*` at build time. Setting it as a runtime env var does nothing for client-side code.
+
+## Debugging
 
 ```bash
-# Validation layers (31 tests)
-python -m pytest test_validation_layers.py -v
+# Check provider health
+curl http://localhost:8000/health | python -m json.tool
 
-# Pipeline diagnostics
-python -m pytest test_pipeline.py -v
+# Check which providers are available
+python -c "from app.tools.provider_manager import ProviderManager; pm=ProviderManager(); pm.get_model(); print(pm.get_provider_names())"
 
-# LLM provider connectivity
-python -m pytest test_llm_providers.py -v
+# Test OpenAI specifically
+python -c "from app.tools.llm_service import LLMService; import asyncio; llm=LLMService(disabled_providers=['GeminiDirect']); print(asyncio.run(llm.generate('test', system_prompt='Reply OK')))"
+
+# Test embeddings
+python -c "from app.tools.embeddings import EmbeddingTool; et=EmbeddingTool(); e=et.embed_text('test'); print(f'dim={len(e)} provider={et._active_provider}')"
+
+# View last pipeline run
+python scripts/view_run.py
 ```
 
-## Troubleshooting
+## Package Documentation
 
-**Ollama not connecting:**
-```bash
-ollama serve                    # Start server
-ollama pull mistral             # Pull model
-curl http://localhost:11434/api/tags  # Verify
-```
-
-**No trends detected:** Check that at least some news sources are returning articles. Enable "Audit sources" in the UI to see source health.
-
-**LLM errors:** Ensure at least one provider has a valid API key. The system needs at least one working LLM for synthesis, impact analysis, company extraction, and email generation.
-
-**Company search slow:** Company discovery makes multiple Tavily API calls + LLM extraction + Wikipedia verification per trend. For 14 trends, expect 5-20 minutes.
+- [app/](app/README.md) -- Backend package, config reference, adding providers
+- [app/agents/](app/agents/README.md) -- LangGraph orchestrator, worker agents, council
+- [app/tools/](app/tools/README.md) -- LLM service, provider manager, embeddings, API tools
+- [app/trends/](app/trends/README.md) -- Trend engine, Leiden clustering, signals
+- [app/learning/](app/learning/README.md) -- 6 self-learning loops, feedback
+- [frontend/](frontend/README.md) -- Next.js dashboard, API layer, dev workflow

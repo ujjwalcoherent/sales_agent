@@ -228,6 +228,7 @@ class TrendNode(BaseModel):
     signal_strength: SignalStrength = SignalStrength.STRONG
     trend_score: float = 0.0                 # Composite importance score
     actionability_score: float = 0.0         # Sales outreach value
+    oss_score: float = 0.0                   # Objective Specificity Score (from synthesis)
     # ── Rich signals (computed by app/trends/signals/) ──
     signals: Dict[str, Any] = Field(default_factory=dict)
 
@@ -457,6 +458,7 @@ class TrendTree(BaseModel):
                     affected_companies=node.affected_companies,
                     trend_score=node.trend_score,
                     actionability_score=node.actionability_score,
+                    oss_score=node.oss_score,
                     actionable_insight=node.actionable_insight,
                     article_snippets=node.article_snippets,
                 )
@@ -569,6 +571,7 @@ class MajorTrend(BaseModel):
     # Scoring (carried from TrendNode — needed by downstream TrendData)
     trend_score: float = 0.0
     actionability_score: float = 0.0
+    oss_score: float = 0.0
     actionable_insight: str = ""
 
     # Source evidence snippets (carried from TrendNode — for impact council)

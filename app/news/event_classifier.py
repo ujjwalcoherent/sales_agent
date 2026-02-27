@@ -1178,6 +1178,14 @@ class EmbeddingEventClassifier:
         # Cap LLM calls to avoid cost explosion
         from app.config import get_settings
         max_llm_calls = min(len(articles), get_settings().event_max_llm_calls)
+
+        # Sort by confidence ascending — most ambiguous first (closest to decision
+        # boundary). These benefit most from LLM validation. High-confidence
+        # ambiguous articles likely have correct k-NN labels already.
+        articles = sorted(
+            articles,
+            key=lambda a: getattr(a, '_trigger_confidence', 0.5),
+        )
         articles = articles[:max_llm_calls]
 
         try:
@@ -1193,14 +1201,18 @@ class EmbeddingEventClassifier:
         )
 
         import asyncio
-        # Reduced from 6 to 3: Vertex Llama rate limit is ~60 RPM.
-        # 213 simultaneous requests explode past the quota — 3 concurrent avoids 429 storms.
-        semaphore = asyncio.Semaphore(3)
+        semaphore = asyncio.Semaphore(1)  # Sequential: prevents 429 cascade
         reclassified = 0
+        consecutive_failures = 0
+        max_consecutive_failures = 5  # Early exit if providers are exhausted
 
         async def _validate_one(article) -> bool:
-            nonlocal reclassified
+            nonlocal reclassified, consecutive_failures
+            if consecutive_failures >= max_consecutive_failures:
+                return False  # All providers likely exhausted, stop wasting calls
             async with semaphore:
+                # Rate limit protection: 1s delay between calls
+                await asyncio.sleep(1.0)
                 prompt = f"""Classify this news article into ONE event type.
 
 ARTICLE TITLE: {article.title}
@@ -1240,9 +1252,17 @@ Respond with JSON:
                         )
                         article._trigger_reasoning = f"LLM validated: {reasoning}"
                         article._trigger_intent = f"{new_etype} event (LLM: {new_confidence:.2f})"
+                        consecutive_failures = 0  # Reset on success
                         return True
                 except Exception as e:
-                    logger.debug(f"Tier 2 failed for '{article.title[:40]}': {e}")
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_consecutive_failures:
+                        logger.warning(
+                            f"Tier 2: {consecutive_failures} consecutive failures — "
+                            f"providers likely exhausted, skipping remaining {len(articles)} articles"
+                        )
+                    else:
+                        logger.debug(f"Tier 2 failed for '{article.title[:40]}': {e}")
                 return False
 
         tasks = [_validate_one(a) for a in articles]

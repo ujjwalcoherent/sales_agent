@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
-from app.agents.agent_deps import AgentDeps
+from app.agents.deps import AgentDeps
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ Always explain your quality verdict with specific metrics.
 
 # ── Agent definition ──────────────────────────────────────────────────
 
-quality_agent = Agent(
+quality = Agent(
     'test',  # Placeholder — overridden at runtime via deps.get_model()
     deps_type=AgentDeps,
     output_type=QualityVerdict,
@@ -74,7 +74,7 @@ quality_agent = Agent(
 
 # ── Tools ─────────────────────────────────────────────────────────────
 
-@quality_agent.tool
+@quality.tool
 async def validate_trend_quality(ctx: RunContext[AgentDeps]) -> str:
     """Validate trend clustering quality (post-Analysis stage).
 
@@ -110,7 +110,7 @@ async def validate_trend_quality(ctx: RunContext[AgentDeps]) -> str:
     )
 
 
-@quality_agent.tool
+@quality.tool
 async def validate_impact_quality(ctx: RunContext[AgentDeps]) -> str:
     """Validate impact analysis quality (post-Impact stage).
 
@@ -135,7 +135,7 @@ async def validate_impact_quality(ctx: RunContext[AgentDeps]) -> str:
     )
 
 
-@quality_agent.tool
+@quality.tool
 async def record_quality_feedback(
     ctx: RunContext[AgentDeps],
     feedback_type: str,
@@ -171,7 +171,7 @@ async def run_quality_check(deps: AgentDeps, stage: str) -> QualityVerdict:
 
     try:
         model = deps.get_model()
-        result = await quality_agent.run(prompt, deps=deps, model=model)
+        result = await quality.run(prompt, deps=deps, model=model)
         logger.info(
             f"Quality Agent ({stage}): "
             f"passed={result.output.passed}, "

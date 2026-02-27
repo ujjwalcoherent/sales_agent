@@ -63,6 +63,41 @@
   --font-sans:    var(--font-sans, system-ui, sans-serif);
 }
 
+/* ─── Dark Mode Tokens ───────────────────────────── */
+.dark {
+  --bg:            #18170F;
+  --surface:       #1F1E15;
+  --surface-raised: #26241A;
+  --surface-hover:  #2E2B1F;
+
+  --border:        #33311F;
+  --border-strong: #4A4735;
+
+  --text:          #EDE9D8;
+  --text-secondary:#B8B49E;
+  --text-muted:    #7A7865;
+  --text-xmuted:   #4A4838;
+
+  --accent:        #C8843A;
+  --accent-hover:  #E09A4A;
+  --accent-light:  #2A2215;
+  --accent-mid:    #D4973D;
+
+  --green:         #4A9A72;
+  --green-light:   #162818;
+  --red:           #C85A50;
+  --red-light:     #2A1210;
+  --blue:          #5A8AC8;
+  --blue-light:    #0E1A2A;
+  --amber:         #C8843A;
+  --amber-light:   #251A0A;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.30);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.40);
+}
+
 /* ─── Base ───────────────────────────────────────── */
 @layer base {
   * {

@@ -1,0 +1,45 @@
+# Local dev: only SearXNG runs in Docker (npm run searxng).
+# Full deployment: docker compose up -d (all 3 services).
+
+version: "3.9"
+services:
+  # SearXNG search engine — required for company discovery.
+  # Local dev: npm run searxng (runs this service standalone)
+  # Config: docker/searxng/settings.yml (limiter: false, json format enabled)
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.yml
+    restart: unless-stopped
+
+  # FastAPI backend — only needed for Docker deployment.
+  # Local dev: npm run api (uvicorn with --reload)
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - searxng
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # Next.js frontend — only needed for Docker deployment.
+  # Local dev: npm run frontend (next dev with hot reload)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+      args:
+        # NEXT_PUBLIC_* must be build args (inlined by next build, not runtime)
+        NEXT_PUBLIC_API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped

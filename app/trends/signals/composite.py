@@ -11,8 +11,11 @@ Three output scores:
    Based on BERTrend + Reddit Hot algorithm research. Not sales-specific —
    measures raw importance regardless of commercial value.
 
-3. confidence_score (0-1): How confident are we this is a REAL trend?
-   Measures cluster coherence, source diversity, search corroboration.
+3. cluster_quality_score (0-1): How well-formed is this cluster?
+   Measures cluster coherence, source diversity, authority.
+
+4. confidence_score (0-1): How confident are we this is a REAL, NEW trend?
+   Combines cluster quality + temporal novelty + evidence specificity.
 
 T3 ENHANCEMENT: All scores now include factor breakdowns stored in signals dict.
    Each breakdown shows {factor: {weight, raw, contribution}} so the UI can
@@ -42,24 +45,50 @@ logger = logging.getLogger(__name__)
 
 
 def _load_weights() -> Dict[str, float]:
-    """Load actionability weights from config (env-configurable).
+    """Load actionability weights from config, then overlay learned weights.
 
-    Falls back to hardcoded defaults if config unavailable.
+    Priority: learned weights (from feedback) > config > hardcoded defaults.
+    Falls back to config/defaults if insufficient feedback.
     """
     try:
         from app.config import get_settings
         raw = get_settings().actionability_weights
-        return json.loads(raw)
+        defaults = json.loads(raw)
     except Exception:
-        return {
-            "recency": 0.12, "velocity": 0.08, "specificity": 0.10,
-            "regulatory": 0.10, "trigger": 0.12, "diversity": 0.08,
-            "authority": 0.12, "financial": 0.05, "person": 0.03,
-            "event_focus": 0.05, "search_interest": 0.15,
+        defaults = {
+            "recency": 0.12, "velocity": 0.07, "specificity": 0.12,
+            "regulatory": 0.12, "trigger": 0.14, "diversity": 0.07,
+            "authority": 0.13, "financial": 0.05, "person": 0.03,
+            "event_focus": 0.05, "cmi_relevance": 0.10,
         }
 
+    # Overlay learned weights from feedback (if sufficient data)
+    try:
+        from app.learning.weight_learner import compute_learned_weights
+        return compute_learned_weights("actionability", defaults)
+    except Exception:
+        return defaults
 
-DEFAULT_WEIGHTS = _load_weights()
+
+# TTL-cached weights — refresh every 60s so mid-run weight learner updates take effect
+_WEIGHTS_CACHE: Dict[str, Any] = {"weights": None, "ts": 0.0}
+_WEIGHTS_TTL = 60.0
+
+
+def _get_weights() -> Dict[str, float]:
+    """Get actionability weights with TTL cache (refreshes every 60s)."""
+    import time
+    now = time.time()
+    if _WEIGHTS_CACHE["weights"] is None or (now - _WEIGHTS_CACHE["ts"]) > _WEIGHTS_TTL:
+        _WEIGHTS_CACHE["weights"] = _load_weights()
+        _WEIGHTS_CACHE["ts"] = now
+    return _WEIGHTS_CACHE["weights"]
+
+
+def invalidate_weights_cache() -> None:
+    """Force-invalidate the weights cache (called after weight learner updates)."""
+    _WEIGHTS_CACHE["weights"] = None
+    _WEIGHTS_CACHE["ts"] = 0.0
 
 
 def compute_actionability_score(
@@ -74,12 +103,12 @@ def compute_actionability_score(
 
     Args:
         signals: Flat dict of all computed signals. Also MUTATED to include breakdown.
-        weights: Optional custom weights. Defaults to DEFAULT_WEIGHTS.
+        weights: Optional custom weights. Defaults to learned weights (TTL-cached).
 
     Returns:
         Float in [0, 1]. Higher = more actionable for sales outreach.
     """
-    w = weights or DEFAULT_WEIGHTS
+    w = weights or _get_weights()
 
     # Extract and normalize each component
     factors = {
@@ -93,7 +122,7 @@ def compute_actionability_score(
         "financial": float(signals.get("financial_indicator", False)),
         "person": float(signals.get("key_person_flag", False)),
         "event_focus": signals.get("trigger_event_concentration", 0.0),
-        "search_interest": signals.get("search_interest_score", 0.0),
+        "cmi_relevance": signals.get("cmi_relevance", 0.0),
     }
 
     # Compute weighted sum + breakdown
@@ -138,16 +167,24 @@ def compute_trend_score(signals: Dict[str, Any]) -> float:
     article_count = signals.get("article_count", 0)
     acceleration = signals.get("acceleration", 0.0)
     diversity = signals.get("source_diversity", 0.0)
-    novelty = signals.get("novelty_score", 0.5)
 
     volume = min(1.0, math.log(1 + article_count) / 5.0)
     accel_norm = (min(1.0, max(-1.0, acceleration)) + 1.0) / 2.0
 
+    # Load weights: learned (from feedback) > config > defaults
+    from app.config import get_settings
+    import json as _json
+    _w = _json.loads(get_settings().trend_score_weights)
+    try:
+        from app.learning.weight_learner import compute_learned_weights
+        _w = compute_learned_weights("trend_score", _w)
+    except Exception:
+        pass
+
     factors = {
-        "volume": {"weight": 0.25, "raw": round(volume, 3)},
-        "momentum": {"weight": 0.35, "raw": round(accel_norm, 3)},
-        "diversity": {"weight": 0.20, "raw": round(diversity, 3)},
-        "novelty": {"weight": 0.20, "raw": round(novelty, 3)},
+        "volume": {"weight": _w.get("volume", 0.30), "raw": round(volume, 3)},
+        "momentum": {"weight": _w.get("momentum", 0.45), "raw": round(accel_norm, 3)},
+        "diversity": {"weight": _w.get("diversity", 0.25), "raw": round(diversity, 3)},
     }
 
     score = 0.0
@@ -200,46 +237,98 @@ def classify_signal_strength(
     return SignalStrength.STRONG
 
 
-def compute_confidence_score(signals: Dict[str, Any]) -> float:
-    """How confident are we that this is a REAL, distinct, actionable trend?
+def compute_cluster_quality_score(signals: Dict[str, Any]) -> float:
+    """How well-formed is this cluster? (Formerly compute_confidence_score.)
 
-    T3: Now stores breakdown in signals["confidence_breakdown"].
+    Measures cluster coherence, source diversity, event agreement, and authority.
+    This is a CLUSTER QUALITY metric, NOT trend confidence.
 
-    Returns:
-        Float in [0, 1]. Higher = more confident this is real, not noise.
-        <0.60 = low confidence (possibly noise)
-        0.60-0.70 = moderate (emerging, needs review)
-        0.70-0.80 = high (probable real trend)
-        0.80+ = very high (confirmed, multi-source, search-validated)
+    Stores breakdown in signals["cluster_quality_breakdown"].
     """
+    from app.config import get_settings
+    import json as _json
+    _cw = _json.loads(get_settings().cluster_quality_score_weights)
+    try:
+        from app.learning.weight_learner import compute_learned_weights
+        _cw = compute_learned_weights("cluster_quality", _cw)
+    except Exception:
+        pass
+
     factors = {
         "coherence": {
-            "weight": 0.20,
+            "weight": _cw.get("coherence", 0.28),
             "raw": round(signals.get("intra_cluster_cosine", 0.5), 3),
         },
         "source_diversity": {
-            "weight": 0.18,
+            "weight": _cw.get("source_diversity", 0.25),
             "raw": round(signals.get("source_diversity", 0.0), 3),
         },
         "event_agreement": {
-            "weight": 0.12,
+            "weight": _cw.get("event_agreement", 0.17),
             "raw": round(signals.get("trigger_event_concentration", 0.0), 3),
         },
         "evidence_volume": {
-            "weight": 0.08,
+            "weight": _cw.get("evidence_volume", 0.12),
             "raw": round(min(1.0, math.log(1 + signals.get("article_count", 0)) / 3.0), 3),
         },
         "authority": {
-            "weight": 0.12,
+            "weight": _cw.get("authority", 0.18),
             "raw": round(signals.get("authority_weighted", 0.5), 3),
         },
-        "search_corroboration": {
-            "weight": 0.15,
-            "raw": round(signals.get("search_interest_score", 0.0), 3),
+    }
+
+    score = 0.0
+    for info in factors.values():
+        contribution = info["weight"] * info["raw"]
+        info["contribution"] = round(contribution, 4)
+        score += contribution
+
+    signals["cluster_quality_breakdown"] = factors
+    return min(1.0, max(0.0, score))
+
+
+def compute_confidence_score(signals: Dict[str, Any]) -> float:
+    """How confident are we this is a REAL, NEW, actionable trend?
+
+    Combines cluster quality with temporal novelty and evidence specificity.
+    This is the score that matters for downstream decisions.
+
+    Returns:
+        Float in [0, 1]. Higher = more confident.
+        <0.40 = low (noise or stale recurring topic)
+        0.40-0.60 = moderate (emerging, needs review)
+        0.60-0.80 = high (confirmed, multi-source)
+        0.80+ = very high (novel, well-evidenced, authoritative)
+    """
+    cluster_quality = signals.get("cluster_quality_score", 0.5)
+    novelty = signals.get("novelty_score", 1.0)
+    source_diversity = signals.get("source_diversity", 0.0)
+    specificity = _compute_specificity(signals)
+
+    _conf_defaults = {
+        "temporal_novelty": 0.30,
+        "cluster_quality": 0.25,
+        "source_corroboration": 0.25,
+        "evidence_specificity": 0.20,
+    }
+    try:
+        from app.learning.weight_learner import compute_learned_weights
+        _conf_w = compute_learned_weights("confidence", _conf_defaults)
+    except Exception:
+        _conf_w = _conf_defaults
+
+    factors = {
+        "temporal_novelty": {
+            "weight": _conf_w.get("temporal_novelty", 0.30), "raw": round(novelty, 3),
         },
-        "historical_continuity": {
-            "weight": 0.15,
-            "raw": round(signals.get("continuity_score", 0.0), 3),
+        "cluster_quality": {
+            "weight": _conf_w.get("cluster_quality", 0.25), "raw": round(cluster_quality, 3),
+        },
+        "source_corroboration": {
+            "weight": _conf_w.get("source_corroboration", 0.25), "raw": round(source_diversity, 3),
+        },
+        "evidence_specificity": {
+            "weight": _conf_w.get("evidence_specificity", 0.20), "raw": round(specificity, 3),
         },
     }
 

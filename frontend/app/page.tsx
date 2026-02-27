@@ -1,3 +1,6 @@
+"use client";
+
+import React from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Zap, CheckCircle2, Building2, Mail } from "lucide-react";
 import { APP_NAME } from "@/lib/config";
@@ -68,12 +71,12 @@ export default function LandingPage() {
         background: "rgba(248,247,242,0.92)", backdropFilter: "blur(14px)",
         borderBottom: "1px solid var(--border)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
           <div style={{ width: 26, height: 26, background: "var(--text)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Zap size={13} color="var(--bg)" strokeWidth={2.5} />
           </div>
           <span className="font-display" style={{ fontSize: 15, color: "var(--text)" }}>{APP_NAME}</span>
-        </div>
+        </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
           {[{ label: "How it works", href: "#how" }, { label: "Features", href: "#features" }].map(({ label, href }) => (
             <a key={label} href={href} className="nav-link-landing" style={{ fontSize: 13, color: "var(--text-secondary)", textDecoration: "none" }}>{label}</a>
@@ -90,29 +93,29 @@ export default function LandingPage() {
         background: "var(--bg)", position: "relative", overflow: "hidden",
         paddingTop: 96,
       }}>
-        {/* Very subtle warm glow — just a whisper */}
+        {/* Warm glow */}
         <div style={{ position: "absolute", top: -100, left: "40%", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(176,112,48,0.07) 0%, transparent 65%)", pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: 60, right: "5%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(45,106,79,0.05) 0%, transparent 65%)", pointerEvents: "none" }} />
 
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 96px", display: "flex", alignItems: "center", gap: 48 }}>
 
           {/* Left: headline */}
-          <div style={{ flex: "0 0 460px", maxWidth: 460, paddingBottom: 96 }}>
+          <div style={{ flex: "0 0 480px", maxWidth: 480, paddingBottom: 112 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(176,112,48,0.25)", background: "var(--accent-light)", marginBottom: 28 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", display: "inline-block", animation: "pulse-dot 1.5s ease-in-out infinite" }} />
-              <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600, letterSpacing: "0.08em" }}>AI SALES INTELLIGENCE</span>
+              <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600, letterSpacing: "0.08em" }}>SIGNAL INTELLIGENCE</span>
             </div>
 
-            <h1 className="font-display" style={{ fontSize: "clamp(40px, 4vw, 60px)", color: "var(--text)", lineHeight: 1.08, letterSpacing: "-0.03em", marginBottom: 22 }}>
-              Market noise to
+            <h1 className="font-display" style={{ fontSize: "clamp(40px, 4vw, 62px)", color: "var(--text)", lineHeight: 1.06, letterSpacing: "-0.03em", marginBottom: 22 }}>
+              Find buyers
               <br />
-              <span style={{ color: "var(--accent)" }}>qualified leads</span>
+              <span style={{ color: "var(--accent)" }}>before they know</span>
               <br />
-              in one run.
+              they&apos;re buying.
             </h1>
 
-            <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.75, marginBottom: 36, maxWidth: 380 }}>
-              Detects regulatory shifts and macro events — surfaces the companies most impacted, finds decision-makers, and writes personalised outreach. Automatically.
+            <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.75, marginBottom: 36, maxWidth: 400 }}>
+              We read hundreds of market signals daily — regulatory shifts, capital flows, M&A activity — and surface the exact companies that need your solution right now, with verified contacts and personalised outreach ready to send.
             </p>
 
             <div style={{ display: "flex", gap: 10 }}>
@@ -131,6 +134,13 @@ export default function LandingPage() {
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-end", paddingBottom: 0 }}>
             <LeadResultsMockup />
           </div>
+        </div>
+
+        {/* Curved bottom wave — bleeds into ticker */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, lineHeight: 0, pointerEvents: "none" }}>
+          <svg viewBox="0 0 1440 56" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style={{ display: "block", width: "100%", height: 56 }}>
+            <path d="M0,0 Q360,56 720,40 Q1080,24 1440,48 L1440,56 L0,56 Z" fill="var(--surface-raised)" />
+          </svg>
         </div>
       </section>
 
@@ -159,8 +169,8 @@ export default function LandingPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 1fr 56px 1fr", alignItems: "center", gap: 0 }}>
             {HOW_IT_WORKS.map((step, i) => (
-              <>
-                <StepCard key={step.num} {...step} />
+              <React.Fragment key={step.num}>
+                <StepCard {...step} />
                 {i < HOW_IT_WORKS.length - 1 && (
                   <div key={`arrow-${i}`} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <div style={{ position: "relative", width: 36, height: 2, background: "linear-gradient(90deg, var(--border), var(--accent-mid))", borderRadius: 2 }}>
@@ -169,7 +179,7 @@ export default function LandingPage() {
                     </div>
                   </div>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -197,49 +207,40 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA ──────────────────────────────────────────── */}
-      <section style={{ padding: "80px 0", background: "var(--bg)" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 96px" }}>
-          <div style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 20,
-            overflow: "hidden",
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            alignItems: "center",
-            boxShadow: "var(--shadow-md)",
-          }}>
-            {/* Accent left stripe */}
-            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "var(--accent)", borderRadius: "20px 0 0 20px" }} />
+      <section style={{ background: "#18170F", padding: "88px 0" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 96px", display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 80 }}>
 
-            {/* Text */}
-            <div style={{ padding: "52px 56px", position: "relative" }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(176,112,48,0.25)", background: "var(--accent-light)", marginBottom: 18 }}>
-                <Zap size={10} style={{ color: "var(--accent)" }} />
-                <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 600, letterSpacing: "0.08em" }}>NO BACKEND REQUIRED</span>
-              </div>
-              <h2 className="font-display" style={{ fontSize: "clamp(26px, 2.5vw, 38px)", color: "var(--text)", letterSpacing: "-0.025em", marginBottom: 14, lineHeight: 1.15 }}>
-                Try a demo run.
-              </h2>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 420 }}>
-                Hit <span style={{ color: "var(--accent)", fontWeight: 600 }}>Demo</span> in the Pipeline bar and watch 15 steps run in real time — RSS scanning → trend detection → company matching → verified leads with personalised emails.
-              </p>
+          {/* Left: copy */}
+          <div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(176,112,48,0.2)", background: "rgba(176,112,48,0.08)", marginBottom: 24 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#C4892A", display: "inline-block", animation: "pulse-dot 1.5s ease-in-out infinite" }} />
+              <span style={{ fontSize: 10, color: "#C4892A", fontWeight: 600, letterSpacing: "0.1em" }}>LIVE DEMO — NO SETUP</span>
             </div>
 
-            {/* Right: preview + buttons */}
-            <div style={{ padding: "40px 56px 40px 0", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 16 }}>
-              <DemoStepPreview />
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
-                <Link href="/dashboard" className="landing-btn-primary"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 28px", borderRadius: 10, background: "var(--accent)", color: "#FFF8EE", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-                  <Zap size={13} /> Open Dashboard
-                </Link>
-                <Link href="/leads" className="landing-btn-light"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 20px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 13, textDecoration: "none", background: "transparent" }}>
-                  Browse sample leads <ArrowUpRight size={12} />
-                </Link>
-              </div>
+            <h2 className="font-display" style={{ fontSize: "clamp(36px, 4vw, 56px)", color: "#F5EDD8", letterSpacing: "-0.025em", lineHeight: 1.08, marginBottom: 20 }}>
+              Watch it work.<br />
+              <span style={{ color: "#C4892A" }}>15 steps.</span> 45 seconds.
+            </h2>
+
+            <p style={{ fontSize: 14, color: "#7A6850", lineHeight: 1.75, maxWidth: 420, marginBottom: 36 }}>
+              Hit <span style={{ color: "#C4892A", fontWeight: 600 }}>Demo</span> in the Pipeline bar — the system scans real sources, debates market impact, matches companies, verifies contacts and generates personalised outreach. All in under a minute.
+            </p>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <Link href="/dashboard" className="landing-btn-primary"
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 10, background: "#C4892A", color: "#0E0D09", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                <Zap size={13} /> Open Dashboard
+              </Link>
+              <Link href="/leads"
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 20px", borderRadius: 10, border: "1px solid #2A2820", color: "#7A7060", fontSize: 13, textDecoration: "none", background: "transparent" }}>
+                Browse sample leads <ArrowUpRight size={12} />
+              </Link>
             </div>
+          </div>
+
+          {/* Right: step preview */}
+          <div style={{ flexShrink: 0 }}>
+            <DemoStepPreview />
           </div>
         </div>
       </section>
@@ -491,7 +492,7 @@ function LandingFooter() {
           ))}
         </div>
 
-        <span style={{ fontSize: 11, color: "var(--text-xmuted)" }}>© 2026 · Built with AI</span>
+        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>© 2026 Harbinger</span>
       </div>
 
       {/* Zone 2: Signal band */}
@@ -506,31 +507,41 @@ function LandingFooter() {
 function SignalBand() {
   return (
     <div style={{ background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "28px 0" }}>
-      <div style={{ padding: "0 64px", marginBottom: 16 }}>
-        <span style={{ fontSize: 10, color: "var(--text-xmuted)", letterSpacing: "0.12em", fontWeight: 700 }}>
-          SIGNALS DETECTED — LAST RUN
-        </span>
+      {/* Live indicator */}
+      <div style={{ padding: "0 64px", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "pulse-dot 1.5s ease-in-out infinite", flexShrink: 0 }} />
+        <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.06em" }}>Live signals</span>
       </div>
 
-      {/* Scrollable card row with fade masks */}
-      <div style={{ position: "relative", padding: "0 64px" }}>
+      {/* Auto-scrolling card row with fade masks */}
+      <div style={{
+        overflow: "hidden",
+        WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
+        maskImage:        "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
+      }}>
         <div
-          className="signal-scroll"
           style={{
             display: "flex",
             gap: 12,
-            overflowX: "auto",
-            scrollbarWidth: "none",
+            width: "max-content",
             paddingBottom: 4,
-            WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%)",
-            maskImage:        "linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%)",
+            animation: "signalScroll 32s linear infinite",
           }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.animationPlayState = "paused"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.animationPlayState = "running"; }}
         >
-          {SIGNAL_CARDS.map((card) => (
-            <SignalCard key={card.title} {...card} />
+          {[...SIGNAL_CARDS, ...SIGNAL_CARDS].map((card, i) => (
+            <SignalCard key={`${card.title}-${i}`} {...card} />
           ))}
         </div>
       </div>
+
+      <style>{`
+        @keyframes signalScroll {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -620,7 +631,7 @@ function WordmarkAnchor() {
     >
       <p style={{
         fontSize: 11,
-        color: "#4A4838",
+        color: "#7A6A50",
         letterSpacing: "0.06em",
         marginBottom: 6,
         fontWeight: 500,

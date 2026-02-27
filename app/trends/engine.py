@@ -154,14 +154,7 @@ def _augment_with_event_type(
 # gives articles with shared ORG/PERSON/PRODUCT entities higher cosine
 # similarity.  Uses feature hashing to fixed 32 dimensions.
 
-_ENTITY_FP_STOP = frozenset({
-    "the", "and", "for", "its", "new", "all", "has", "was", "are", "not",
-    "but", "from", "with", "will", "been", "have", "this", "that", "said",
-    "over", "more", "than", "also", "into", "amid", "who", "how", "why",
-    "may", "can", "now", "per", "via", "set", "get", "key", "top",
-    "limited", "ltd", "inc", "corp", "group", "company", "pvt",
-    "india", "indian", "global", "world", "national", "market",
-})
+from app.shared.stopwords import ENTITY_STOP as _ENTITY_FP_STOP
 
 
 def _augment_with_entity_fingerprint(
@@ -585,8 +578,8 @@ class TrendPipeline:
 
         # Log active weights (may be learned from feedback)
         try:
-            from app.trends.signals.composite import DEFAULT_WEIGHTS
-            self.metrics["active_actionability_weights"] = DEFAULT_WEIGHTS
+            from app.trends.signals.composite import _get_weights
+            self.metrics["active_actionability_weights"] = _get_weights()
         except Exception:
             pass
 
@@ -644,65 +637,59 @@ class TrendPipeline:
             logger.warning("No articles provided")
             return TrendTree(root_ids=[], nodes={})
 
+        # All timeouts from config — no hardcoded values
+        _t = self.settings
+
         # ── Layer 1: Ingest ──────────────────────────────────────────────
         try:
             articles, embeddings = await asyncio.wait_for(
                 self._layer_ingest(
                     articles, use_cache=use_cache, cache_path=cache_path,
                 ),
-                timeout=120.0  # 2 minutes for embedding generation
+                timeout=_t.engine_event_class_timeout,
             )
         except asyncio.TimeoutError:
-            logger.error("[TIMEOUT] Layer 1 (ingest) timeout — embeddings took too long. Try reducing articles or using local embeddings.")
+            logger.error("[TIMEOUT] Layer 1 (ingest) timeout")
             raise TimeoutError("Embedding generation timeout")
 
         # ── Layer 2: Cluster ─────────────────────────────────────────────
         try:
             cluster_data = asyncio.wait_for(
                 asyncio.to_thread(self._layer_cluster, articles, embeddings),
-                timeout=60.0  # 1 minute for clustering
+                timeout=_t.engine_clustering_timeout,
             ) if asyncio.iscoroutinefunction(self._layer_cluster) else self._layer_cluster(articles, embeddings)
         except (asyncio.TimeoutError, TypeError):
             cluster_data = self._layer_cluster(articles, embeddings)
-        
+
         logger.info(f"Clustering complete: {len(cluster_data.get('cluster_articles', {}))} clusters")
 
         # ── Layer 2.5: Post-Cluster Enrichment ─────────────────────────
-        # Deterministic entity consolidation, company activity scoring,
-        # and cluster validation BEFORE synthesis (JRC/EMM pattern).
         cluster_data = self._layer_post_cluster_enrich(cluster_data, articles)
 
         # ── Layer 2.75: LLM Cluster Validation ───────────────────────
-        # Curriculum cascade: deterministic Tier 1 (above) auto-rejects
-        # garbage, then LLM Tier 2 validates borderline survivors.
-        # Cost: ~$0.0003/cluster, ~$0.01/pipeline run.
         try:
             cluster_data = await asyncio.wait_for(
-                self._layer_llm_cluster_validation(
-                    cluster_data, articles
-                ),
-                timeout=90.0  # 90 seconds for LLM validation
+                self._layer_llm_cluster_validation(cluster_data, articles),
+                timeout=_t.engine_validation_timeout,
             )
         except asyncio.TimeoutError:
-            logger.warning("[TIMEOUT] Layer 2.75 (LLM validation) timeout — skipping")
-            # Continue with unvalidated clusters
+            logger.warning("[TIMEOUT] Layer 2.75 (LLM validation) — skipping")
 
-        # ── Layer 3: Relate (entity bridges, temporal lag, sector chains) ─
+        # ── Layer 3: Relate ───────────────────────────────────────────────
         cluster_data = self._layer_relate(cluster_data)
 
-        # ── Layer 4: Temporalize (novelty, continuity, trend memory) ──────
+        # ── Layer 4: Temporalize ──────────────────────────────────────────
         cluster_data = self._layer_temporalize(cluster_data)
 
         # ── Layer 5: Enrich ──────────────────────────────────────────────
         try:
             tree = await asyncio.wait_for(
                 self._layer_enrich(cluster_data, articles),
-                timeout=180.0  # 3 minutes for synthesis/enrichment
+                timeout=_t.engine_synthesis_timeout,
             )
         except asyncio.TimeoutError:
-            logger.warning("[TIMEOUT] Layer 5 (enrich) timeout — synthesis took too long. Creating minimal tree.")
+            logger.warning("[TIMEOUT] Layer 5 (enrich) — creating minimal tree")
             from app.schemas.trends import TrendTree
-            # Fallback: create minimal tree from clusters
             minimal_nodes = {
                 cid: {
                     "id": cid,
@@ -710,18 +697,18 @@ class TrendPipeline:
                     "articles": cluster_data.get("cluster_articles", {}).get(cid, []),
                     "severity": 0.5,
                 }
-                for cid in list(cluster_data.get("cluster_articles", {}).keys())[:5]  # Top 5 only
+                for cid in list(cluster_data.get("cluster_articles", {}).keys())[:5]
             }
             tree = TrendTree(root_ids=list(minimal_nodes.keys()), nodes=minimal_nodes)
 
-        # ── Layer 6: Causal Council (multi-agent causal reasoning) ─────
+        # ── Layer 6: Cross-trend causal council (nice-to-have) ────────
         try:
             tree = await asyncio.wait_for(
                 self._layer_causal_reasoning(tree, cluster_data, articles),
-                timeout=120.0  # 2 minutes for causal reasoning
+                timeout=_t.engine_causal_timeout,
             )
         except asyncio.TimeoutError:
-            logger.warning("[TIMEOUT] Layer 6 (causal) timeout — returning tree without causal analysis.")
+            logger.warning("[TIMEOUT] Layer 6 (causal) — continuing without causal edges")
 
         total_time = time.time() - total_start
         self.metrics["total_seconds"] = round(total_time, 2)

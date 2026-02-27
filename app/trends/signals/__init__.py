@@ -14,9 +14,9 @@ Modules:
 - temporal.py: velocity, acceleration, burst_score, recency
 - source.py: authority_weighted, tier_distribution, agreement
 - content.py: depth, sentiment_distribution, controversy
-- entity.py: entity_momentum, key_person, company_count
-- market.py: regulatory_flag, company_density, financial_indicator
-- composite.py: actionability_score, trend_score (the final rankings)
+- entity.py: key_person_flag, company_count, entity_density
+- market.py: regulatory_flag, financial_indicator
+- composite.py: actionability_score, trend_score, cluster_quality_score, confidence_score
 """
 
 import logging
@@ -29,6 +29,7 @@ from .entity import compute_entity_signals
 from .market import compute_market_signals
 from .composite import (
     compute_actionability_score,
+    compute_cluster_quality_score,
     compute_confidence_score,
     compute_trend_score,
     classify_signal_strength,
@@ -39,7 +40,7 @@ from .composite import (
 logger = logging.getLogger(__name__)
 
 
-def compute_all_signals(articles: list) -> Dict[str, Any]:
+def compute_all_signals(articles: list, all_articles: list = None) -> Dict[str, Any]:
     """
     Compute ALL signals for a group of articles (typically one cluster).
 
@@ -48,13 +49,16 @@ def compute_all_signals(articles: list) -> Dict[str, Any]:
 
     Args:
         articles: List of article objects belonging to a single cluster.
+        all_articles: ALL articles in the pipeline (for cross-cluster metrics
+                      like cross-citation and originality scoring). If None,
+                      source signals use static credibility fallback.
 
     Returns:
         Flat dict of all signals including:
         - All temporal signals (velocity, acceleration, burst_score, recency_score, ...)
         - All source signals (authority_weighted, tier_distribution, ...)
         - All content signals (depth_score, sentiment_mean, ...)
-        - All entity signals (entity_momentum, key_person_flag, ...)
+        - All entity signals (key_person_flag, company_count, entity_density, ...)
         - All market signals (regulatory_flag, financial_indicator, ...)
         - Composite scores (actionability_score, trend_score, signal_strength)
     """
@@ -81,7 +85,7 @@ def compute_all_signals(articles: list) -> Dict[str, Any]:
         logger.warning(f"Temporal histogram computation failed: {e}")
 
     try:
-        signals.update(compute_source_signals(articles))
+        signals.update(compute_source_signals(articles, all_articles=all_articles))
     except Exception as e:
         logger.warning(f"Source signal computation failed: {e}")
 
@@ -99,6 +103,21 @@ def compute_all_signals(articles: list) -> Dict[str, Any]:
         signals.update(compute_market_signals(articles))
     except Exception as e:
         logger.warning(f"Market signal computation failed: {e}")
+
+    # CMI service relevance (cluster-level average of per-article scores)
+    # Stored on articles by engine._phase_cmi_relevance() as _cmi_relevance_score
+    try:
+        cmi_scores = [
+            getattr(a, '_cmi_relevance_score', 0.0) for a in articles
+        ]
+        if cmi_scores:
+            signals["cmi_relevance"] = sum(cmi_scores) / len(cmi_scores)
+            signals["cmi_relevance_min"] = min(cmi_scores)
+            signals["cmi_relevance_max"] = max(cmi_scores)
+        else:
+            signals["cmi_relevance"] = 0.0
+    except Exception as e:
+        logger.warning(f"CMI relevance signal computation failed: {e}")
 
     # Compute trigger event (buying intent) signals from pre-classified articles
     # These come from app/news/event_classifier.py which runs before clustering
@@ -129,6 +148,9 @@ def compute_all_signals(articles: list) -> Dict[str, Any]:
     # NOTE: These functions MUTATE signals dict to add score breakdowns (T3)
     signals["actionability_score"] = compute_actionability_score(signals)
     signals["trend_score"] = compute_trend_score(signals)
+    signals["cluster_quality_score"] = compute_cluster_quality_score(signals)
+    # Real confidence = cluster quality + temporal novelty + evidence specificity
+    # (novelty_score is injected by _layer_temporalize before this is recomputed)
     signals["confidence_score"] = compute_confidence_score(signals)
 
     # Momentum prediction (I2 — Meltwater Predictive Analytics)

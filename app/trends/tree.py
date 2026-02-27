@@ -249,6 +249,7 @@ def create_trend_node(
         signal_strength=signal_strength,
         trend_score=signals.get("trend_score", 0.0),
         actionability_score=signals.get("actionability_score", 0.0),
+        oss_score=summary.get("_oss", 0.0),
         signals=signals,
         event_5w1h=summary.get("event_5w1h", {}),
         causal_chain=summary.get("causal_chain", []),

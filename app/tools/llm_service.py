@@ -38,7 +38,7 @@ class LLMService:
     # Cache agents by (output_type, system_prompt_hash, retries) across all instances
     _agent_cache: Dict[tuple, Agent] = {}
 
-    def __init__(self, mock_mode: bool = False, force_groq: bool = False, lite: bool = False):
+    def __init__(self, mock_mode: bool = False, force_groq: bool = False, lite: bool = False, disabled_providers: list[str] | None = None):
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.mock_mode
         self.force_groq = force_groq
@@ -47,6 +47,7 @@ class LLMService:
             settings=self.settings,
             mock_mode=self.mock_mode,
             force_groq=force_groq,
+            disabled_providers=disabled_providers or [],
         )
         self.last_provider: Optional[str] = None
         if getattr(self.settings, 'offline_mode', False):
@@ -85,6 +86,46 @@ class LLMService:
             )
         return self._agent_cache[key]
 
+    # ── Cooldown-aware agent creation ─────────────────────────────
+
+    async def _get_agent_with_cooldown_wait(
+        self, output_type: type, system_prompt: str, retries: int = 2,
+    ) -> Agent:
+        """Create agent, waiting for cooldown if all providers are temporarily down.
+
+        Waits at most `llm_max_provider_wait` seconds (default 30s). If no
+        provider becomes available by then, raises RuntimeError immediately
+        instead of hanging the pipeline.
+        """
+        max_wait = getattr(self.settings, 'llm_max_provider_wait', 30.0)
+        try:
+            return self._get_or_create_agent(output_type, system_prompt, retries)
+        except RuntimeError as e:
+            if "No LLM providers available" not in str(e):
+                raise
+            wait_sec = self.provider_manager.get_shortest_cooldown_remaining()
+            if wait_sec <= 0 or wait_sec > max_wait:
+                raise RuntimeError(
+                    f"All LLM providers exhausted (next available in {wait_sec:.0f}s, "
+                    f"max wait {max_wait:.0f}s)"
+                ) from e
+            logger.info(f"All providers in cooldown — waiting {wait_sec:.1f}s (max {max_wait:.0f}s)")
+            await asyncio.sleep(wait_sec + 1.0)
+            # One retry after the wait — if still down, raise immediately
+            return self._get_or_create_agent(output_type, system_prompt, retries)
+
+    def has_available_provider(self) -> bool:
+        """Check if any LLM provider is currently available (not in cooldown).
+
+        Callers can use this to skip LLM calls gracefully when all providers
+        are exhausted, instead of waiting and hanging.
+        """
+        try:
+            avail = self.provider_manager._get_available_providers()
+            return len(avail) > 0
+        except Exception:
+            return False
+
     # ── Track A: Typed structured output (new API) ──────────────────
 
     async def run_structured(
@@ -98,23 +139,13 @@ class LLMService:
         """Generate structured output validated by pydantic-ai.
 
         Uses the Pydantic model's own validators for LLM output coercion.
-        When all providers are rate-limited, waits for the shortest cooldown
-        to expire rather than immediately raising (handles concurrent batch calls).
+        When all providers are rate-limited, waits up to `llm_max_provider_wait`
+        seconds for the shortest cooldown, then raises instead of hanging.
         """
+        agent = await self._get_agent_with_cooldown_wait(output_type, system_prompt, retries)
         try:
-            agent = self._get_or_create_agent(output_type, system_prompt, retries)
-        except RuntimeError as e:
-            if "No LLM providers available" in str(e):
-                wait_sec = self.provider_manager.get_shortest_cooldown_remaining()
-                if wait_sec > 0:
-                    logger.info(f"All providers in cooldown — waiting {wait_sec:.1f}s for next available")
-                    await asyncio.sleep(wait_sec + 1.0)
-                    agent = self._get_or_create_agent(output_type, system_prompt, retries)
-                else:
-                    raise
-            else:
-                raise
-        try:
+            if not self.mock_mode:
+                await ProviderManager.acquire_gcp_rate_limit()
             result = await agent.run(
                 prompt,
                 model_settings=ModelSettings(temperature=temperature),
@@ -159,8 +190,13 @@ class LLMService:
 
         # Track B: raw text → JSON repair → dict
         json_instruction = "\nYou must respond with valid JSON only. No markdown, no explanation."
-        agent = self._get_or_create_agent(str, sys_prompt + json_instruction, retries)
         try:
+            agent = await self._get_agent_with_cooldown_wait(str, sys_prompt + json_instruction, retries)
+        except RuntimeError:
+            return {"error": "All LLM providers exhausted"}
+        try:
+            if not self.mock_mode:
+                await ProviderManager.acquire_gcp_rate_limit()
             result = await agent.run(
                 prompt,
                 model_settings=ModelSettings(temperature=0.3),
@@ -210,8 +246,9 @@ Do not wrap the response in ```json``` code blocks."""
             from . import mock_responses
             return mock_responses.get_mock_response(prompt, json_mode)
 
-        agent = self._get_or_create_agent(str, system_prompt or "", retries=1)
+        agent = await self._get_agent_with_cooldown_wait(str, system_prompt or "", retries=1)
         try:
+            await ProviderManager.acquire_gcp_rate_limit()
             result = await agent.run(
                 prompt,
                 model_settings=ModelSettings(temperature=temperature, max_tokens=max_tokens),

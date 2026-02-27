@@ -156,11 +156,8 @@ def compute_cluster_quality_report(
 
     # Second-order quality: employee ranges + geography + sub-segments in article text
     import re
+    from app.shared.geo import SPECIFIC_GEO_PATTERN as _geo_pattern
     _size_pattern = re.compile(r'\d+[-–]\d+\s*(?:employee|staff|worker)', re.IGNORECASE)
-    _geo_pattern = re.compile(
-        r'\b(?:mumbai|delhi|bangalore|pune|chennai|hyderabad|kolkata|ahmedabad|'
-        r'surat|rajkot|coimbatore|noida|gurgaon|tier[- ]?[123])\b', re.IGNORECASE
-    )
     all_text = " ".join(
         (a.title or "") + " " + (a.summary or "")[:200]
         for a in articles

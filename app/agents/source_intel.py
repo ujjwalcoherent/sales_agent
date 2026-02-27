@@ -100,9 +100,24 @@ async def fetch_rss_articles(
     settings = get_settings()
     rss = ctx.deps.rss_tool
 
+    # Use source bandit to rank sources (best first) — Loop 2 self-learning
+    ranked_source_ids = None
+    try:
+        from app.config import NEWS_SOURCES
+        bandit = ctx.deps.source_bandit
+        all_source_ids = list(NEWS_SOURCES.keys())
+        if all_source_ids:
+            ranked_source_ids = bandit.select_sources(
+                all_source_ids, n_select=min(len(all_source_ids), 40)
+            )
+            logger.info(f"Bandit-ranked top 5 sources: {ranked_source_ids[:5]}")
+    except Exception as e:
+        logger.debug(f"Source bandit ranking skipped: {e}")
+
     articles = await rss.fetch_all_sources(
         max_per_source=max_per_source or settings.rss_max_per_source,
         hours_ago=hours_ago or settings.rss_hours_ago,
+        source_ids=ranked_source_ids,
     )
 
     ctx.deps._articles = articles
@@ -114,6 +129,8 @@ async def fetch_rss_articles(
 
     top_sources = sorted(source_counts.items(), key=lambda x: -x[1])[:10]
     summary = f"Fetched {len(articles)} articles from {len(source_counts)} sources.\n"
+    if ranked_source_ids:
+        summary += f"Bandit-ranked (top 5): {ranked_source_ids[:5]}\n"
     summary += "Top sources: " + ", ".join(f"{s}({n})" for s, n in top_sources)
     return summary
 

@@ -12,46 +12,87 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # LLM Configuration
-    # Provider priority: NVIDIA → Ollama → OpenRouter → Gemini
+    # Provider priority (GCP-first): GeminiDirect → VertexDeepSeek → VertexLlama → NVIDIA → OpenRouter → Groq (last resort) → Ollama
     nvidia_api_key: str = Field(default="", alias="NVIDIA_API_KEY")
-    nvidia_model: str = Field(default="moonshotai/kimi-k2.5", alias="NVIDIA_MODEL")
+    nvidia_model: str = Field(default="deepseek-ai/deepseek-v3.1", alias="NVIDIA_MODEL")
     nvidia_base_url: str = Field(default="https://integrate.api.nvidia.com/v1", alias="NVIDIA_BASE_URL")
 
     use_ollama: bool = Field(default=True, alias="USE_OLLAMA")
+    use_ddg_fallback: bool = Field(default=True, alias="USE_DDG_FALLBACK")
+    offline_mode: bool = Field(default=False, alias="OFFLINE_MODE")
     ollama_model: str = Field(default="mistral", alias="OLLAMA_MODEL")
     ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
 
-    # Groq Configuration (for 120B reasoning model)
+    # Vertex AI Express Mode (free tier fallback — 10 RPM, 90 days)
+    vertex_express_api_key: str = Field(default="", alias="VERTEX_EXPRESS_API_KEY")
+
+    # Full Vertex AI (uses GCP credits — 60+ RPM)
+    gcp_project_id: str = Field(default="", alias="GCP_PROJECT_ID")
+    gcp_service_account_file: str = Field(default="", alias="GCP_SERVICE_ACCOUNT_FILE")
+    gcp_vertex_location: str = Field(default="us-central1", alias="GCP_VERTEX_LOCATION")
+
+    # Vertex AI API Service — partner models via OpenAI-compatible endpoint
+    # Same service account as above; access token is passed as Bearer auth.
+    # DeepSeek V3.2: best reasoning + tools, ~$0.07/$0.14 per 1M in/out (cheapest reasoning model)
+    # Llama 4 Scout: fastest tool-calling fallback, ~$0.04/$0.08 per 1M in/out
+    # Set to "" to disable that provider (falls through to next in chain).
+    vertex_deepseek_model: str = Field(default="deepseek/deepseek-v3-2", alias="VERTEX_DEEPSEEK_MODEL")
+    vertex_llama_model: str = Field(default="meta/llama-4-scout-17b-16e-instruct-maas", alias="VERTEX_LLAMA_MODEL")
+
+    # Groq Configuration (fast inference, 1K-14K free req/day)
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
-    groq_model: str = Field(default="openai/gpt-oss-120b", alias="GROQ_MODEL")
+    groq_model: str = Field(default="qwen-qwen3-32b", alias="GROQ_MODEL")
+    # llama-3.3-70b-versatile is the confirmed tool-calling model on Groq
+    # (replaces deprecated llama3-groq-70b-8192-tool-use-preview)
+    groq_tool_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_TOOL_MODEL")
 
     # OpenRouter Configuration (multi-model API)
     openrouter_api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
-    openrouter_model: str = Field(default="google/gemini-2.0-flash-001", alias="OPENROUTER_MODEL")
+    openrouter_model: str = Field(default="google/gemini-2.5-flash", alias="OPENROUTER_MODEL")
 
-    # Gemini Configuration
-    gemini_model: str = Field(default="gemini-2.0-flash", alias="GEMINI_MODEL")
+    # OpenAI Configuration (GPT-4.1-mini for generation, GPT-4.1-nano for classification)
+    # Tier 1: ~500 RPM, $0.40/$1.60 per 1M in/out (mini), $0.10/$0.40 (nano)
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-4.1-mini", alias="OPENAI_MODEL")
+    openai_lite_model: str = Field(default="gpt-4.1-nano", alias="OPENAI_LITE_MODEL")
+    openai_embedding_model: str = Field(default="text-embedding-3-large", alias="OPENAI_EMBEDDING_MODEL")
+    openai_embedding_dimensions: int = Field(default=1536, alias="OPENAI_EMBEDDING_DIMENSIONS")
+
+    # Gemini Configuration (used for both direct Vertex Express and OpenRouter proxy)
+    # Both default to gemini-2.5-flash-lite — cheapest GA model with tool calling + structured output.
+    # Cost: $0.10/$0.40 per 1M in/out. At 200 runs/day × 140K tokens → ~$5/day → $300 lasts 90+ days.
+    # Override GEMINI_MODEL=gemini-2.5-flash if complex synthesis quality needs a step up (~6x cost).
+    gemini_model: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL")
+    gemini_lite_model: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_LITE_MODEL")
 
     # Embedding Configuration
+    # Primary: NVIDIA nv-embedqa-e5-v5 (1024-dim, best discrimination 0.238 gap)
+    # Fallback: BAAI/bge-large-en-v1.5 (1024-dim, same dimensions, HF API or local)
     huggingface_api_key: str = Field(default="", alias="HF_API_KEY")
-    embedding_model: str = Field(default="BAAI/bge-small-en-v1.5", alias="EMBEDDING_MODEL")
-    local_embedding_model: str = Field(default="paraphrase-multilingual-MiniLM-L12-v2", alias="LOCAL_EMBEDDING_MODEL")
+    embedding_model: str = Field(default="nvidia/nv-embedqa-e5-v5", alias="EMBEDDING_MODEL")
+    local_embedding_model: str = Field(default="BAAI/bge-large-en-v1.5", alias="LOCAL_EMBEDDING_MODEL")
+    # Priority: "nvidia" = NVIDIA NIM API (best quality), "api" = HF GPUs, "local" = local CPU/GPU
+    embedding_provider: str = Field(default="nvidia", alias="EMBEDDING_PROVIDER")
 
-    # ── Trend Engine Pipeline (RecursiveTrendEngine) ──
-    # UMAP: Dimensionality reduction before HDBSCAN clustering
-    umap_n_components: int = Field(default=5, alias="UMAP_N_COMPONENTS")
-    umap_n_neighbors: int = Field(default=15, alias="UMAP_N_NEIGHBORS")
-    umap_min_dist: float = Field(default=0.0, alias="UMAP_MIN_DIST")
-    umap_metric: str = Field(default="cosine", alias="UMAP_METRIC")
-
-    # HDBSCAN: Density-based clustering (no eps tuning needed)
-    # NOTE: min_cluster_size is now ADAPTIVE in the engine based on article count.
-    # This value is the FLOOR (minimum allowed). Engine calculates adaptive value.
-    # For 500 articles, adaptive value will be ~15-20 to get 15-20 major clusters.
-    hdbscan_min_cluster_size: int = Field(default=5, alias="HDBSCAN_MIN_CLUSTER_SIZE")
-    hdbscan_min_samples: int = Field(default=2, alias="HDBSCAN_MIN_SAMPLES")  # Lowered from 3 for better sub-clustering
-    hdbscan_cluster_selection: str = Field(default="eom", alias="HDBSCAN_CLUSTER_SELECTION")
+    # ── Trend Engine Pipeline ──
+    # Leiden: k-NN graph + community detection on raw 1024-dim embeddings.
+    # k: number of nearest neighbors for graph construction (sqrt(N) is a good default)
+    leiden_k: int = Field(default=20, alias="LEIDEN_K")
+    # resolution: higher = more, smaller clusters. Auto-tuned if leiden_auto_resolution=True.
+    leiden_resolution: float = Field(default=1.0, alias="LEIDEN_RESOLUTION")
+    # Auto-resolve resolution to hit target cluster count range (sqrt(N)/3 to sqrt(N))
+    leiden_auto_resolution: bool = Field(default=True, alias="LEIDEN_AUTO_RESOLUTION")
+    # Minimum community size (smaller → noise)
+    leiden_min_community_size: int = Field(default=3, alias="LEIDEN_MIN_COMMUNITY_SIZE")
+    # Seed for deterministic results
+    leiden_seed: int = Field(default=42, alias="LEIDEN_SEED")
+    # Optuna: Bayesian multi-parameter optimization (k, resolution, min_community)
+    # When True, replaces binary-search auto_resolution with Optuna TPE.
+    # ~15s for 15 trials at N=1000. Warm-starts from last run's best params.
+    leiden_optuna_enabled: bool = Field(default=True, alias="LEIDEN_OPTUNA_ENABLED")
+    leiden_optuna_trials: int = Field(default=15, alias="LEIDEN_OPTUNA_TRIALS")
+    leiden_optuna_timeout: int = Field(default=30, alias="LEIDEN_OPTUNA_TIMEOUT")
 
     # Deduplication: MinHash LSH near-duplicate detection (lexical)
     # 0.25 = very aggressive, catches articles with ~25% shared word bigrams (RECOMMENDED)
@@ -63,28 +104,31 @@ class Settings(BaseSettings):
     dedup_shingle_size: int = Field(default=2, alias="DEDUP_SHINGLE_SIZE")
 
     # Deduplication: Semantic (embedding-based) - catches cross-source duplicates
-    # OBSERVED SIMILARITY RANGES (from debug logs):
-    # - True duplicates (same story, different source): 0.75-0.85
-    # - Related but different articles: 0.65-0.74
-    # - Unrelated articles: 0.50-0.64
+    # OBSERVED SIMILARITY RANGES (nv-embedqa-e5-v5):
+    # - True duplicates (same story, different source): 0.90-1.0
+    # - Related but different articles: 0.65-0.72
+    # - Unrelated articles: 0.40-0.50
     # THRESHOLD SELECTION:
-    # 0.78 = catches true duplicates, avoids most false positives (RECOMMENDED)
-    # 0.70 = too aggressive, causes false positives on related articles
-    # 0.85 = too conservative, misses cross-source duplicates
-    semantic_dedup_threshold: float = Field(default=0.78, alias="SEMANTIC_DEDUP_THRESHOLD")
+    # 0.88 = catches true duplicates, comfortable margin above related (0.72)
+    # 0.80 = too aggressive for nv-embedqa-e5-v5, catches related articles
+    # 0.93 = too conservative, misses cross-source duplicates
+    # Recalibrated for nv-embedqa-e5-v5 (sharper discrimination than bge-large)
+    semantic_dedup_threshold: float = Field(default=0.88, alias="SEMANTIC_DEDUP_THRESHOLD")
 
     # Entity extraction: spaCy NER model
     spacy_model: str = Field(default="en_core_web_sm", alias="SPACY_MODEL")
 
     # Engine: Pipeline-level settings
     engine_max_depth: int = Field(default=3, alias="ENGINE_MAX_DEPTH")
-    engine_max_concurrent_llm: int = Field(default=6, alias="ENGINE_MAX_CONCURRENT_LLM")
+    engine_max_concurrent_llm: int = Field(default=2, alias="ENGINE_MAX_CONCURRENT_LLM")
 
     # Signal weights for actionability scoring (JSON string, override via env)
     # These determine how trends are ranked for sales outreach.
     # Weights should sum to ~1.0. Adjust to tune which signals matter most.
+    # Phase 6: Added cmi_relevance (10%) — clusters with low CMI service
+    # alignment score lower for sales outreach (but articles NOT dropped).
     actionability_weights: str = Field(
-        default='{"recency":0.12,"velocity":0.08,"specificity":0.10,"regulatory":0.10,"trigger":0.12,"diversity":0.08,"authority":0.12,"financial":0.05,"person":0.03,"event_focus":0.05,"search_interest":0.15}',
+        default='{"recency":0.12,"velocity":0.07,"specificity":0.12,"regulatory":0.12,"trigger":0.14,"diversity":0.07,"authority":0.13,"financial":0.05,"person":0.03,"event_focus":0.05,"cmi_relevance":0.10}',
         alias="ACTIONABILITY_WEIGHTS",
     )
 
@@ -103,25 +147,90 @@ class Settings(BaseSettings):
 
     # ── LLM Synthesis Quality (T5) ──
     # Max articles to include in synthesis context (per cluster)
-    synthesis_max_articles: int = Field(default=16, alias="SYNTHESIS_MAX_ARTICLES")
-    # Max characters per article in synthesis context
-    synthesis_article_char_limit: int = Field(default=1200, alias="SYNTHESIS_ARTICLE_CHAR_LIMIT")
-    # Max retries on synthesis failure before returning empty
-    synthesis_max_retries: int = Field(default=2, alias="SYNTHESIS_MAX_RETRIES")
+    synthesis_max_articles: int = Field(default=10, alias="SYNTHESIS_MAX_ARTICLES")
+    # Max characters per article in synthesis context (increased for richer context)
+    synthesis_article_char_limit: int = Field(default=2000, alias="SYNTHESIS_ARTICLE_CHAR_LIMIT")
+    # Max retries on synthesis failure before returning empty (3 = struct + specificity)
+    synthesis_max_retries: int = Field(default=3, alias="SYNTHESIS_MAX_RETRIES")
     
     # ── LLM JSON Validation (V2) ──
     llm_json_max_retries: int = Field(default=2, alias="LLM_JSON_MAX_RETRIES")
 
     # ── Synthesis Validation (V3) ──
-    synthesis_strict_mode: bool = Field(default=True, alias="SYNTHESIS_STRICT_MODE")
+    synthesis_strict_mode: bool = Field(default=False, alias="SYNTHESIS_STRICT_MODE")
 
-    # ── Event Classifier (V6) ──
+    # ── Event Classifier (V8) ──
+    # 20 event types (was 14) — lower threshold since more categories to match.
+    # Tier 2 LLM catches ambiguous cases above threshold.
     event_classifier_threshold: float = Field(default=0.35, alias="EVENT_CLASSIFIER_THRESHOLD")
-    event_classifier_ambiguity_margin: float = Field(default=0.05, alias="EVENT_CLASSIFIER_AMBIGUITY_MARGIN")
+    event_classifier_ambiguity_margin: float = Field(default=0.04, alias="EVENT_CLASSIFIER_AMBIGUITY_MARGIN")
+    event_max_llm_calls: int = Field(default=50, alias="EVENT_MAX_LLM_CALLS")
+
+    # ── Coherence Validation ──
+    coherence_min: float = Field(default=0.48, alias="COHERENCE_MIN")
+    coherence_reject: float = Field(default=0.35, alias="COHERENCE_REJECT")
+    merge_threshold: float = Field(default=0.82, alias="MERGE_THRESHOLD")
+
+    # ── CMI Relevance Filter ──
+    cmi_relevance_threshold: float = Field(default=0.28, alias="CMI_RELEVANCE_THRESHOLD")
+    # Hard floor: "general" articles below this CMI score are dropped (non-business content)
+    cmi_hard_floor: float = Field(default=0.25, alias="CMI_HARD_FLOOR")
+
+    # ── Article Triage Agent ──
+    # Confidence floor: articles with event classifier confidence below this get LLM triage
+    triage_confidence_floor: float = Field(default=0.45, alias="TRIAGE_CONFIDENCE_FLOOR")
+    # Max articles to send to LLM triage per run (cost cap).
+    # 30 articles × batch_size=15 = 2 LLM calls (was 50×10 = 5 calls).
+    triage_max_articles: int = Field(default=30, alias="TRIAGE_MAX_ARTICLES")
+    # Batch size for LLM triage calls (15 optimal — fewer calls, same quality)
+    triage_batch_size: int = Field(default=15, alias="TRIAGE_BATCH_SIZE")
+
+    # ── Subclustering ──
+    max_children_per_parent: int = Field(default=6, alias="MAX_CHILDREN_PER_PARENT")
+    min_articles_for_subclustering: int = Field(default=6, alias="MIN_ARTICLES_FOR_SUBCLUSTERING")
+    min_subcluster_coherence: float = Field(default=0.35, alias="MIN_SUBCLUSTER_COHERENCE")
+
+    # ── Scraping ──
+    semantic_dedup_max_articles: int = Field(default=2000, alias="SEMANTIC_DEDUP_MAX_ARTICLES")
+    scrape_enabled: bool = Field(default=False, alias="SCRAPE_ENABLED")
+    scrape_max_concurrent: int = Field(default=10, alias="SCRAPE_MAX_CONCURRENT")
+    scrape_max_articles: int = Field(default=150, alias="SCRAPE_MAX_ARTICLES")
+    summary_max_chars: int = Field(default=1500, alias="SUMMARY_MAX_CHARS")
+
+    # ── Scoring Weights (JSON strings, same pattern as actionability_weights) ──
+    trend_score_weights: str = Field(
+        default='{"volume":0.30,"momentum":0.45,"diversity":0.25}',
+        alias="TREND_SCORE_WEIGHTS",
+    )
+    cluster_quality_score_weights: str = Field(
+        default='{"coherence":0.28,"source_diversity":0.25,"event_agreement":0.17,"evidence_volume":0.12,"authority":0.18}',
+        alias="CLUSTER_QUALITY_SCORE_WEIGHTS",
+    )
+    source_credibility_weights: str = Field(
+        default='{"base_authority":0.40,"cross_citation":0.25,"originality":0.20,"agreement":0.15}',
+        alias="SOURCE_CREDIBILITY_WEIGHTS",
+    )
+
+    # ── Council & Agent Thresholds ──
+    cmi_auto_noise_threshold: float = Field(default=0.2, alias="CMI_AUTO_NOISE_THRESHOLD")
+    lead_relevance_threshold: float = Field(default=0.3, alias="LEAD_RELEVANCE_THRESHOLD")
+    max_search_queries_per_impact: int = Field(default=7, alias="MAX_SEARCH_QUERIES_PER_IMPACT")
+    enterprise_blocklist: str = Field(
+        default="tata,reliance,infosys,wipro,hcl,hdfc,icici,bajaj,mahindra,adani,vedanta",
+        alias="ENTERPRISE_BLOCKLIST",
+    )
+    company_min_relevance: float = Field(
+        default=0.20,
+        alias="COMPANY_MIN_RELEVANCE",
+    )
+
+    # ── RSS Throughput ──
+    rss_max_per_source: int = Field(default=25, alias="RSS_MAX_PER_SOURCE")
+    rss_hours_ago: int = Field(default=72, alias="RSS_HOURS_AGO")
 
     # ── Quality Gates (V9) ──
-    min_synthesis_confidence: float = Field(default=0.3, alias="MIN_SYNTHESIS_CONFIDENCE")
-    min_trend_confidence_for_agents: float = Field(default=0.25, alias="MIN_TREND_CONFIDENCE_FOR_AGENTS")
+    min_synthesis_confidence: float = Field(default=0.40, alias="MIN_SYNTHESIS_CONFIDENCE")
+    min_trend_confidence_for_agents: float = Field(default=0.40, alias="MIN_TREND_CONFIDENCE_FOR_AGENTS")
 
     # ── Cross-Validation (V10) ──
     # ValidatorAgent: scores LLM synthesis groundedness against source articles.
@@ -130,11 +239,13 @@ class Settings(BaseSettings):
     # Max back-and-forth rounds between synthesizer and validator (1 = validate only, 2+ = revise)
     validator_max_rounds: int = Field(default=2, alias="VALIDATOR_MAX_ROUNDS")
     # Overall groundedness score threshold to PASS (0.0-1.0). Below this = REVISE.
-    validator_pass_threshold: float = Field(default=0.6, alias="VALIDATOR_PASS_THRESHOLD")
+    validator_pass_threshold: float = Field(default=0.40, alias="VALIDATOR_PASS_THRESHOLD")
     # Overall groundedness score below which we REJECT outright (no revision attempt).
     validator_reject_threshold: float = Field(default=0.25, alias="VALIDATOR_REJECT_THRESHOLD")
     # Minimum entity overlap ratio (claimed entities found in sources) to pass entity check.
-    validator_entity_overlap_min: float = Field(default=0.4, alias="VALIDATOR_ENTITY_OVERLAP_MIN")
+    # Lowered from 0.55 to 0.35: NER only sees title+summary+content[:1200] but LLM synthesis
+    # correctly reads entities from full article text. 0.35 accounts for this coverage gap.
+    validator_entity_overlap_min: float = Field(default=0.35, alias="VALIDATOR_ENTITY_OVERLAP_MIN")
     # Weight for NER entity overlap in overall score (0.0-1.0)
     validator_weight_entity: float = Field(default=0.35, alias="VALIDATOR_WEIGHT_ENTITY")
     # Weight for keyword overlap in overall score (0.0-1.0)
@@ -145,8 +256,30 @@ class Settings(BaseSettings):
     # ── Company Verification (V7) ──
     company_min_verification_confidence: float = Field(default=0.0, alias="COMPANY_MIN_VERIFICATION_CONFIDENCE")
 
-    # Search APIs
-    tavily_api_key: str = Field(default="", alias="TAVILY_API_KEY")
+    # Search APIs (supports multiple keys for rotation — comma-separated in .env)
+    # Single key: TAVILY_API_KEYS=tvly-abc123
+    # Multiple:   TAVILY_API_KEYS=tvly-abc123,tvly-def456
+    # Set TAVILY_ENABLED=false to skip Tavily entirely and use DDG+ScrapeGraphAI
+    tavily_enabled: bool = Field(default=False, alias="TAVILY_ENABLED")
+    tavily_api_keys: str = Field(default="", alias="TAVILY_API_KEYS")
+
+    # SearXNG (self-hosted meta-search — free, aggregates Google+Bing+DDG)
+    # Deploy: docker run -d -p 8888:8080 searxng/searxng:latest
+    searxng_url: str = Field(default="http://localhost:8888", alias="SEARXNG_URL")
+    searxng_enabled: bool = Field(default=False, alias="SEARXNG_ENABLED")
+
+    # Ollama dual-model: llama3.2:3b = tool calling, phi3.5-custom = generation
+    # llama3.2:3b is the ONLY local model with confirmed tool calling (MX550 GPU)
+    # phi3.5-custom is faster for pure generation but has NO tool calling support
+    ollama_gen_model: str = Field(default="phi3.5-custom:latest", alias="OLLAMA_GEN_MODEL")
+    ollama_tool_model: str = Field(default="llama3.2:3b", alias="OLLAMA_TOOL_MODEL")
+
+    # News & Trend Detection APIs
+    newsapi_org_key: str = Field(default="", alias="NEWSAPI_ORG_KEY")
+    rapidapi_key: str = Field(default="", alias="RAPIDAPI_KEY")
+    gnews_api_key: str = Field(default="", alias="GNEWS_API_KEY")
+    mediastack_api_key: str = Field(default="", alias="MEDIASTACK_API_KEY")
+    thenewsapi_key: str = Field(default="", alias="THENEWSAPI_KEY")
     
     # Email Finder APIs
     apollo_api_key: str = Field(default="", alias="APOLLO_API_KEY")
@@ -155,18 +288,74 @@ class Settings(BaseSettings):
     # Application Settings
     country: str = Field(default="India", alias="COUNTRY")
     country_code: str = Field(default="IN", alias="COUNTRY_CODE")
-    max_trends: int = Field(default=3, alias="MAX_TRENDS")
-    max_companies_per_trend: int = Field(default=3, alias="MAX_COMPANIES_PER_TREND")
-    max_contacts_per_company: int = Field(default=2, alias="MAX_CONTACTS_PER_COMPANY")
+    max_trends: int = Field(default=8, alias="MAX_TRENDS")
+    max_companies_per_trend: int = Field(default=10, alias="MAX_COMPANIES_PER_TREND")
+    max_contacts_per_company: int = Field(default=3, alias="MAX_CONTACTS_PER_COMPANY")
     email_confidence_threshold: int = Field(default=70, alias="EMAIL_CONFIDENCE_THRESHOLD")
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
+    show_tooltips: bool = Field(default=True, alias="SHOW_TOOLTIPS")
     
     # Database
     database_url: str = Field(
-        default="sqlite+aiosqlite:///./leads.db", 
+        default="sqlite+aiosqlite:///./leads.db",
         alias="DATABASE_URL"
     )
-    
+
+    # ── API Configuration ──
+    api_key: str = Field(default="", alias="API_KEY")
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:3001",
+        alias="CORS_ORIGINS",
+    )
+    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
+    api_port: int = Field(default=8000, alias="API_PORT")
+
+    # ── Engine Phase Timeouts (seconds) ──
+    # High timeouts: prefer patience over skipping. GCP rate limits = just wait.
+    engine_event_class_timeout: float = Field(default=600.0, alias="ENGINE_EVENT_CLASS_TIMEOUT")
+    engine_clustering_timeout: float = Field(default=120.0, alias="ENGINE_CLUSTERING_TIMEOUT")
+    engine_validation_timeout: float = Field(default=600.0, alias="ENGINE_VALIDATION_TIMEOUT")
+    engine_synthesis_timeout: float = Field(default=600.0, alias="ENGINE_SYNTHESIS_TIMEOUT")
+    engine_causal_timeout: float = Field(default=300.0, alias="ENGINE_CAUSAL_TIMEOUT")
+
+    # ── Provider Resilience ──
+    # Rate limit cooldown: base seconds per 429 failure (doubles each time, capped)
+    provider_ratelimit_base_seconds: float = Field(default=15.0, alias="PROVIDER_RATELIMIT_BASE_SECONDS")
+    provider_ratelimit_max_seconds: float = Field(default=120.0, alias="PROVIDER_RATELIMIT_MAX_SECONDS")
+    # Generic error cooldown: seconds per non-429 failure
+    provider_error_base_seconds: float = Field(default=30.0, alias="PROVIDER_ERROR_BASE_SECONDS")
+    # Failures before marking provider "broken" (still usable after backoff expires)
+    provider_broken_threshold: int = Field(default=8, alias="PROVIDER_BROKEN_THRESHOLD")
+
+    # ── Cross-Trend Causal Council (Layer 6 in engine) ──
+    cross_trend_max_candidates: int = Field(default=5, alias="CROSS_TREND_MAX_CANDIDATES")
+    cross_trend_max_cascades: int = Field(default=2, alias="CROSS_TREND_MAX_CASCADES")
+    cross_trend_inner_timeout: float = Field(default=120.0, alias="CROSS_TREND_INNER_TIMEOUT")
+
+    # ── Per-Trend Causal Council (Step 3.7 in orchestrator) ──
+    per_trend_max_impacts: int = Field(default=5, alias="PER_TREND_MAX_IMPACTS")
+
+    # ── Lead Gen Agent ──
+    # Max seconds for the entire lead_gen step (company + contact + outreach)
+    # High timeout: let it try all companies patiently with rate-limited providers
+    lead_gen_timeout: float = Field(default=900.0, alias="LEAD_GEN_TIMEOUT")
+
+    # ── LLM Service ──
+    # Max seconds to wait when all providers are in cooldown
+    # 300s = patient wait for GCP rate limit recovery (was 30s = too aggressive)
+    llm_max_provider_wait: float = Field(default=300.0, alias="LLM_MAX_PROVIDER_WAIT")
+
+    # ── Coherence Grade Boundaries ──
+    coherence_grade_a: float = Field(default=0.70, alias="COHERENCE_GRADE_A")
+    coherence_grade_b: float = Field(default=0.55, alias="COHERENCE_GRADE_B")
+    coherence_grade_c: float = Field(default=0.40, alias="COHERENCE_GRADE_C")
+    coherence_grade_d: float = Field(default=0.25, alias="COHERENCE_GRADE_D")
+
+    @property
+    def enterprise_blocklist_set(self) -> frozenset:
+        """Parse enterprise_blocklist CSV into a frozenset for O(1) lookup."""
+        return frozenset(t.strip().lower() for t in self.enterprise_blocklist.split(",") if t.strip())
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -269,7 +458,7 @@ TREND_ROLE_MAPPING = {
     "default": ["CEO", "Chief Strategy Officer", "VP Business Development", "Director Strategy"]
 }
 
-# Coherent Market Insights Service Catalog
+# Coherent Market Insights Service Catalog (Full)
 CMI_SERVICES = {
     "procurement_intelligence": {
         "name": "Procurement Intelligence",
@@ -277,42 +466,57 @@ CMI_SERVICES = {
             "Supplier identification and profiling",
             "Cost structure and should-cost analysis",
             "Commodity and category market analysis",
-            "Supply base risk assessment",
-            "Procurement process optimization"
+            "Supply base risk assessment and mitigation",
+            "Benchmarking of procurement practices",
+            "Supplier performance evaluation",
+            "Procurement process optimization",
+            "Contract and negotiation support",
+            "Spend analysis and savings opportunity identification",
         ],
-        "keywords": ["supply chain", "procurement", "supplier", "sourcing", "cost", "vendor", "raw material"]
+        "keywords": ["supply chain", "procurement", "supplier", "sourcing", "cost", "vendor", "raw material", "spend", "contract", "negotiation", "commodity"]
     },
     "market_intelligence": {
         "name": "Market Intelligence",
         "offerings": [
             "Market sizing and segmentation",
             "Market trends and growth forecasts",
+            "Customer needs and behavior analysis",
             "Regulatory and policy landscape assessment",
+            "Channel and distribution analysis",
+            "Opportunity and threat identification",
+            "Product and service landscape mapping",
             "Market entry and expansion feasibility",
-            "Trade Analysis (Export-import analysis)"
+            "Trade Analysis (Export-import analysis)",
+            "Pricing Analysis",
         ],
-        "keywords": ["market", "growth", "expansion", "entry", "fta", "trade", "export", "import", "demand"]
+        "keywords": ["market", "growth", "expansion", "entry", "fta", "trade", "export", "import", "demand", "pricing", "channel", "distribution", "segmentation"]
     },
     "competitive_intelligence": {
         "name": "Competitive Intelligence",
         "offerings": [
             "Competitor profiling and benchmarking",
-            "Analysis of competitor strategies",
+            "Analysis of competitor strategies, strengths, and weaknesses",
             "Product and service comparisons",
-            "Tracking competitor activities",
-            "M&A and partnership tracking"
+            "Pricing and go-to-market analysis",
+            "Tracking competitor marketing and sales activities",
+            "Monitoring of new product launches and innovations",
+            "Mergers, acquisitions, and partnership tracking",
+            "Sector and industry trend analysis",
         ],
-        "keywords": ["competitor", "competition", "merger", "acquisition", "market share", "benchmark"]
+        "keywords": ["competitor", "competition", "merger", "acquisition", "market share", "benchmark", "pricing", "product launch", "innovation"]
     },
     "market_monitoring": {
         "name": "Market Monitoring",
         "offerings": [
-            "Real-time updates on regulatory changes",
+            "Ongoing tracking of market trends and developments",
+            "Real-time updates on regulatory and economic changes",
             "Monitoring competitor and supplier activities",
-            "Alerts on key market events",
-            "Early warning systems for emerging risks"
+            "Periodic market and industry reports",
+            "Alerts on key market events and disruptions",
+            "Tracking customer sentiment and feedback",
+            "Early warning systems for emerging risks",
         ],
-        "keywords": ["regulation", "policy", "compliance", "disruption", "risk", "change", "update"]
+        "keywords": ["regulation", "policy", "compliance", "disruption", "risk", "change", "update", "monitoring", "alert", "sentiment", "tracking"]
     },
     "industry_analysis": {
         "name": "Industry Analysis",
@@ -320,49 +524,64 @@ CMI_SERVICES = {
             "Industry structure and value chain mapping",
             "Key industry drivers and challenges",
             "Regulatory and compliance environment review",
-            "Demand and supply dynamics assessment"
+            "Analysis of technological advancements and disruptions",
+            "Industry benchmarking and best practices",
+            "Demand and supply dynamics assessment",
+            "Identification of key players and market shares",
         ],
-        "keywords": ["industry", "sector", "manufacturing", "pharma", "automotive", "electronics", "chemical"]
+        "keywords": ["industry", "sector", "manufacturing", "pharma", "automotive", "electronics", "chemical", "value chain", "benchmarking", "best practices"]
     },
     "technology_research": {
         "name": "Technology Research",
         "offerings": [
             "Technology landscape and trends analysis",
-            "Assessment of emerging technologies",
+            "Assessment of emerging and disruptive technologies",
             "Technology adoption and impact studies",
-            "Patent and intellectual property analysis"
+            "Patent and intellectual property analysis",
+            "Vendor and solution evaluation",
+            "R&D pipeline and innovation tracking",
+            "Technology feasibility and ROI assessment",
         ],
-        "keywords": ["technology", "AI", "automation", "digital", "innovation", "R&D", "tech", "software"]
+        "keywords": ["technology", "AI", "automation", "digital", "innovation", "R&D", "tech", "software", "patent", "IP", "feasibility", "ROI", "vendor"]
     },
     "cross_border_expansion": {
         "name": "Cross Border Expansion",
         "offerings": [
             "Market entry strategy and feasibility studies",
-            "Regulatory and compliance advisory",
+            "Regulatory and compliance advisory for new markets",
             "Local partner and supplier identification",
-            "Go-to-market planning and localization"
+            "Cultural and consumer behavior analysis",
+            "Go-to-market planning and localization",
+            "Competitive landscape in target geographies",
+            "Risk assessment and mitigation for international operations",
         ],
-        "keywords": ["expansion", "international", "export", "import", "FTA", "global", "cross-border", "foreign"]
+        "keywords": ["expansion", "international", "export", "import", "FTA", "global", "cross-border", "foreign", "localization", "geography", "entry"]
     },
     "consumer_insights": {
         "name": "Consumer Insights",
         "offerings": [
             "Consumer behavior and attitude analysis",
             "Segmentation and persona development",
+            "Customer journey mapping",
             "Brand perception and loyalty studies",
-            "Customer satisfaction tracking"
+            "Product and service usage analysis",
+            "Voice of customer (VoC) research",
+            "Socio-demographic and psychographic profiling",
+            "Customer satisfaction and NPS tracking",
         ],
-        "keywords": ["consumer", "customer", "brand", "retail", "FMCG", "D2C", "e-commerce"]
+        "keywords": ["consumer", "customer", "brand", "retail", "FMCG", "D2C", "e-commerce", "journey", "persona", "NPS", "loyalty", "VoC"]
     },
     "consulting_advisory": {
         "name": "Consulting and Advisory Services",
         "offerings": [
             "Strategic planning and business transformation",
+            "Financial advisory and performance improvement",
             "Operational efficiency and process optimization",
             "Technology and digital transformation advisory",
-            "Market entry and growth strategy"
+            "Change management and organizational development",
+            "Market entry and growth strategy",
         ],
-        "keywords": ["strategy", "transformation", "growth", "efficiency", "optimization", "advisory"]
+        "keywords": ["strategy", "transformation", "growth", "efficiency", "optimization", "advisory", "financial", "change management", "digital transformation", "performance"]
     }
 }
 
@@ -855,6 +1074,197 @@ NEWS_SOURCES = {
         "country": "IN",
         "rate_limit_per_day": None
     },
+    # ─────────────────────────────────────────────────────────────────────────
+    # TIER 1-2: Additional Business Publications (RSS - Added 2026-02-19)
+    # ─────────────────────────────────────────────────────────────────────────
+    "cnbctv18": {
+        "id": "cnbctv18",
+        "name": "CNBC TV18",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.93,
+        "url": "https://www.cnbctv18.com",
+        "rss_url": "https://www.cnbctv18.com/commonfeeds/v1/cne/rss/most-recent.xml",
+        "categories": ["business", "markets", "economy"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "cnbctv18_market": {
+        "id": "cnbctv18_market",
+        "name": "CNBC TV18 Market",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.93,
+        "url": "https://www.cnbctv18.com/market",
+        "rss_url": "https://www.cnbctv18.com/commonfeeds/v1/cne/rss/market.xml",
+        "categories": ["markets", "stocks", "finance"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "zeebiz": {
+        "id": "zeebiz",
+        "name": "Zee Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.87,
+        "url": "https://www.zeebiz.com",
+        "rss_url": "https://www.zeebiz.com/india-economy.xml",
+        "categories": ["economy", "business", "industry"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "indiatoday_business": {
+        "id": "indiatoday_business",
+        "name": "India Today Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.88,
+        "url": "https://www.indiatoday.in/business",
+        "rss_url": "https://www.indiatoday.in/rss/1206574",
+        "categories": ["business", "economy", "companies"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "mint_markets": {
+        "id": "mint_markets",
+        "name": "Mint Markets",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.95,
+        "url": "https://www.livemint.com/market",
+        "rss_url": "https://www.livemint.com/rss/markets",
+        "categories": ["markets", "stocks", "IPO"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "mint_economy": {
+        "id": "mint_economy",
+        "name": "Mint Economy",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.95,
+        "url": "https://www.livemint.com/economy",
+        "rss_url": "https://www.livemint.com/rss/economy",
+        "categories": ["economy", "policy", "macro"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "mint_industry": {
+        "id": "mint_industry",
+        "name": "Mint Industry",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.95,
+        "url": "https://www.livemint.com/industry",
+        "rss_url": "https://www.livemint.com/rss/industry",
+        "categories": ["industry", "manufacturing", "sectors"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "mc_topnews": {
+        "id": "mc_topnews",
+        "name": "Moneycontrol Top News",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.92,
+        "url": "https://www.moneycontrol.com",
+        "rss_url": "https://www.moneycontrol.com/rss/MCtopnews.xml",
+        "categories": ["business", "markets", "top_stories"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "theprint": {
+        "id": "theprint",
+        "name": "ThePrint",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.88,
+        "url": "https://theprint.in",
+        "rss_url": "https://theprint.in/feed/",
+        "categories": ["policy", "economy", "analysis"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "scrollin": {
+        "id": "scrollin",
+        "name": "Scroll.in",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.86,
+        "url": "https://scroll.in",
+        "rss_url": "http://feeds.feedburner.com/ScrollinArticles.rss",
+        "categories": ["business", "policy", "analysis"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "bbc_india": {
+        "id": "bbc_india",
+        "name": "BBC News India",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.95,
+        "url": "https://www.bbc.com/news/world/asia/india",
+        "rss_url": "http://feeds.bbci.co.uk/news/world/asia/india/rss.xml",
+        "categories": ["business", "economy", "geopolitical"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Bing News RSS (Free, query-based - added 2026-02-19)
+    # Format: https://www.bing.com/news/search?format=RSS&q=<query>
+    # ─────────────────────────────────────────────────────────────────────────
+    "bing_india_business": {
+        "id": "bing_india_business",
+        "name": "Bing News India Business",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://www.bing.com/news",
+        "rss_url": "https://www.bing.com/news/search?format=RSS&q=India+business+news",
+        "categories": ["business", "aggregator"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "bing_india_economy": {
+        "id": "bing_india_economy",
+        "name": "Bing News India Economy",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://www.bing.com/news",
+        "rss_url": "https://www.bing.com/news/search?format=RSS&q=India+economy+policy",
+        "categories": ["economy", "policy", "aggregator"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "bing_india_startup": {
+        "id": "bing_india_startup",
+        "name": "Bing News India Startup",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://www.bing.com/news",
+        "rss_url": "https://www.bing.com/news/search?format=RSS&q=India+startup+funding",
+        "categories": ["startups", "funding", "aggregator"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+
     # ── GDELT (Global Database of Events, Language, and Tone) ──────────
     # Free API, no key needed. Monitors 100+ languages across 250+ countries.
     # Indexes ~300,000 articles/day. Updates every 15 minutes.
@@ -907,24 +1317,34 @@ TIER_2_SOURCES = [src for src in NEWS_SOURCES.values() if src["tier"] == "tier_2
 DEFAULT_ACTIVE_SOURCES = [
     # Tier 1: Major Business Publications (RSS - Unlimited, Working)
     "economic_times", "et_industry", "et_tech",
-    "livemint", "mint_companies",
-    "moneycontrol",
-    "business_standard", "bs_companies",  # Recovered — working again as of 2026-02
+    "livemint", "mint_companies", "mint_markets", "mint_economy", "mint_industry",
+    "moneycontrol", "mc_topnews",
+    "cnbctv18", "cnbctv18_market",
+    # bbc_india: 403 Forbidden
+    # business_standard, bs_companies — 403 Forbidden again as of 2026-02-18
     # Tier 2: Startup & Tech (RSS - Unlimited)
     "yourstory", "inc42",
     # vccircle removed: returns 200 but malformed XML, feedparser fails
-    # Government (RSS - Unlimited)
-    "pib",
+    # Tier 2: Additional Publications (RSS - Unlimited)
+    # zeebiz: 403 Forbidden as of 2026-02-21
+    "indiatoday_business", "theprint", "scrollin",
+    # Government (RSS - often blocked by anti-bot)
+    # pib: empty response as of 2026-02-21
     # Other Publications (RSS - Unlimited)
     "hindu_business", "ndtv_profit", "techcrunch_india",
     # Google News (RSS - Unofficial but works)
     "google_news_india_business", "google_news_india_tech",
-    # APIs (set env vars to activate)
+    # Bing News (RSS - Free, query-based aggregator)
+    "bing_india_business", "bing_india_economy", "bing_india_startup",
+    # APIs (set env vars to activate — gracefully skipped if key missing)
     "newsapi_org",           # NEWSAPI_ORG_KEY - 100 calls/day (BEST)
     "rapidapi_realtime_news",         # RAPIDAPI_KEY - 500/day
+    "rapidapi_google_news",           # RAPIDAPI_KEY - Google News
     "rapidapi_google_trends_news",    # RAPIDAPI_KEY - trending news
     "gnews",                          # GNEWS_API_KEY - 100/day
-    # GDELT (FREE, no API key needed — massive event coverage)
-    "gdelt_india",
-    "gdelt_india_business",
+    "mediastack",                     # MEDIASTACK_API_KEY - 500/month
+    "newsdata",                       # NEWSDATA_API_KEY - 500/month
+    "thenewsapi",                     # THENEWSAPI_KEY - 100/day
+    "webz_news",                      # WEBZ_API_KEY - 1000/month
+    # gdelt_india, gdelt_india_business: connection failures removed
 ]

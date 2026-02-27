@@ -1,7 +1,6 @@
 """
 Schemas package — all data models for the India Trend Lead Agent.
 
-BACKWARD COMPATIBLE: `from app.schemas import NewsArticle` still works.
 Models are organized by domain in submodules:
   - base.py: Common enums and value objects
   - news.py: NewsArticle, NewsSource, Entity, ArticleCluster
@@ -11,10 +10,55 @@ Models are organized by domain in submodules:
   - validation.py: ValidationResult, ValidationVerdict, FieldGroundedness (V10)
 """
 
-# Re-export everything for backward compatibility
-from app.schemas.base import *
-from app.schemas.news import *
-from app.schemas.trends import *
-from app.schemas.pipeline import *
-from app.schemas.sales import *
-from app.schemas.validation import *
+# base.py — enums and value objects
+from app.schemas.base import (
+    Severity, CompanySize, Sector, ServiceType, TrendType, ImpactType,
+    SourceType, SourceTier, IntentLevel, LifecycleStage,
+    BuyingIntentSignalType, BuyingUrgency,
+    GeoLocation, MoneyAmount, ConfidenceScore,
+)
+
+# news.py — article models
+from app.schemas.news import NewsSource, Entity, NewsArticle, ArticleCluster
+
+# trends.py — trend models
+from app.schemas.trends import (
+    SignalStrength, TrendCorrelation, TrendDepth,
+    TopicCluster, TrendEdge, TrendGraph, TrendNode, TrendTree, MajorTrend,
+)
+
+# pipeline.py — pipeline state
+from app.schemas.pipeline import NewsIngestionState, ClusteringState, TrendSynthesisState
+
+# sales.py — sales pipeline models
+from app.schemas.sales import (
+    SectorImpact, TrendData, ImpactAnalysis,
+    CompanyData, ContactData, OutreachEmail,
+    LeadRecord, PipelineResult, EmailFinderResult, AgentState,
+)
+
+# validation.py — validation models
+from app.schemas.validation import (
+    ValidationVerdict, FieldGroundedness, ValidationRound, ValidationResult,
+)
+
+__all__ = [
+    # base
+    "Severity", "CompanySize", "Sector", "ServiceType", "TrendType", "ImpactType",
+    "SourceType", "SourceTier", "IntentLevel", "LifecycleStage",
+    "BuyingIntentSignalType", "BuyingUrgency",
+    "GeoLocation", "MoneyAmount", "ConfidenceScore",
+    # news
+    "NewsSource", "Entity", "NewsArticle", "ArticleCluster",
+    # trends
+    "SignalStrength", "TrendCorrelation", "TrendDepth",
+    "TopicCluster", "TrendEdge", "TrendGraph", "TrendNode", "TrendTree", "MajorTrend",
+    # pipeline
+    "NewsIngestionState", "ClusteringState", "TrendSynthesisState",
+    # sales
+    "SectorImpact", "TrendData", "ImpactAnalysis",
+    "CompanyData", "ContactData", "OutreachEmail",
+    "LeadRecord", "PipelineResult", "EmailFinderResult", "AgentState",
+    # validation
+    "ValidationVerdict", "FieldGroundedness", "ValidationRound", "ValidationResult",
+]

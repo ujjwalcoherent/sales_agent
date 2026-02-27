@@ -1,19 +1,32 @@
 """
 Embeddings tool for generating vector representations of text.
 
-Supports (in priority order):
-1. Local Sentence Transformers (fastest, no API calls)
-2. Ollama nomic-embed-text (local fallback)
-3. Hugging Face Inference API (cloud fallback)
+Provider priority controlled by EMBEDDING_PROVIDER env var:
+  "openai" → OpenAI text-embedding-3-large first (1536-dim, Matryoshka, best quality)
+             No compatible fallback at 1536-dim — OpenAI is sole provider.
+  "nvidia" → NVIDIA NIM API first (1024-dim, same API key as LLM)
+             Falls back to HF API → Local → Ollama.
+  "api"    → HuggingFace Inference API first (runs on HF GPUs)
+             Falls back to NVIDIA → Local → Ollama.
+  "local"  → Local Sentence Transformers first (no network, needs CPU/GPU + RAM)
+             Falls back to NVIDIA → HF API → Ollama.
+
+Set in .env:
+  EMBEDDING_PROVIDER=openai  # Use OpenAI API (recommended — best quality, 1536-dim)
+  EMBEDDING_PROVIDER=nvidia  # Use NVIDIA NIM API (1024-dim)
+  EMBEDDING_PROVIDER=api     # Use HuggingFace server GPUs
+  EMBEDDING_PROVIDER=local   # Use local CPU/GPU
 
 Models:
-- Local: paraphrase-multilingual-MiniLM-L12-v2 (384-dim, multilingual)
-- Ollama: nomic-embed-text (768-dim)
-- HuggingFace API: BAAI/bge-small-en-v1.5 (384-dim)
+- OpenAI: text-embedding-3-large (1536-dim, Matryoshka representation learning)
+- NVIDIA: nv-embedqa-e5-v5 (1024-dim, best discrimination, OpenAI-compatible API)
+- HuggingFace API: BAAI/bge-large-en-v1.5 (1024-dim, runs on HF inference hardware)
+- Local: configurable via LOCAL_EMBEDDING_MODEL
+- Ollama: nomic-embed-text (768-dim — dimension mismatch, rejected if others run first)
 
 IMPORTANT: All fallback providers MUST produce the same dimension as the primary
-provider. If dimension changes mid-pipeline, downstream components (trend memory,
-semantic dedup thresholds) break silently. The _locked_dim mechanism prevents this.
+provider. If dimension changes mid-pipeline, downstream components (semantic dedup
+thresholds) break silently. The _locked_dim mechanism prevents this.
 """
 
 import logging
@@ -27,7 +40,8 @@ from ..config import get_settings
 logger = logging.getLogger(__name__)
 
 # Default embedding dimension (updated on first successful embedding)
-_DEFAULT_DIM = 384
+# 1536 for OpenAI text-embedding-3-large (Matryoshka, configurable via OPENAI_EMBEDDING_DIMENSIONS)
+_DEFAULT_DIM = 1536
 
 # Singleton for local model (avoids reloading on every EmbeddingTool instantiation)
 _local_model = None
@@ -80,17 +94,18 @@ def _get_local_model(model_name: str):
 
 class EmbeddingTool:
     """
-    Generate embeddings with local-first strategy.
+    Generate embeddings with configurable provider priority.
 
-    Priority:
-    1. Local Sentence Transformers (no API, fastest)
-    2. Ollama nomic-embed-text (local, no API key needed)
-    3. Hugging Face API (cloud fallback if HF_API_KEY set)
+    Set EMBEDDING_PROVIDER in .env:
+      "api"   → HF Inference API first (HF GPUs), fallback to local → Ollama
+      "local" → Local sentence-transformers first, fallback to Ollama → HF API
     """
 
     def __init__(self) -> None:
         self.settings = get_settings()
         self._hf_client = None
+        self._nvidia_available: bool | None = None
+        self._openai_available: bool | None = None
         self._ollama_available: bool | None = None
         self._local_model_checked = False
         self._local_available = False
@@ -99,6 +114,13 @@ class EmbeddingTool:
         # Reject fallback providers that produce a different dimension.
         self._dim_locked = False
         self._active_provider: Optional[str] = None
+        # Provider priority from config: "nvidia", "api", or "local"
+        self._provider_mode = getattr(self.settings, 'embedding_provider', 'nvidia').lower()
+        model_name = getattr(self.settings, 'local_embedding_model', 'BAAI/bge-large-en-v1.5')
+        if self._provider_mode == 'local':
+            logger.info(f"Embeddings: LOCAL mode — {model_name} (sentence-transformers, offline)")
+        else:
+            logger.info(f"Embeddings: {self._provider_mode} mode")
 
     @property
     def local_model(self):
@@ -133,6 +155,27 @@ class EmbeddingTool:
         except ImportError:
             logger.warning("huggingface-hub not installed")
             return None
+
+    @property
+    def nvidia_available(self) -> bool:
+        """Check if NVIDIA NIM API is available for embeddings (cached)."""
+        if self._nvidia_available is not None:
+            return self._nvidia_available
+        self._nvidia_available = bool(self.settings.nvidia_api_key)
+        if self._nvidia_available:
+            logger.info(f"NVIDIA NIM API available for embeddings: {self.settings.embedding_model}")
+        return self._nvidia_available
+
+    @property
+    def openai_available(self) -> bool:
+        """Check if OpenAI API is available for embeddings (cached)."""
+        if self._openai_available is not None:
+            return self._openai_available
+        self._openai_available = bool(getattr(self.settings, 'openai_api_key', ''))
+        if self._openai_available:
+            model = getattr(self.settings, 'openai_embedding_model', 'text-embedding-3-large')
+            logger.info(f"OpenAI API available for embeddings: {model}")
+        return self._openai_available
 
     @property
     def ollama_available(self) -> bool:
@@ -242,29 +285,168 @@ class EmbeddingTool:
     def _try_embed_batch(
         self, texts: List[str], batch_size: int = 32
     ) -> List[List[float]] | None:
-        """Try batch embedding: Local → Ollama → HF API."""
-        # 1. Local sentence-transformers (fastest, no API)
-        if self.local_model is not None:
-            try:
-                return self._embed_local_batch(texts, batch_size)
-            except Exception as e:
-                logger.warning(f"Local batch embedding failed: {e}, trying Ollama")
+        """Try batch embedding using provider priority from EMBEDDING_PROVIDER env var.
 
-        # 2. Ollama nomic-embed-text (local, no API key)
-        if self.ollama_available:
-            try:
-                return self._embed_ollama_batch(texts)
-            except Exception as e:
-                logger.warning(f"Ollama batch embedding failed: {e}, trying HF API")
+        Provider chains:
+          openai → OpenAI text-embedding-3-large (1536-dim, sole provider — no fallback)
+          nvidia → NVIDIA NIM → OpenAI → HF API → Local → Ollama
+          api    → HF API → NVIDIA NIM → OpenAI → Ollama → Local
+          local  → Local → NVIDIA NIM → OpenAI → HF API → Ollama
+        """
+        # Build ordered provider chain based on mode
+        if self._provider_mode == "openai":
+            # OpenAI at 1536-dim — no compatible fallback (NVIDIA/HF are 1024-dim)
+            chain = [
+                ("openai", self._try_openai_batch),
+            ]
+        elif self._provider_mode == "nvidia":
+            chain = [
+                ("nvidia", self._try_nvidia_batch),
+                ("openai", self._try_openai_batch),
+                ("hf", lambda t, bs: self._embed_hf_batch(t, bs) if self.hf_client else None),
+                ("local", lambda t, bs: self._embed_local_batch(t, bs) if self.local_model is not None else None),
+                ("ollama", lambda t, bs: self._embed_ollama_batch(t) if self.ollama_available else None),
+            ]
+        elif self._provider_mode == "api":
+            chain = [
+                ("hf", lambda t, bs: self._embed_hf_batch(t, bs) if self.hf_client else None),
+                ("nvidia", self._try_nvidia_batch),
+                ("openai", self._try_openai_batch),
+                ("ollama", lambda t, bs: self._embed_ollama_batch(t) if self.ollama_available else None),
+                ("local", lambda t, bs: self._embed_local_batch(t, bs) if self.local_model is not None else None),
+            ]
+        else:  # local
+            chain = [
+                ("local", lambda t, bs: self._embed_local_batch(t, bs) if self.local_model is not None else None),
+                ("nvidia", self._try_nvidia_batch),
+                ("openai", self._try_openai_batch),
+                ("hf", lambda t, bs: self._embed_hf_batch(t, bs) if self.hf_client else None),
+                ("ollama", lambda t, bs: self._embed_ollama_batch(t) if self.ollama_available else None),
+            ]
 
-        # 3. HuggingFace API (cloud fallback)
-        if self.hf_client:
+        for name, fn in chain:
             try:
-                return self._embed_hf_batch(texts, batch_size)
+                result = fn(texts, batch_size)
+                if result:
+                    # Always track which provider actually produced these embeddings.
+                    # Critical for CMI filter's provider mismatch detection — if
+                    # articles fell back to local but CMI uses nvidia, cosine
+                    # similarity is meaningless (different vector spaces).
+                    if name == "nvidia":
+                        self._active_provider = f"nvidia:{self.settings.embedding_model}"
+                    elif name == "openai":
+                        model = getattr(self.settings, 'openai_embedding_model', 'text-embedding-3-large')
+                        self._active_provider = f"openai:{model}"
+                    elif name == "local":
+                        model_name = getattr(
+                            self.settings, 'local_embedding_model',
+                            'BAAI/bge-large-en-v1.5',
+                        )
+                        self._active_provider = f"local:{model_name}"
+                    elif name == "hf":
+                        self._active_provider = f"hf_api:{self.settings.embedding_model}"
+                    elif name == "ollama":
+                        self._active_provider = "ollama:nomic-embed-text"
+                    return result
             except Exception as e:
-                logger.error(f"HF batch embedding failed: {e}")
+                logger.warning(f"{name} batch embedding failed: {e}")
 
         return None
+
+    # nv-embedqa-e5-v5 has 512 token limit. Tokenization efficiency varies:
+    #   Plain English: ~4 chars/token → 2000 chars = ~500 tokens (OK)
+    #   Indian business (₹, proper nouns, Unicode): ~1.7 chars/token
+    #   → 1095 chars = ~640 tokens (FAIL at 512 limit)
+    # 850 chars safe: worst-case 1.7 chars/token → ~500 tokens (under 512)
+    _NVIDIA_MAX_CHARS = 850
+
+    def _try_nvidia_batch(
+        self, texts: List[str], batch_size: int = 50
+    ) -> List[List[float]] | None:
+        """Embed via NVIDIA NIM API (OpenAI-compatible /v1/embeddings).
+
+        Truncates texts to _NVIDIA_MAX_CHARS to stay within the model's
+        512-token limit and avoid 400 Bad Request errors.
+        """
+        if not self.nvidia_available:
+            return None
+
+        import time
+        start = time.time()
+        all_embeddings = []
+        model = self.settings.embedding_model
+        base_url = self.settings.nvidia_base_url.rstrip("/")
+
+        # Truncate long texts and strip null bytes to stay within token limit
+        max_chars = self._NVIDIA_MAX_CHARS
+        truncated = [
+            (t[:max_chars] if len(t) > max_chars else t).replace("\x00", "").strip() or "empty"
+            for t in texts
+        ]
+        n_truncated = sum(1 for t, tr in zip(texts, truncated) if len(t) > max_chars)
+        if n_truncated:
+            logger.debug(f"NVIDIA: truncated {n_truncated}/{len(texts)} texts to {max_chars} chars")
+
+        with httpx.Client(timeout=120.0) as client:
+            for i in range(0, len(truncated), batch_size):
+                batch = truncated[i : i + batch_size]
+                payload = {
+                    "model": model,
+                    "input": batch,
+                    "input_type": "passage",
+                }
+                try:
+                    response = client.post(
+                        f"{base_url}/embeddings",
+                        headers={
+                            "Authorization": f"Bearer {self.settings.nvidia_api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    batch_embs = [d["embedding"] for d in data["data"]]
+                    all_embeddings.extend(batch_embs)
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 400:
+                        # 400 = bad input. Try smaller sub-batches to isolate bad texts.
+                        body = e.response.text[:200]
+                        logger.warning(
+                            f"NVIDIA 400 on batch {i//batch_size+1} "
+                            f"({len(batch)} texts). Response: {body}. "
+                            f"Retrying one-by-one..."
+                        )
+                        failed_count = 0
+                        for text in batch:
+                            single_emb = self._try_nvidia_single(text)
+                            if single_emb:
+                                all_embeddings.append(single_emb)
+                            else:
+                                failed_count += 1
+                                logger.warning(
+                                    f"NVIDIA single text failed "
+                                    f"({len(text)} chars). Using fallback embedding."
+                                )
+                                # Use zero vector — will be noise in clustering (acceptable)
+                                dim = len(all_embeddings[0]) if all_embeddings else 1024
+                                all_embeddings.append([0.0] * dim)
+                        if failed_count:
+                            logger.info(f"NVIDIA batch recovery: {failed_count} texts used zero-vector fallback")
+                    else:
+                        raise
+
+        elapsed = time.time() - start
+        rate = len(texts) / elapsed if elapsed > 0 else 0
+        if not self._active_provider:
+            self._active_provider = f"nvidia:{model}"
+        if all_embeddings:
+            self._update_dim(all_embeddings[0])
+        logger.info(
+            f"NVIDIA API embeddings: {len(texts)} texts in {elapsed:.2f}s "
+            f"({rate:.0f} texts/sec, model={model})"
+        )
+        return all_embeddings
 
     def _embed_local_batch(
         self, texts: List[str], batch_size: int = 64
@@ -291,7 +473,9 @@ class EmbeddingTool:
     def _embed_hf_batch(
         self, texts: List[str], batch_size: int = 32
     ) -> List[List[float]]:
-        """Send texts to HF API in batches (one API call per batch)."""
+        """Send texts to HF Inference API in batches (runs on HF GPUs)."""
+        import time
+        start = time.time()
         all_embeddings = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
@@ -317,7 +501,13 @@ class EmbeddingTool:
             if batch_embs:
                 self._update_dim(batch_embs[0])
             all_embeddings.extend(batch_embs)
-            logger.info(f"HF batch {i // batch_size + 1}: {len(batch)} texts embedded")
+            logger.info(f"HF API batch {i // batch_size + 1}: {len(batch)} texts embedded")
+
+        elapsed = time.time() - start
+        rate = len(texts) / elapsed if elapsed > 0 else 0
+        if not self._active_provider:
+            self._active_provider = f"hf_api:{self.settings.embedding_model}"
+        logger.info(f"HF API embeddings: {len(texts)} texts in {elapsed:.2f}s ({rate:.0f} texts/sec)")
 
         return all_embeddings
 
@@ -349,29 +539,176 @@ class EmbeddingTool:
         return embeddings
 
     def _try_embed(self, text: str) -> List[float] | None:
-        """Try each backend in priority order: Local → Ollama → HF API."""
-        # 1. Local sentence-transformers
-        if self.local_model is not None:
-            try:
-                return self._embed_local(text)
-            except Exception as e:
-                logger.warning(f"Local embedding failed: {e}, trying Ollama")
+        """Try each backend using provider priority from EMBEDDING_PROVIDER env var.
 
-        # 2. Ollama
-        if self.ollama_available:
-            try:
-                return self._embed_ollama(text)
-            except Exception as e:
-                logger.warning(f"Ollama embedding failed: {e}, trying HF API")
+        Provider chains (same as _try_embed_batch):
+          openai → OpenAI text-embedding-3-large (1536-dim, sole provider)
+          nvidia → NVIDIA NIM → OpenAI → HF API → Local → Ollama
+          api    → HF API → NVIDIA NIM → OpenAI → Local → Ollama
+          local  → Local → NVIDIA NIM → OpenAI → HF API → Ollama
+        """
+        if self._provider_mode == "openai":
+            chain = [
+                ("openai", self._try_openai_single),
+            ]
+        elif self._provider_mode == "nvidia":
+            chain = [
+                ("nvidia", self._try_nvidia_single),
+                ("openai", self._try_openai_single),
+                ("hf", lambda t: self._embed_hf(t) if self.hf_client else None),
+                ("local", lambda t: self._embed_local(t) if self.local_model is not None else None),
+                ("ollama", lambda t: self._embed_ollama(t) if self.ollama_available else None),
+            ]
+        elif self._provider_mode == "api":
+            chain = [
+                ("hf", lambda t: self._embed_hf(t) if self.hf_client else None),
+                ("nvidia", self._try_nvidia_single),
+                ("openai", self._try_openai_single),
+                ("local", lambda t: self._embed_local(t) if self.local_model is not None else None),
+                ("ollama", lambda t: self._embed_ollama(t) if self.ollama_available else None),
+            ]
+        else:  # local
+            chain = [
+                ("local", lambda t: self._embed_local(t) if self.local_model is not None else None),
+                ("nvidia", self._try_nvidia_single),
+                ("openai", self._try_openai_single),
+                ("hf", lambda t: self._embed_hf(t) if self.hf_client else None),
+                ("ollama", lambda t: self._embed_ollama(t) if self.ollama_available else None),
+            ]
 
-        # 3. HuggingFace API
-        if self.hf_client:
+        for name, fn in chain:
             try:
-                return self._embed_hf(text)
+                result = fn(text)
+                if result:
+                    return result
             except Exception as e:
-                logger.error(f"HuggingFace embedding failed: {e}")
+                logger.warning(f"{name} single embedding failed: {e}")
 
         return None
+
+    def _try_nvidia_single(self, text: str) -> List[float] | None:
+        """Embed a single text via NVIDIA NIM API."""
+        if not self.nvidia_available:
+            return None
+
+        model = self.settings.embedding_model
+        base_url = self.settings.nvidia_base_url.rstrip("/")
+        # Truncate to stay within 512-token limit
+        text = text[:self._NVIDIA_MAX_CHARS]
+        # Strip non-printable chars that can cause 400 errors
+        text = text.replace("\x00", "").strip()
+        if not text:
+            text = "empty"
+
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    f"{base_url}/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {self.settings.nvidia_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "input": [text],
+                        "input_type": "passage",
+                    },
+                )
+                response.raise_for_status()
+                embedding = response.json()["data"][0]["embedding"]
+        except Exception as e:
+            logger.warning(f"NVIDIA single embed failed ({len(text)} chars): {e}")
+            return None
+
+        if not self._active_provider:
+            self._active_provider = f"nvidia:{model}"
+        self._update_dim(embedding)
+        return embedding
+
+    def _try_openai_batch(
+        self, texts: List[str], batch_size: int = 100
+    ) -> List[List[float]] | None:
+        """Embed via OpenAI /v1/embeddings API.
+
+        text-embedding-3-large with dimensions=1024 matches NVIDIA nv-embedqa-e5-v5.
+        OpenAI supports up to 2048 texts per batch (we use 100 for safety).
+        """
+        if not self.openai_available:
+            return None
+
+        import time
+        start = time.time()
+        all_embeddings = []
+        model = getattr(self.settings, 'openai_embedding_model', 'text-embedding-3-large')
+        dimensions = getattr(self.settings, 'openai_embedding_dimensions', 1024)
+        api_key = self.settings.openai_api_key
+
+        # Truncate to 8191 tokens (~32K chars safe for English)
+        max_chars = 8000
+        truncated = [
+            (t[:max_chars] if len(t) > max_chars else t).replace("\x00", "").strip() or "empty"
+            for t in texts
+        ]
+
+        with httpx.Client(timeout=120.0) as client:
+            for i in range(0, len(truncated), batch_size):
+                batch = truncated[i : i + batch_size]
+                payload = {
+                    "model": model,
+                    "input": batch,
+                    "dimensions": dimensions,
+                }
+                response = client.post(
+                    "https://api.openai.com/v1/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+                batch_embs = [d["embedding"] for d in data["data"]]
+                all_embeddings.extend(batch_embs)
+
+        elapsed = time.time() - start
+        rate = len(texts) / elapsed if elapsed > 0 else 0
+        if not self._active_provider:
+            self._active_provider = f"openai:{model}"
+        if all_embeddings:
+            self._update_dim(all_embeddings[0])
+        logger.info(
+            f"OpenAI API embeddings: {len(texts)} texts in {elapsed:.2f}s "
+            f"({rate:.0f} texts/sec, model={model}, dim={dimensions})"
+        )
+        return all_embeddings
+
+    def _try_openai_single(self, text: str) -> List[float] | None:
+        """Embed a single text via OpenAI API."""
+        if not self.openai_available:
+            return None
+        model = getattr(self.settings, 'openai_embedding_model', 'text-embedding-3-large')
+        dimensions = getattr(self.settings, 'openai_embedding_dimensions', 1024)
+        text = text[:8000].replace("\x00", "").strip() or "empty"
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    "https://api.openai.com/v1/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {self.settings.openai_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"model": model, "input": [text], "dimensions": dimensions},
+                )
+                response.raise_for_status()
+                embedding = response.json()["data"][0]["embedding"]
+        except Exception as e:
+            logger.warning(f"OpenAI single embed failed: {e}")
+            return None
+        if not self._active_provider:
+            self._active_provider = f"openai:{model}"
+        self._update_dim(embedding)
+        return embedding
 
     def _embed_local(self, text: str) -> List[float]:
         """Embed a single text using local sentence-transformers."""
@@ -382,7 +719,7 @@ class EmbeddingTool:
         return result
 
     def _embed_hf(self, text: str) -> List[float]:
-        """Generate embedding using Hugging Face API."""
+        """Generate embedding using HuggingFace Inference API (runs on HF GPUs)."""
         result = self.hf_client.feature_extraction(
             text,
             model=self.settings.embedding_model,
@@ -397,6 +734,8 @@ class EmbeddingTool:
         else:
             embedding = list(result)
 
+        if not self._active_provider:
+            self._active_provider = f"hf_api:{self.settings.embedding_model}"
         self._update_dim(embedding)
         # Reject mismatched dimensions — return zero vector instead of corrupt data
         if self._dim_locked and len(embedding) != self._embedding_dim:
@@ -521,3 +860,30 @@ def embed_batch(texts: List[str]) -> List[List[float]]:
 def cosine_similarity(emb1: List[float], emb2: List[float]) -> float:
     """Quick cosine similarity."""
     return EmbeddingTool().compute_similarity(emb1, emb2)
+
+
+def l2_normalize(embeddings: np.ndarray) -> np.ndarray:
+    """L2-normalize embedding vectors (rows). Zero vectors stay zero.
+
+    Used across the pipeline for cosine similarity via dot product.
+    """
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    return embeddings / norms
+
+
+def mean_pairwise_cosine(embeddings: np.ndarray) -> float:
+    """Mean pairwise cosine similarity within a set of embeddings (0-1).
+
+    Handles edge cases:
+      n=0 → 0.0,  n=1 → 1.0,  n≥2 → mean of all (i,j) pairs where i≠j.
+
+    Equivalent to sklearn's upper-triangle mean but handles n≤1 safely.
+    Embeddings are L2-normalized internally.
+    """
+    n = len(embeddings)
+    if n < 2:
+        return 1.0 if n == 1 else 0.0
+    normed = l2_normalize(np.asarray(embeddings, dtype=np.float32))
+    sim_matrix = np.dot(normed, normed.T)
+    return float((sim_matrix.sum() - n) / max(n * (n - 1), 1))

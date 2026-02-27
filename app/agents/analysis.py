@@ -168,5 +168,6 @@ async def run_analysis(deps: AgentDeps) -> Any:
         )
         tree = await pipeline.run(deps._articles)
         deps._trend_tree = tree
+        deps._pipeline = pipeline
 
     return tree, agent_result or AnalysisResult(reasoning="Fallback pipeline")

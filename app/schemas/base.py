@@ -80,6 +80,13 @@ class TrendType(str, Enum):
     TECHNOLOGY = "technology"
     SUPPLY_CHAIN = "supply_chain"
     PRICE_CHANGE = "price_change"
+    EARNINGS = "earnings"
+    MARKET_MOVEMENT = "market_movement"
+    INFRASTRUCTURE = "infrastructure"
+    GEOPOLITICAL = "geopolitical"
+    CONSUMER_SHIFT = "consumer_shift"
+    SUSTAINABILITY = "sustainability"
+    CRISIS = "crisis"
     GENERAL = "general"
     EMERGING = "emerging"
 

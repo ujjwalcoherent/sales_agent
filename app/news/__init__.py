@@ -7,12 +7,10 @@ Modules:
 - dedup: MinHash LSH near-duplicate removal
 - entity_extractor: spaCy NER entity extraction
 - event_classifier: Embedding-based event classification (semantic, no regex)
-- entity_cooccurrence: Entity relationship tracking (Recorded Future approach)
 """
 
 from app.tools.rss_tool import RSSTool
 from app.news.dedup import ArticleDeduplicator
 from app.news.entity_extractor import EntityExtractor
 from app.news.scraper import scrape_articles
-from app.news.entity_cooccurrence import EntityCooccurrenceTracker
 from app.news.event_classifier import EmbeddingEventClassifier

@@ -322,14 +322,30 @@ def _sanitize_synthesis_response(response: Dict[str, Any]) -> Dict[str, Any]:
         response["buying_intent"] = {}
         coercions += 1
     else:
-        signal = str(intent.get("signal_type", "")).lower()
+        # Map common LLM aliases to valid enum values
+        _SIGNAL_ALIASES = {
+            "market": "market_entry", "market_movement": "market_entry",
+            "market_shift": "market_entry", "expansion": "growth_opportunity",
+            "growth": "growth_opportunity", "risk": "crisis_response",
+            "disruption": "technology_adoption", "regulation": "compliance_need",
+            "compliance": "compliance_need", "competition": "competitive_pressure",
+            "procurement": "procurement_optimization", "restructure": "restructuring",
+        }
+        signal = str(intent.get("signal_type", "")).lower().strip()
+        signal = _SIGNAL_ALIASES.get(signal, signal)
         if signal not in _VALID_SIGNAL_TYPES:
             intent["signal_type"] = "unknown"
             coercions += 1
-        urgency = str(intent.get("urgency", "")).lower()
+        else:
+            intent["signal_type"] = signal
+        urgency = str(intent.get("urgency", "")).lower().strip()
         if urgency not in _VALID_URGENCIES:
             intent["urgency"] = "unknown"
             coercions += 1
+        # Coerce all values to strings (prevent Pydantic validation errors)
+        for key in list(intent.keys()):
+            if intent[key] is not None and not isinstance(intent[key], str):
+                intent[key] = str(intent[key])
 
     services = response.get("recommended_services")
     if services is not None and not isinstance(services, list):

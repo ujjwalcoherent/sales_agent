@@ -3,7 +3,7 @@ Named Entity Recognition (NER) for news articles using spaCy.
 
 Extracts people, organizations, locations, dates, events, and monetary
 amounts from article text. These entities feed into:
-- Trend signal computation (entity_momentum, key_person_flag, company_count)
+- Trend signal computation (key_person_flag, company_count, entity_density)
 - Cluster quality assessment (entity overlap between articles)
 - Sales intelligence (which companies/people are involved in each trend)
 
@@ -25,7 +25,7 @@ REF: spaCy v3 NER benchmarks: 90-96% F1 on OntoNotes.
 """
 
 import logging
-from typing import List, Optional
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,6 @@ except Exception as e:
 
 
 # Entity types we care about for news trend analysis
-# Other spaCy types (CARDINAL, ORDINAL, PERCENT, etc.) are ignored
 RELEVANT_ENTITY_TYPES = {
     "PERSON",    # People (Narendra Modi, Elon Musk)
     "ORG",       # Organizations (RBI, Tata, Google)
@@ -52,6 +51,18 @@ RELEVANT_ENTITY_TYPES = {
     "NORP",      # Nationalities/groups (Indian, Republican)
     "FAC",       # Facilities (Mumbai Stock Exchange)
     "LOC",       # Non-GPE locations (Asia Pacific, Western Ghats)
+    "QUANTITY",  # Quantities (500 employees, 200 stores, 10GW capacity)
+    "PERCENT",   # Percentages (30% tariff reduction, 15% margin compression)
+    "CARDINAL",  # Numeric values (42 companies, 3 million users)
+}
+
+# Identity entity types — named things useful for overlap, dedup, cluster coherence.
+# These go into article.entity_names (the "quick overlap" list).
+# Numeric types (DATE, MONEY, QUANTITY, PERCENT, CARDINAL) are excluded because
+# "January 2026" never overlaps meaningfully with "February 2026" and "$500M"
+# never overlaps with "$200M". They still appear in article.entities for signals.
+IDENTITY_ENTITY_TYPES = {
+    "PERSON", "ORG", "GPE", "EVENT", "PRODUCT", "LAW", "NORP", "FAC", "LOC",
 }
 
 
@@ -126,16 +137,27 @@ class EntityExtractor:
             return articles
 
         # Prepare texts for batch processing
+        # Use title + summary + first 1200 chars of content to match synthesis window.
+        # NER must see the SAME text window as the LLM synthesizer, otherwise the
+        # validator flags entities from content[500:1200] as "hallucinated" when the
+        # LLM correctly extracted them from article text.
+        # Performance: ~2s for 500 articles (sm model), acceptable overhead.
         texts = []
         for article in articles:
-            # Use title + summary (not full content — too slow for NER on every article)
-            text = f"{article.title}. {article.summary}"
+            content_lead = (getattr(article, "content", None) or "")[:1200]
+            parts = [article.title, article.summary]
+            if content_lead:
+                parts.append(content_lead)
+            text = ". ".join(p for p in parts if p)
             texts.append(text)
 
         # Process all texts in batch using pipe()
         # n_process=1 for safety (multiprocessing can cause issues on Windows)
         # batch_size=50 is optimal for the sm model
         docs = list(self.nlp.pipe(texts, batch_size=50, n_process=1))
+
+        from app.schemas.news import Entity as EntityModel
+        from app.news.entity_normalizer import normalize_entities_batch
 
         for article, doc in zip(articles, docs):
             entities = []
@@ -154,14 +176,18 @@ class EntityExtractor:
                 position_ratio = ent.start_char / max(len(doc.text), 1)
                 salience = max(0.1, 1.0 - position_ratio)
 
-                from app.schemas.news import Entity as EntityModel
                 entity = EntityModel(
                     text=ent.text,
                     type=ent.label_,
                     salience=round(salience, 2),
                 )
                 entities.append(entity)
-                entity_names.append(ent.text)
+
+                # Only identity entities go into entity_names (for overlap/coherence).
+                # Numeric types (DATE, MONEY, QUANTITY, PERCENT, CARDINAL) are kept
+                # in article.entities but excluded from the overlap list.
+                if ent.label_ in IDENTITY_ENTITY_TYPES:
+                    entity_names.append(ent.text)
 
                 # Populate legacy fields for backward compat with downstream pipeline
                 if ent.label_ == "ORG":
@@ -171,19 +197,22 @@ class EntityExtractor:
                 elif ent.label_ in ("GPE", "LOC", "FAC"):
                     locations.append(ent.text)
 
-            # Deduplicate entity names while preserving order
-            seen = set()
-            unique_names = []
-            for name in entity_names:
-                if name.lower() not in seen:
-                    seen.add(name.lower())
-                    unique_names.append(name)
+            # Normalize + deduplicate entity names (identity entities only)
+            unique_names = normalize_entities_batch(entity_names, deduplicate=True)
 
             article.entities = entities
             article.entity_names = unique_names
-            article.mentioned_companies = list(set(article.mentioned_companies + companies))
-            article.mentioned_people = list(set(article.mentioned_people + people))
-            article.mentioned_locations = list(set(article.mentioned_locations + locations))
+            # Normalize legacy fields too — prevents "Tata Motors Ltd" and
+            # "Tata Motors" from counting as 2 companies in signals.
+            article.mentioned_companies = normalize_entities_batch(
+                article.mentioned_companies + companies, deduplicate=True
+            )
+            article.mentioned_people = normalize_entities_batch(
+                article.mentioned_people + people, deduplicate=True
+            )
+            article.mentioned_locations = normalize_entities_batch(
+                article.mentioned_locations + locations, deduplicate=True
+            )
 
         logger.info(
             f"Entity extraction: {len(articles)} articles processed, "
@@ -192,33 +221,3 @@ class EntityExtractor:
         )
         return articles
 
-    def compute_entity_overlap(
-        self,
-        articles_a: list,
-        articles_b: list,
-    ) -> float:
-        """
-        Compute Jaccard similarity of entity sets between two article groups.
-
-        Used by clustering to measure how related two clusters are based on
-        shared entities (people, companies, locations mentioned).
-
-        Returns: float in [0, 1]. 1.0 = identical entity sets.
-        """
-        set_a = set()
-        set_b = set()
-
-        for a in articles_a:
-            for name in getattr(a, 'entity_names', []):
-                set_a.add(name.lower())
-
-        for b in articles_b:
-            for name in getattr(b, 'entity_names', []):
-                set_b.add(name.lower())
-
-        if not set_a and not set_b:
-            return 0.0
-
-        intersection = set_a & set_b
-        union = set_a | set_b
-        return len(intersection) / len(union) if union else 0.0

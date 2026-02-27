@@ -1,495 +1,394 @@
 """
-Historical trend memory — persistent store for past trends.
+Temporal trend memory — distinguishes genuinely new trends from recurring topics.
 
-THE PROBLEM THIS SOLVES:
-  Every pipeline run starts from scratch. If "RBI repo rate hike" was a trend
-  yesterday, and similar articles appear today, the system treats it as if it's
-  seeing this topic for the first time. No continuity, no evolution tracking.
+Stores cluster centroids across runs in ChromaDB. On each pipeline run:
+1. Match new centroids vs stored (cosine > match_threshold = same trend)
+2. Matching: low novelty, increment run_count, EMA blend centroid (70/30)
+3. Non-matching: novelty = 1.0 (genuinely new)
+4. Stale (not seen in N days): prune
 
-WHAT THIS ENABLES:
-  1. CONTINUITY: "This trend has been developing for 5 days" → higher confidence
-  2. EVOLUTION: "New development in [past trend]" → links related trends
-  3. NOVELTY: Truly new trends get boosted (no historical match = novel)
-  4. DECAY: Old trends fade over time (configurable half-life)
+This prevents "RBI rate hike" from appearing as a fresh trend every run
+when it's been detected 10 times before.
 
-HOW IT WORKS:
-  - Store: JSON file with trend centroids (mean embedding), titles, dates, metadata
-  - Match: New cluster centroid → cosine similarity against stored centroids
-  - Score: trend_continuity_score (0-1) based on match strength + age
-  - Prune: Auto-remove trends older than max_age_days
-
-DATA STORED PER TREND:
-  - centroid: Mean normalized embedding of the cluster (dimension varies by model)
-  - title: LLM-generated trend title (for human reference)
-  - keywords: Top c-TF-IDF keywords
-  - first_seen: ISO datetime (when this trend first appeared)
-  - last_seen: ISO datetime (most recent match)
-  - seen_count: How many pipeline runs detected this trend
-  - peak_score: Highest trend_score ever recorded
-  - article_count_total: Cumulative articles across all appearances
-
-PERFORMANCE: <100ms for 1000 stored trends (vectorized cosine similarity).
-
-STORAGE: ~200 bytes per trend → 1000 trends ≈ 200KB. Negligible.
+REF: BERTrend (Boutaleb et al. 2024) — temporal topic tracking.
+     Plan Phase 4: Temporal memory layer.
 """
 
 import json
 import logging
-import os
-import time
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Default storage path (relative to project root)
-_DEFAULT_MEMORY_PATH = Path("data/trend_memory.json")
-_MEMORY_VERSION = 2  # Bumped: now stores embedding_dim for compatibility checks
-
 
 class TrendMemory:
-    """
-    Persistent trend memory. Stores centroids + metadata, matches new trends
-    against history, and provides continuity/novelty signals.
+    """Persistent trend centroid store for novelty detection.
+
+    Uses ChromaDB to store cluster centroids with metadata (run_count,
+    first_seen, last_seen, keywords). On each run, matches current cluster
+    centroids against stored ones via cosine similarity.
     """
 
     def __init__(
         self,
-        storage_path: Optional[Path] = None,
-        similarity_threshold: float = 0.60,
-        max_age_days: int = 30,
-        decay_half_life_days: float = 7.0,
+        db_path: str = "./data/memory",
+        match_threshold: float = 0.80,
+        stale_days: int = 14,
+        ema_alpha: float = 0.30,
     ):
         """
         Args:
-            storage_path: Path to JSON store file. Created if doesn't exist.
-            similarity_threshold: Min cosine similarity to consider a match with past trend.
-            max_age_days: Trends older than this are pruned on load.
-            decay_half_life_days: Half-life for recency decay of stored trends.
+            db_path: ChromaDB persistent storage path.
+            match_threshold: Cosine similarity above which a centroid
+                             is considered "same trend" as a stored one.
+            stale_days: Remove stored centroids not seen in this many days.
+            ema_alpha: Weight for blending new centroid into stored
+                       (0.30 = 30% new, 70% old).
         """
-        self.storage_path = storage_path or _DEFAULT_MEMORY_PATH
-        self.similarity_threshold = similarity_threshold
-        self.max_age_days = max_age_days
-        self.decay_half_life_days = decay_half_life_days
-
-        self._trends: List[Dict[str, Any]] = []
-        self._centroids: Optional[np.ndarray] = None  # Cached (N, dim) matrix
-        self._stored_embedding_dim: Optional[int] = None  # Dim from file
-        self._loaded = False
-
-    def _ensure_loaded(self):
-        """Lazy-load from disk on first access."""
-        if self._loaded:
-            return
-        self._load()
-        self._loaded = True
-
-    def _load(self):
-        """Load trend memory from JSON file. Prunes old trends."""
-        if not self.storage_path.exists():
-            self._trends = []
-            self._centroids = None
-            logger.debug(f"Trend memory: no file at {self.storage_path}, starting fresh")
-            return
-
-        try:
-            with open(self.storage_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            stored_version = data.get("version", 1)
-            if stored_version < _MEMORY_VERSION:
-                logger.warning(
-                    f"Trend memory version {stored_version} < {_MEMORY_VERSION}, "
-                    f"resetting (old data incompatible)"
-                )
-                self._trends = []
-                self._centroids = None
-                return
-
-            self._stored_embedding_dim = data.get("embedding_dim")
-
-            raw_trends = data.get("trends", [])
-
-            # Prune old trends
-            cutoff = datetime.utcnow() - timedelta(days=self.max_age_days)
-            cutoff_iso = cutoff.isoformat()
-            self._trends = [
-                t for t in raw_trends
-                if t.get("last_seen", "") >= cutoff_iso
-            ]
-
-            pruned = len(raw_trends) - len(self._trends)
-            if pruned > 0:
-                logger.info(f"Trend memory: pruned {pruned} expired trends (>{self.max_age_days} days)")
-
-            # Build centroid matrix for fast similarity
-            self._rebuild_centroid_matrix()
-
-            logger.info(
-                f"Trend memory: loaded {len(self._trends)} trends "
-                f"(dim={self._stored_embedding_dim}) from {self.storage_path}"
-            )
-
-        except Exception as e:
-            logger.warning(f"Failed to load trend memory: {e}")
-            self._trends = []
-            self._centroids = None
-
-    def _rebuild_centroid_matrix(self):
-        """Build/rebuild the normalized centroid matrix for vectorized similarity."""
-        if not self._trends:
-            self._centroids = None
-            return
-
-        # Detect dimension from actual centroid data (not hardcoded)
-        detected_dim = None
-        for t in self._trends:
-            c = t.get("centroid")
-            if c and isinstance(c, list) and len(c) > 0:
-                detected_dim = len(c)
-                break
-
-        if detected_dim is None:
-            self._centroids = None
-            return
-
-        self._stored_embedding_dim = detected_dim
-
-        centroids = []
-        for t in self._trends:
-            c = t.get("centroid")
-            if c and isinstance(c, list) and len(c) == detected_dim:
-                centroids.append(c)
-            else:
-                centroids.append([0.0] * detected_dim)  # Zero vector for missing/mismatched
-
-        self._centroids = np.array(centroids)
-        norms = np.linalg.norm(self._centroids, axis=1, keepdims=True)
-        norms[norms == 0] = 1
-        self._centroids = self._centroids / norms
-
-    def save(self):
-        """Persist current state to disk."""
-        try:
-            self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Don't persist centroid vectors in the JSON — they're large and rebuilt on load
-            # Actually, we DO need them for matching. But strip to 4 decimal places.
-            serializable_trends = []
-            for t in self._trends:
-                st = dict(t)
-                if "centroid" in st and isinstance(st["centroid"], list):
-                    st["centroid"] = [round(v, 4) for v in st["centroid"]]
-                serializable_trends.append(st)
-
-            # Detect embedding dim from centroids
-            embedding_dim = None
-            for t in serializable_trends:
-                c = t.get("centroid")
-                if c and isinstance(c, list):
-                    embedding_dim = len(c)
-                    break
-
-            data = {
-                "version": _MEMORY_VERSION,
-                "updated_at": datetime.utcnow().isoformat(),
-                "embedding_dim": embedding_dim,
-                "trend_count": len(self._trends),
-                "trends": serializable_trends,
-            }
-
-            with open(self.storage_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=1, ensure_ascii=False)
-
-            logger.debug(f"Trend memory: saved {len(self._trends)} trends to {self.storage_path}")
-
-        except Exception as e:
-            logger.warning(f"Failed to save trend memory: {e}")
-
-    def match_cluster(
-        self,
-        cluster_centroid: np.ndarray,
-        cluster_title: str = "",
-    ) -> Dict[str, Any]:
-        """
-        Match a new cluster against stored trends.
-
-        Args:
-            cluster_centroid: Normalized mean embedding of the new cluster.
-            cluster_title: Title for logging/debugging.
-
-        Returns:
-            Dict with:
-              - is_continuation: bool — matches a known past trend
-              - continuity_score: float (0-1) — strength of match × recency
-              - novelty_score: float (0-1) — inverse of continuity (1=completely new)
-              - matched_trend_title: str — title of the matched past trend (if any)
-              - matched_trend_age_days: float — how old the matched trend is
-              - matched_trend_seen_count: int — how many times we've seen it
-        """
-        self._ensure_loaded()
-
-        if self._centroids is None or len(self._centroids) == 0:
-            return {
-                "is_continuation": False,
-                "continuity_score": 0.0,
-                "novelty_score": 1.0,
-                "matched_trend_title": "",
-                "matched_trend_age_days": 0.0,
-                "matched_trend_seen_count": 0,
-            }
-
-        # Ensure centroid is normalized
-        centroid = np.array(cluster_centroid).flatten()
-        norm = np.linalg.norm(centroid)
-        if norm > 0:
-            centroid = centroid / norm
-
-        # Vectorized cosine similarity against all stored trends
-        sims = np.dot(self._centroids, centroid)
-        best_idx = int(np.argmax(sims))
-        best_sim = float(sims[best_idx])
-
-        if best_sim < self.similarity_threshold:
-            return {
-                "is_continuation": False,
-                "continuity_score": 0.0,
-                "novelty_score": 1.0,
-                "matched_trend_title": "",
-                "matched_trend_age_days": 0.0,
-                "matched_trend_seen_count": 0,
-                "matched_trend_idx": -1,
-            }
-
-        matched = self._trends[best_idx]
-
-        # Compute recency decay: how old is the matched trend?
-        try:
-            last_seen = datetime.fromisoformat(matched["last_seen"])
-            age_days = (datetime.utcnow() - last_seen).total_seconds() / 86400
-        except Exception:
-            age_days = self.max_age_days
-
-        # Exponential decay: recent matches get higher continuity score
-        decay = 2.0 ** (-age_days / self.decay_half_life_days)
-        continuity_score = best_sim * decay
-
-        logger.debug(
-            f"  Trend memory match: '{cluster_title[:40]}' ↔ '{matched.get('title', '')[:40]}' "
-            f"sim={best_sim:.3f}, age={age_days:.1f}d, continuity={continuity_score:.3f}"
+        import chromadb
+        self.client = chromadb.PersistentClient(path=db_path)
+        self.collection = self.client.get_or_create_collection(
+            name="trend_centroids",
+            metadata={"hnsw:space": "cosine"},
         )
+        self.match_threshold = match_threshold
+        self.stale_days = stale_days
+        self.ema_alpha = ema_alpha
 
-        return {
-            "is_continuation": True,
-            "continuity_score": round(continuity_score, 4),
-            "novelty_score": round(1.0 - min(1.0, continuity_score), 4),
-            "matched_trend_title": matched.get("title", ""),
-            "matched_trend_age_days": round(age_days, 1),
-            "matched_trend_seen_count": matched.get("seen_count", 1),
-            "matched_trend_idx": best_idx,
-        }
-
-    def match_clusters_batch(
+    def compute_novelty(
         self,
         cluster_centroids: Dict[int, np.ndarray],
-        cluster_titles: Optional[Dict[int, str]] = None,
-    ) -> Dict[int, Dict[str, Any]]:
-        """
-        Batch match all clusters at once (vectorized, fast).
+        cluster_keywords: Optional[Dict[int, List[str]]] = None,
+        cluster_article_counts: Optional[Dict[int, int]] = None,
+        cluster_oss: Optional[Dict[int, float]] = None,
+    ) -> Tuple[Dict[int, float], Dict[int, float], Dict[int, str]]:
+        """Compare current cluster centroids against stored trend memory.
 
         Args:
-            cluster_centroids: {cluster_id: centroid_embedding}
-            cluster_titles: {cluster_id: title} for logging
+            cluster_centroids: {cluster_id: centroid_vector}
+            cluster_keywords: {cluster_id: [keywords]} for metadata storage.
+            cluster_article_counts: {cluster_id: article_count} for lifecycle.
 
         Returns:
-            {cluster_id: match_result_dict} (same format as match_cluster)
+            (novelty_scores, continuity_scores, lifecycle_stages) where:
+            - novelty_scores: {cluster_id: 0.0-1.0} (1.0 = brand new)
+            - continuity_scores: {cluster_id: 0.0-1.0} (1.0 = long-running)
+            - lifecycle_stages: {cluster_id: "birth"|"growth"|"peak"|"decline"|"revival"}
         """
-        self._ensure_loaded()
-        titles = cluster_titles or {}
-        results = {}
+        novelty_scores = {}
+        continuity_scores = {}
+        lifecycle_stages = {}
+        now = datetime.now(timezone.utc)
 
-        if self._centroids is None or len(self._centroids) == 0:
-            for cid in cluster_centroids:
-                results[cid] = {
-                    "is_continuation": False,
-                    "continuity_score": 0.0,
-                    "novelty_score": 1.0,
-                    "matched_trend_title": "",
-                    "matched_trend_age_days": 0.0,
-                    "matched_trend_seen_count": 0,
-                }
-            return results
+        if not cluster_centroids:
+            return novelty_scores, continuity_scores, lifecycle_stages
 
-        # Build matrix of new centroids
-        cids = list(cluster_centroids.keys())
-        if not cids:
-            return results
+        # Query all stored centroids
+        stored_count = self.collection.count()
 
-        new_centroids = np.array([cluster_centroids[cid] for cid in cids])
-        # Ensure 2D even for single cluster (prevents IndexError on all_sims[i, best_idx])
-        if new_centroids.ndim == 1:
-            new_centroids = new_centroids.reshape(1, -1)
+        for cid, centroid in cluster_centroids.items():
+            centroid_list = centroid.tolist() if isinstance(centroid, np.ndarray) else centroid
 
-        # Dimension compatibility check — if stored centroids have different dim
-        # than new centroids, matching is impossible. Reset and treat all as novel.
-        new_dim = new_centroids.shape[1]
-        stored_dim = self._centroids.shape[1]
-        if new_dim != stored_dim:
-            logger.warning(
-                f"Trend memory dimension mismatch: new={new_dim}, stored={stored_dim}. "
-                f"Resetting memory (embedding model changed)."
-            )
-            self._trends = []
-            self._centroids = None
-            for cid in cluster_centroids:
-                results[cid] = {
-                    "is_continuation": False,
-                    "continuity_score": 0.0,
-                    "novelty_score": 1.0,
-                    "matched_trend_title": "",
-                    "matched_trend_age_days": 0.0,
-                    "matched_trend_seen_count": 0,
-                }
-            return results
-
-        norms = np.linalg.norm(new_centroids, axis=1, keepdims=True)
-        norms[norms == 0] = 1
-        new_centroids_norm = new_centroids / norms
-
-        # All-vs-all similarity: (n_new, n_stored)
-        all_sims = np.dot(new_centroids_norm, self._centroids.T)
-
-        for i, cid in enumerate(cids):
-            best_idx = int(np.argmax(all_sims[i]))
-            best_sim = float(all_sims[i, best_idx])
-
-            if best_sim < self.similarity_threshold:
-                results[cid] = {
-                    "is_continuation": False,
-                    "continuity_score": 0.0,
-                    "novelty_score": 1.0,
-                    "matched_trend_title": "",
-                    "matched_trend_age_days": 0.0,
-                    "matched_trend_seen_count": 0,
-                }
+            if stored_count == 0:
+                # No history — everything is novel
+                novelty_scores[cid] = 1.0
+                continuity_scores[cid] = 0.0
+                lifecycle_stages[cid] = "birth"
+                self._store_centroid(
+                    cid, centroid_list, cluster_keywords, now,
+                    article_count=cluster_article_counts.get(cid, 0) if cluster_article_counts else 0,
+                    oss=cluster_oss.get(cid, 0.0) if cluster_oss else 0.0,
+                )
                 continue
 
-            matched = self._trends[best_idx]
-            try:
-                last_seen = datetime.fromisoformat(matched["last_seen"])
-                age_days = (datetime.utcnow() - last_seen).total_seconds() / 86400
-            except Exception:
-                age_days = self.max_age_days
+            # Find nearest stored centroid
+            results = self.collection.query(
+                query_embeddings=[centroid_list],
+                n_results=1,
+                include=["metadatas", "distances", "embeddings"],
+            )
 
-            decay = 2.0 ** (-age_days / self.decay_half_life_days)
-            continuity_score = best_sim * decay
+            if not results["ids"][0]:
+                # No matches found
+                novelty_scores[cid] = 1.0
+                continuity_scores[cid] = 0.0
+                lifecycle_stages[cid] = "birth"
+                self._store_centroid(
+                    cid, centroid_list, cluster_keywords, now,
+                    article_count=cluster_article_counts.get(cid, 0) if cluster_article_counts else 0,
+                    oss=cluster_oss.get(cid, 0.0) if cluster_oss else 0.0,
+                )
+                continue
 
-            results[cid] = {
-                "is_continuation": True,
-                "continuity_score": round(continuity_score, 4),
-                "novelty_score": round(1.0 - min(1.0, continuity_score), 4),
-                "matched_trend_title": matched.get("title", ""),
-                "matched_trend_age_days": round(age_days, 1),
-                "matched_trend_seen_count": matched.get("seen_count", 1),
-            }
+            # ChromaDB cosine distance = 1 - cosine_similarity
+            distance = results["distances"][0][0]
+            similarity = 1.0 - distance
+            matched_id = results["ids"][0][0]
+            metadata = results["metadatas"][0][0]
 
-        continuations = sum(1 for r in results.values() if r["is_continuation"])
-        logger.info(
-            f"Trend memory: {continuations}/{len(results)} clusters match past trends, "
-            f"{len(results) - continuations} novel"
+            if similarity >= self.match_threshold:
+                # Match found — this is a recurring trend
+                run_count = metadata.get("run_count", 1) + 1
+                first_seen = metadata.get("first_seen", now.isoformat())
+                prev_article_count = metadata.get("article_count", 0)
+                prev_lifecycle = metadata.get("lifecycle", "birth")
+
+                # Novelty decays with run_count (more seen = less novel)
+                # Gentler curve: 1/(1 + 0.3*run_count) — preserves novelty longer
+                # for moderate counts. Old: 1/(1+log(N)) was too aggressive
+                # (N=5 → 0.38). New: N=5 → 0.40, N=10 → 0.25, N=20 → 0.14.
+                import math
+                novelty_scores[cid] = round(1.0 / (1.0 + 0.3 * run_count), 4)
+
+                # Continuity grows with run_count
+                continuity_scores[cid] = round(min(1.0, run_count / 10.0), 4)
+
+                # Lifecycle classification
+                curr_count = cluster_article_counts.get(cid, 0) if cluster_article_counts else 0
+                lifecycle = self._classify_lifecycle(
+                    run_count, curr_count, prev_article_count, prev_lifecycle
+                )
+                lifecycle_stages[cid] = lifecycle
+
+                # EMA blend: update stored centroid
+                stored_emb = results["embeddings"][0][0]
+                blended = [
+                    self.ema_alpha * new + (1 - self.ema_alpha) * old
+                    for new, old in zip(centroid_list, stored_emb)
+                ]
+                # Normalize blended embedding to prevent norm drift over many updates
+                norm = float(np.linalg.norm(blended))
+                if norm > 0:
+                    blended = [x / norm for x in blended]
+
+                keywords = (
+                    cluster_keywords.get(cid, [])[:10]
+                    if cluster_keywords else []
+                )
+
+                # V4: Track OSS per centroid for cross-run learning
+                curr_oss = cluster_oss.get(cid, 0.0) if cluster_oss else 0.0
+                prev_avg_oss = metadata.get("avg_oss", 0.0)
+                if prev_avg_oss > 0 and curr_oss > 0:
+                    # Rolling average: 30% new + 70% old (same EMA as centroid)
+                    new_avg_oss = round(self.ema_alpha * curr_oss + (1 - self.ema_alpha) * prev_avg_oss, 4)
+                else:
+                    new_avg_oss = round(curr_oss, 4) if curr_oss > 0 else prev_avg_oss
+
+                # Determine OSS trend direction
+                if curr_oss > prev_avg_oss + 0.05:
+                    oss_trend = "improving"
+                elif curr_oss < prev_avg_oss - 0.05:
+                    oss_trend = "declining"
+                else:
+                    oss_trend = "stable"
+
+                self.collection.update(
+                    ids=[matched_id],
+                    embeddings=[blended],
+                    metadatas=[{
+                        "run_count": run_count,
+                        "first_seen": first_seen,
+                        "last_seen": now.isoformat(),
+                        "keywords": json.dumps(keywords),
+                        "similarity": round(similarity, 4),
+                        "article_count": curr_count,
+                        "lifecycle": lifecycle,
+                        "avg_oss": new_avg_oss,
+                        "oss_trend": oss_trend,
+                    }],
+                )
+
+                logger.debug(
+                    f"Cluster {cid}: matched stored trend {matched_id} "
+                    f"(sim={similarity:.3f}, runs={run_count}, "
+                    f"novelty={novelty_scores[cid]:.3f}, lifecycle={lifecycle})"
+                )
+
+            else:
+                # No match — genuinely new trend
+                novelty_scores[cid] = 1.0
+                continuity_scores[cid] = 0.0
+                lifecycle_stages[cid] = "birth"
+                self._store_centroid(
+                    cid, centroid_list, cluster_keywords, now,
+                    article_count=cluster_article_counts.get(cid, 0) if cluster_article_counts else 0,
+                    oss=cluster_oss.get(cid, 0.0) if cluster_oss else 0.0,
+                )
+
+                logger.debug(
+                    f"Cluster {cid}: NEW trend "
+                    f"(nearest sim={similarity:.3f} < {self.match_threshold})"
+                )
+
+        return novelty_scores, continuity_scores, lifecycle_stages
+
+    @staticmethod
+    def _classify_lifecycle(
+        run_count: int,
+        curr_articles: int,
+        prev_articles: int,
+        prev_lifecycle: str,
+    ) -> str:
+        """Classify trend lifecycle stage based on article count trajectory.
+
+        BIRTH -> GROWTH -> PEAK -> DECLINE -> DORMANT
+          ^                                      |
+          +------------ REVIVAL <----------------+
+        """
+        if run_count <= 1:
+            return "birth"
+
+        if prev_lifecycle == "dormant" and curr_articles > 0:
+            return "revival"
+
+        if curr_articles == 0:
+            return "dormant"
+
+        # Compare article counts
+        if prev_articles == 0:
+            return "growth"
+
+        ratio = curr_articles / max(prev_articles, 1)
+
+        if ratio > 1.2:  # 20%+ growth
+            return "growth"
+        elif ratio < 0.7:  # 30%+ decline
+            return "decline"
+        else:
+            return "peak"  # Stable
+
+    def _store_centroid(
+        self,
+        cluster_id: int,
+        centroid: List[float],
+        cluster_keywords: Optional[Dict[int, List[str]]],
+        now: datetime,
+        article_count: int = 0,
+        oss: float = 0.0,
+    ):
+        """Store a new centroid in ChromaDB."""
+        keywords = (
+            cluster_keywords.get(cluster_id, [])[:10]
+            if cluster_keywords else []
+        )
+        doc_id = f"trend_{now.strftime('%Y%m%d_%H%M%S')}_{cluster_id}"
+
+        self.collection.add(
+            ids=[doc_id],
+            embeddings=[centroid],
+            metadatas=[{
+                "run_count": 1,
+                "first_seen": now.isoformat(),
+                "last_seen": now.isoformat(),
+                "keywords": json.dumps(keywords),
+                "similarity": 1.0,
+                "article_count": article_count,
+                "lifecycle": "birth",
+                "avg_oss": round(oss, 4),
+                "oss_trend": "new",
+            }],
         )
 
-        return results
+    def prune_stale(self) -> int:
+        """Remove stored centroids not seen in stale_days.
 
-    def store_trends(
+        Returns:
+            Number of stale centroids removed.
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(days=self.stale_days)
+        cutoff_str = cutoff.isoformat()
+
+        stored = self.collection.get(include=["metadatas"])
+        if not stored["ids"]:
+            return 0
+
+        stale_ids = []
+        for doc_id, metadata in zip(stored["ids"], stored["metadatas"]):
+            last_seen = metadata.get("last_seen", "")
+            if last_seen and last_seen < cutoff_str:
+                stale_ids.append(doc_id)
+                run_count = metadata.get("run_count", 0)
+                keywords = metadata.get("keywords", "[]")
+                logger.debug(
+                    f"Stale centroid: {doc_id[:12]}... "
+                    f"(run_count={run_count}, last_seen={last_seen[:10]}, kw={keywords})"
+                )
+
+        if stale_ids:
+            self.collection.delete(ids=stale_ids)
+            logger.info(f"Pruned {len(stale_ids)} stale trend centroids (>{self.stale_days} days)")
+
+        return len(stale_ids)
+
+    def update_oss_scores(
         self,
         cluster_centroids: Dict[int, np.ndarray],
-        cluster_titles: Dict[int, str],
-        cluster_keywords: Dict[int, List[str]],
-        cluster_scores: Optional[Dict[int, float]] = None,
-        cluster_article_counts: Optional[Dict[int, int]] = None,
-    ):
-        """
-        Store current run's trends into memory for future matching.
+        cluster_oss: Dict[int, float],
+    ) -> int:
+        """Post-synthesis: update stored centroids with OSS data.
 
-        Merges with existing trends: if a new trend matches an existing one,
-        UPDATE it (bump seen_count, update last_seen, merge keywords).
-        If no match, INSERT as new.
+        Called AFTER synthesis produces OSS scores. Since compute_novelty()
+        runs BEFORE synthesis, centroids are stored with oss=0.0. This method
+        finds the matching stored centroids and updates their OSS metadata.
 
-        Args:
-            cluster_centroids: {cluster_id: mean_embedding}
-            cluster_titles: {cluster_id: LLM-generated title}
-            cluster_keywords: {cluster_id: [top keywords]}
-            cluster_scores: {cluster_id: trend_score} (optional)
-            cluster_article_counts: {cluster_id: article_count} (optional)
+        Returns:
+            Number of centroids updated.
         """
-        self._ensure_loaded()
-        now = datetime.utcnow().isoformat()
-        scores = cluster_scores or {}
-        counts = cluster_article_counts or {}
-        stored = 0
+        if not cluster_oss or not cluster_centroids:
+            return 0
+
         updated = 0
+        for cid, centroid in cluster_centroids.items():
+            if cid not in cluster_oss:
+                continue
 
-        for cid in cluster_centroids:
-            centroid = cluster_centroids[cid]
-            title = cluster_titles.get(cid, f"Cluster {cid}")
-            keywords = cluster_keywords.get(cid, [])
-            score = scores.get(cid, 0.0)
-            count = counts.get(cid, 0)
+            centroid_list = centroid.tolist() if isinstance(centroid, np.ndarray) else centroid
+            results = self.collection.query(
+                query_embeddings=[centroid_list],
+                n_results=1,
+                include=["metadatas"],
+            )
 
-            # Check if this matches an existing trend
-            match = self.match_cluster(centroid, title)
+            if not results["ids"][0]:
+                continue
 
-            if match["is_continuation"] and match["continuity_score"] > 0.3:
-                # UPDATE existing trend — use matched index (not title search)
-                matched_idx = match.get("matched_trend_idx", -1)
-                if 0 <= matched_idx < len(self._trends):
-                    t = self._trends[matched_idx]
-                    t["last_seen"] = now
-                    t["seen_count"] = t.get("seen_count", 1) + 1
-                    t["peak_score"] = max(t.get("peak_score", 0), score)
-                    t["article_count_total"] = t.get("article_count_total", 0) + count
-                    # Merge keywords (keep unique, limit to 15)
-                    existing_kw = set(t.get("keywords", []))
-                    existing_kw.update(keywords[:5])
-                    t["keywords"] = list(existing_kw)[:15]
-                    # Update centroid with exponential moving average
-                    old_c = np.array(t.get("centroid", centroid))
-                    new_c = np.array(centroid)
-                    blended = 0.7 * old_c + 0.3 * new_c
-                    norm = np.linalg.norm(blended)
-                    if norm > 0:
-                        blended = blended / norm
-                    t["centroid"] = blended.tolist()
-                    updated += 1
-                    # Rebuild matrix after update so next match uses fresh data
-                    self._rebuild_centroid_matrix()
+            matched_id = results["ids"][0][0]
+            metadata = results["metadatas"][0][0]
+
+            # Only update if this is a recent match (last_seen within last hour)
+            curr_oss = cluster_oss[cid]
+            prev_avg_oss = metadata.get("avg_oss", 0.0)
+
+            if prev_avg_oss > 0 and curr_oss > 0:
+                new_avg_oss = round(self.ema_alpha * curr_oss + (1 - self.ema_alpha) * prev_avg_oss, 4)
             else:
-                # INSERT new trend
-                self._trends.append({
-                    "title": title,
-                    "keywords": keywords[:10],
-                    "centroid": np.array(centroid).flatten().tolist(),
-                    "first_seen": now,
-                    "last_seen": now,
-                    "seen_count": 1,
-                    "peak_score": score,
-                    "article_count_total": count,
-                })
-                stored += 1
-                # Rebuild matrix after insert so next match sees new entry
-                self._rebuild_centroid_matrix()
+                new_avg_oss = round(curr_oss, 4) if curr_oss > 0 else prev_avg_oss
 
-        logger.info(f"Trend memory: stored {stored} new, updated {updated} existing, total={len(self._trends)}")
+            if curr_oss > prev_avg_oss + 0.05:
+                oss_trend = "improving"
+            elif curr_oss < prev_avg_oss - 0.05:
+                oss_trend = "declining"
+            else:
+                oss_trend = "stable"
 
-        # Auto-save
-        self.save()
+            metadata["avg_oss"] = new_avg_oss
+            metadata["oss_trend"] = oss_trend
+
+            self.collection.update(
+                ids=[matched_id],
+                metadatas=[metadata],
+            )
+            updated += 1
+
+        if updated:
+            logger.debug(f"Updated OSS for {updated} stored centroids")
+        return updated
 
     @property
-    def trend_count(self) -> int:
-        """Number of stored trends."""
-        self._ensure_loaded()
-        return len(self._trends)
+    def stored_count(self) -> int:
+        """Number of stored trend centroids."""
+        return self.collection.count()

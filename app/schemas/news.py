@@ -116,7 +116,6 @@ class NewsArticle(BaseModel):
     content_embedding: Optional[List[float]] = None
 
     # Clustering
-    cluster_id: Optional[UUID] = None
     similarity_to_cluster: float = 0.0
 
     # Quality signals

@@ -1,34 +1,129 @@
 """
-SQLite database setup and operations for storing leads.
+SQLite database — stores pipeline runs, call sheets (leads), and trends.
+
+Tables:
+  - pipeline_runs: Run history with status, counts, timing
+  - call_sheets: Flat lead records from LeadCrystallizer (primary deliverable)
+  - trends: Detected trends per run
+  - leads: Legacy outreach-style leads (backward compat)
 """
 
 import json
+import logging
 from datetime import datetime
-from typing import List, Optional
-from sqlalchemy import create_engine, Column, String, Integer, Text, DateTime, Boolean
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import (
+    create_engine, Column, String, Integer, Float, Text, DateTime, Boolean,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 
 from .config import get_settings
 
+logger = logging.getLogger(__name__)
+
 Base = declarative_base()
 
 
+# ── Models ───────────────────────────────────────────────────────────────────
+
+class PipelineRunModel(Base):
+    """Pipeline run history."""
+    __tablename__ = "pipeline_runs"
+
+    id = Column(String(50), primary_key=True)
+    status = Column(String(20), default="running")
+    mock_mode = Column(Boolean, default=False)
+    trends_detected = Column(Integer, default=0)
+    companies_found = Column(Integer, default=0)
+    leads_generated = Column(Integer, default=0)
+    contacts_found = Column(Integer, default=0)
+    emails_found = Column(Integer, default=0)
+    output_file = Column(String(500))
+    errors = Column(Text)  # JSON array
+    run_time_seconds = Column(Float, default=0)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime)
+
+
+class CallSheetModel(Base):
+    """Call sheet (lead) from LeadCrystallizer — flat schema matching LeadSheet."""
+    __tablename__ = "call_sheets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(50), nullable=False, index=True)
+
+    # Company
+    company_name = Column(String(300), nullable=False)
+    company_cin = Column(String(50))
+    company_state = Column(String(100))
+    company_city = Column(String(100))
+    company_size_band = Column(String(30))
+
+    # Lead context
+    hop = Column(Integer, default=1)
+    lead_type = Column(String(30))  # pain | opportunity | risk | intelligence
+    trend_title = Column(String(500))
+    event_type = Column(String(50))
+
+    # Sales content
+    contact_role = Column(String(200))
+    trigger_event = Column(Text)
+    pain_point = Column(Text)
+    service_pitch = Column(Text)
+    opening_line = Column(Text)
+    urgency_weeks = Column(Integer, default=4)
+    confidence = Column(Float, default=0.0)
+
+    # Metadata
+    reasoning = Column(Text)
+    data_sources = Column(Text)  # JSON array
+    oss_score = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TrendModel(Base):
+    """Detected trend per run."""
+    __tablename__ = "trends"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(50), nullable=False, index=True)
+    trend_id = Column(String(100))
+
+    title = Column(String(500), nullable=False)
+    summary = Column(Text)
+    severity = Column(String(20))
+    trend_type = Column(String(50))
+    industries = Column(Text)  # JSON array
+    keywords = Column(Text)  # JSON array
+    trend_score = Column(Float, default=0.0)
+    actionability_score = Column(Float, default=0.0)
+    oss_score = Column(Float, default=0.0)
+    article_count = Column(Integer, default=0)
+    event_5w1h = Column(Text)  # JSON object
+    causal_chain = Column(Text)  # JSON array
+    buying_intent = Column(Text)  # JSON object
+    affected_companies = Column(Text)  # JSON array
+    actionable_insight = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class LeadModel(Base):
-    """SQLAlchemy model for storing leads."""
+    """Legacy outreach-style lead (backward compat with old pipeline)."""
     __tablename__ = "leads"
-    
+
     id = Column(String(50), primary_key=True)
     trend_title = Column(String(500), nullable=False)
     trend_summary = Column(Text)
     trend_severity = Column(String(20))
-    industries_affected = Column(Text)  # JSON array
-    
-    impact_positive_sectors = Column(Text)  # JSON array
-    impact_negative_sectors = Column(Text)  # JSON array
-    business_opportunities = Column(Text)  # JSON array
-    
+    industries_affected = Column(Text)
+
+    impact_positive_sectors = Column(Text)
+    impact_negative_sectors = Column(Text)
+    business_opportunities = Column(Text)
+
     company_name = Column(String(200), nullable=False)
     company_size = Column(String(20))
     company_industry = Column(String(100))
@@ -36,7 +131,7 @@ class LeadModel(Base):
     company_domain = Column(String(200))
     company_description = Column(Text)
     reason_relevant = Column(Text)
-    
+
     contact_name = Column(String(200))
     contact_role = Column(String(200))
     contact_linkedin = Column(String(500))
@@ -44,54 +139,34 @@ class LeadModel(Base):
     email_confidence = Column(Integer, default=0)
     email_source = Column(String(50))
     email_verified = Column(Boolean, default=False)
-    
+
     outreach_subject = Column(String(500))
     outreach_body = Column(Text)
-    
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class PipelineRunModel(Base):
-    """SQLAlchemy model for tracking pipeline runs."""
-    __tablename__ = "pipeline_runs"
-    
-    id = Column(String(50), primary_key=True)
-    status = Column(String(20), default="running")
-    trends_detected = Column(Integer, default=0)
-    companies_found = Column(Integer, default=0)
-    contacts_found = Column(Integer, default=0)
-    emails_found = Column(Integer, default=0)
-    leads_generated = Column(Integer, default=0)
-    output_file = Column(String(500))
-    errors = Column(Text)  # JSON array
-    run_time_seconds = Column(Integer, default=0)
-    started_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime)
-
+# ── Database class ───────────────────────────────────────────────────────────
 
 class Database:
-    """Database manager for lead storage."""
-    
+    """Database manager — singleton, lazy-initialized."""
+
     def __init__(self, database_url: Optional[str] = None):
-        """Initialize database connection."""
         settings = get_settings()
-        # Use synchronous SQLite for simplicity
         url = database_url or settings.database_url
-        # Convert async URL to sync for regular SQLAlchemy
         if "aiosqlite" in url:
             url = url.replace("sqlite+aiosqlite", "sqlite")
-        
+
         self.engine = create_engine(url, echo=False)
         self.SessionLocal = sessionmaker(bind=self.engine)
-        
+
     def create_tables(self):
-        """Create all tables."""
+        """Create all tables (safe to call multiple times)."""
         Base.metadata.create_all(self.engine)
-    
+
     @contextmanager
     def get_session(self) -> Session:
-        """Get a database session."""
         session = self.SessionLocal()
         try:
             yield session
@@ -101,9 +176,213 @@ class Database:
             raise
         finally:
             session.close()
-    
+
+    # ── Pipeline Runs ─────────────────────────────────────────────────
+
+    def save_pipeline_run(self, run_data: Dict[str, Any]) -> str:
+        """Save a pipeline run record."""
+        with self.get_session() as session:
+            run = PipelineRunModel(
+                id=run_data["run_id"],
+                status=run_data.get("status", "completed"),
+                mock_mode=run_data.get("mock_mode", False),
+                trends_detected=run_data.get("trends_detected", 0),
+                companies_found=run_data.get("companies_found", 0),
+                leads_generated=run_data.get("leads_generated", 0),
+                contacts_found=run_data.get("contacts_found", 0),
+                output_file=run_data.get("output_file", ""),
+                errors=json.dumps(run_data.get("errors", [])),
+                run_time_seconds=run_data.get("run_time_seconds", 0),
+                started_at=run_data.get("started_at"),
+                completed_at=run_data.get("completed_at"),
+            )
+            session.merge(run)  # merge = upsert
+            return run.id
+
+    def update_pipeline_run(self, run_id: str, updates: Dict[str, Any]):
+        """Update specific fields of an existing pipeline run."""
+        with self.get_session() as session:
+            run = session.query(PipelineRunModel).filter_by(id=run_id).first()
+            if run:
+                for key, value in updates.items():
+                    if hasattr(run, key):
+                        setattr(run, key, value)
+
+    def get_pipeline_runs(self, limit: int = 20) -> List[Dict]:
+        """Get recent pipeline runs."""
+        with self.get_session() as session:
+            runs = session.query(PipelineRunModel).order_by(
+                PipelineRunModel.started_at.desc()
+            ).limit(limit).all()
+            return [
+                {
+                    "run_id": r.id,
+                    "status": r.status,
+                    "mock_mode": r.mock_mode,
+                    "trends_detected": r.trends_detected,
+                    "companies_found": r.companies_found,
+                    "leads_generated": r.leads_generated,
+                    "run_time_seconds": r.run_time_seconds,
+                    "errors": json.loads(r.errors) if r.errors else [],
+                    "started_at": r.started_at.isoformat() if r.started_at else None,
+                    "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+                }
+                for r in runs
+            ]
+
+    def get_latest_run(self) -> Optional[Dict]:
+        runs = self.get_pipeline_runs(limit=1)
+        return runs[0] if runs else None
+
+    # ── Call Sheets (primary leads) ───────────────────────────────────
+
+    def save_call_sheet(self, run_id: str, sheet) -> int:
+        """Save a LeadSheet as a call_sheet row. Returns the row ID."""
+        with self.get_session() as session:
+            row = CallSheetModel(
+                run_id=run_id,
+                company_name=getattr(sheet, "company_name", ""),
+                company_cin=getattr(sheet, "company_cin", ""),
+                company_state=getattr(sheet, "company_state", ""),
+                company_city=getattr(sheet, "company_city", ""),
+                company_size_band=getattr(sheet, "company_size_band", ""),
+                hop=getattr(sheet, "hop", 1),
+                lead_type=getattr(sheet, "lead_type", ""),
+                trend_title=getattr(sheet, "trend_title", ""),
+                event_type=getattr(sheet, "event_type", ""),
+                contact_role=getattr(sheet, "contact_role", ""),
+                trigger_event=getattr(sheet, "trigger_event", ""),
+                pain_point=getattr(sheet, "pain_point", ""),
+                service_pitch=getattr(sheet, "service_pitch", ""),
+                opening_line=getattr(sheet, "opening_line", ""),
+                urgency_weeks=getattr(sheet, "urgency_weeks", 4),
+                confidence=getattr(sheet, "confidence", 0.0),
+                reasoning=getattr(sheet, "reasoning", ""),
+                data_sources=json.dumps(getattr(sheet, "data_sources", [])),
+                oss_score=getattr(sheet, "oss_score", 0.0),
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def get_call_sheets(
+        self,
+        run_id: Optional[str] = None,
+        limit: int = 100,
+        hop: Optional[int] = None,
+        lead_type: Optional[str] = None,
+        min_confidence: Optional[float] = None,
+    ) -> List[Dict]:
+        """Query call sheets with optional filters."""
+        with self.get_session() as session:
+            q = session.query(CallSheetModel)
+            if run_id:
+                q = q.filter(CallSheetModel.run_id == run_id)
+            if hop is not None:
+                q = q.filter(CallSheetModel.hop == hop)
+            if lead_type:
+                q = q.filter(CallSheetModel.lead_type == lead_type)
+            if min_confidence is not None:
+                q = q.filter(CallSheetModel.confidence >= min_confidence)
+
+            rows = q.order_by(CallSheetModel.confidence.desc()).limit(limit).all()
+            return [
+                {
+                    "id": r.id,
+                    "run_id": r.run_id,
+                    "company_name": r.company_name,
+                    "company_cin": r.company_cin,
+                    "company_state": r.company_state,
+                    "company_city": r.company_city,
+                    "company_size_band": r.company_size_band,
+                    "hop": r.hop,
+                    "lead_type": r.lead_type,
+                    "trend_title": r.trend_title,
+                    "event_type": r.event_type,
+                    "contact_role": r.contact_role,
+                    "trigger_event": r.trigger_event,
+                    "pain_point": r.pain_point,
+                    "service_pitch": r.service_pitch,
+                    "opening_line": r.opening_line,
+                    "urgency_weeks": r.urgency_weeks,
+                    "confidence": r.confidence,
+                    "reasoning": r.reasoning,
+                    "data_sources": json.loads(r.data_sources) if r.data_sources else [],
+                    "oss_score": r.oss_score,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in rows
+            ]
+
+    # ── Trends ────────────────────────────────────────────────────────
+
+    def save_trend(self, run_id: str, trend) -> int:
+        """Save a TrendData as a trend row."""
+        with self.get_session() as session:
+            row = TrendModel(
+                run_id=run_id,
+                trend_id=getattr(trend, "id", ""),
+                title=getattr(trend, "trend_title", ""),
+                summary=getattr(trend, "summary", ""),
+                severity=str(getattr(trend, "severity", "")),
+                trend_type=getattr(trend, "trend_type", ""),
+                industries=json.dumps(getattr(trend, "industries_affected", [])),
+                keywords=json.dumps(getattr(trend, "keywords", [])),
+                trend_score=getattr(trend, "trend_score", 0.0),
+                actionability_score=getattr(trend, "actionability_score", 0.0),
+                oss_score=getattr(trend, "oss_score", 0.0),
+                article_count=getattr(trend, "article_count", 0),
+                event_5w1h=json.dumps(getattr(trend, "event_5w1h", {})),
+                causal_chain=json.dumps(getattr(trend, "causal_chain", [])),
+                buying_intent=json.dumps(getattr(trend, "buying_intent", {})),
+                affected_companies=json.dumps(getattr(trend, "affected_companies", [])),
+                actionable_insight=getattr(trend, "actionable_insight", ""),
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def get_trends(
+        self,
+        run_id: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict]:
+        """Query trends with optional run filter."""
+        with self.get_session() as session:
+            q = session.query(TrendModel)
+            if run_id:
+                q = q.filter(TrendModel.run_id == run_id)
+
+            rows = q.order_by(TrendModel.oss_score.desc()).limit(limit).all()
+            return [
+                {
+                    "id": r.id,
+                    "run_id": r.run_id,
+                    "trend_id": r.trend_id,
+                    "title": r.title,
+                    "summary": r.summary,
+                    "severity": r.severity,
+                    "trend_type": r.trend_type,
+                    "industries": json.loads(r.industries) if r.industries else [],
+                    "keywords": json.loads(r.keywords) if r.keywords else [],
+                    "trend_score": r.trend_score,
+                    "actionability_score": r.actionability_score,
+                    "oss_score": r.oss_score,
+                    "article_count": r.article_count,
+                    "event_5w1h": json.loads(r.event_5w1h) if r.event_5w1h else {},
+                    "causal_chain": json.loads(r.causal_chain) if r.causal_chain else [],
+                    "buying_intent": json.loads(r.buying_intent) if r.buying_intent else {},
+                    "affected_companies": json.loads(r.affected_companies) if r.affected_companies else [],
+                    "actionable_insight": r.actionable_insight,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in rows
+            ]
+
+    # ── Legacy leads (backward compat) ────────────────────────────────
+
     def save_lead(self, lead_data: dict) -> str:
-        """Save a lead to the database."""
+        """Save a lead (old nested format)."""
         with self.get_session() as session:
             lead = LeadModel(
                 id=lead_data.get("id", ""),
@@ -111,11 +390,9 @@ class Database:
                 trend_summary=lead_data.get("trend", {}).get("summary", ""),
                 trend_severity=lead_data.get("trend", {}).get("severity", "medium"),
                 industries_affected=json.dumps(lead_data.get("trend", {}).get("industries_affected", [])),
-                
                 impact_positive_sectors=json.dumps(lead_data.get("impact", {}).get("positive_sectors", [])),
                 impact_negative_sectors=json.dumps(lead_data.get("impact", {}).get("negative_sectors", [])),
                 business_opportunities=json.dumps(lead_data.get("impact", {}).get("business_opportunities", [])),
-                
                 company_name=lead_data.get("company", {}).get("company_name", ""),
                 company_size=lead_data.get("company", {}).get("company_size", "mid"),
                 company_industry=lead_data.get("company", {}).get("industry", ""),
@@ -123,7 +400,6 @@ class Database:
                 company_domain=lead_data.get("company", {}).get("domain", ""),
                 company_description=lead_data.get("company", {}).get("description", ""),
                 reason_relevant=lead_data.get("company", {}).get("reason_relevant", ""),
-                
                 contact_name=lead_data.get("contact", {}).get("person_name", ""),
                 contact_role=lead_data.get("contact", {}).get("role", ""),
                 contact_linkedin=lead_data.get("contact", {}).get("linkedin_url", ""),
@@ -131,43 +407,20 @@ class Database:
                 email_confidence=lead_data.get("contact", {}).get("email_confidence", 0),
                 email_source=lead_data.get("contact", {}).get("email_source", ""),
                 email_verified=lead_data.get("contact", {}).get("verified", False),
-                
                 outreach_subject=lead_data.get("outreach", {}).get("subject", ""),
                 outreach_body=lead_data.get("outreach", {}).get("body", ""),
             )
             session.add(lead)
             return lead.id
-    
-    def save_pipeline_run(self, run_data: dict) -> str:
-        """Save pipeline run metadata."""
-        with self.get_session() as session:
-            run = PipelineRunModel(
-                id=run_data.get("id", ""),
-                status=run_data.get("status", "running"),
-                trends_detected=run_data.get("trends_detected", 0),
-                companies_found=run_data.get("companies_found", 0),
-                contacts_found=run_data.get("contacts_found", 0),
-                emails_found=run_data.get("emails_found", 0),
-                leads_generated=run_data.get("leads_generated", 0),
-                output_file=run_data.get("output_file", ""),
-                errors=json.dumps(run_data.get("errors", [])),
-                run_time_seconds=run_data.get("run_time_seconds", 0),
-                started_at=run_data.get("started_at", datetime.utcnow()),
-                completed_at=run_data.get("completed_at"),
-            )
-            session.merge(run)
-            return run.id
-    
+
     def get_latest_leads(self, limit: int = 50) -> List[dict]:
-        """Get the most recent leads."""
+        """Get the most recent legacy leads."""
         with self.get_session() as session:
             leads = session.query(LeadModel).order_by(
                 LeadModel.created_at.desc()
             ).limit(limit).all()
-            
-            result = []
-            for lead in leads:
-                result.append({
+            return [
+                {
                     "id": lead.id,
                     "trend": lead.trend_title,
                     "company": lead.company_name,
@@ -176,36 +429,14 @@ class Database:
                     "email": lead.contact_email,
                     "email_confidence": lead.email_confidence,
                     "subject": lead.outreach_subject,
-                    "created_at": lead.created_at.isoformat() if lead.created_at else None
-                })
-            return result
-    
-    def get_latest_run(self) -> Optional[dict]:
-        """Get the most recent pipeline run."""
-        with self.get_session() as session:
-            run = session.query(PipelineRunModel).order_by(
-                PipelineRunModel.started_at.desc()
-            ).first()
-            
-            if not run:
-                return None
-            
-            return {
-                "id": run.id,
-                "status": run.status,
-                "trends_detected": run.trends_detected,
-                "companies_found": run.companies_found,
-                "emails_found": run.emails_found,
-                "leads_generated": run.leads_generated,
-                "output_file": run.output_file,
-                "errors": json.loads(run.errors) if run.errors else [],
-                "run_time_seconds": run.run_time_seconds,
-                "started_at": run.started_at.isoformat() if run.started_at else None,
-                "completed_at": run.completed_at.isoformat() if run.completed_at else None
-            }
+                    "created_at": lead.created_at.isoformat() if lead.created_at else None,
+                }
+                for lead in leads
+            ]
 
 
-# Global database instance
+# ── Singleton ────────────────────────────────────────────────────────────────
+
 _db: Optional[Database] = None
 
 

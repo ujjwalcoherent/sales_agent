@@ -1,0 +1,25 @@
+{
+  "name": "sales-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "India Trend-to-Lead Sales Intelligence Pipeline",
+  "scripts": {
+    "dev": "npm run searxng:ensure && concurrently --kill-others-on-fail -n api,web -c blue,green \"npm run api\" \"npm run frontend\"",
+    "api": "uvicorn app.main:app --reload --port 8000",
+    "frontend": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:start": "cd frontend && npm start",
+    "install:frontend": "cd frontend && npm install",
+    "install:api": "pip install -r requirements.txt && python -m spacy download en_core_web_sm",
+    "install:all": "npm install && npm run install:api && npm run install:frontend",
+    "lint": "cd frontend && npm run lint",
+    "searxng": "docker run -d --name searxng -p 8888:8080 -v ./docker/searxng/settings.yml:/etc/searxng/settings.yml searxng/searxng:latest",
+    "searxng:ensure": "docker start searxng 2>/dev/null || npm run searxng",
+    "searxng:stop": "docker stop searxng && docker rm searxng",
+    "pipeline:run": "python -c \"import asyncio; from app.agents.orchestrator import run_pipeline; asyncio.run(run_pipeline(mock_mode=False))\"",
+    "pipeline:mock": "python -c \"import asyncio; from app.agents.orchestrator import run_pipeline; asyncio.run(run_pipeline(mock_mode=True))\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

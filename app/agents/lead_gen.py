@@ -1,25 +1,24 @@
 """
-Lead Gen Agent — autonomous company discovery, contact finding, and pitch generation.
+Lead Gen Agent — enriches pre-resolved lead sheets with contacts and emails.
 
-Combines the previous CompanyDiscovery + ContactFinder + EmailGenerator
-into a single pydantic-ai agent that autonomously decides:
-- Search strategy per trend (NER-based vs industry-based)
-- How many companies to pursue per trend
-- Which roles to target based on trend type
-- Whether a company-trend fit is strong enough
+The crystallizer (step 3.8) already resolves real company names via SearXNG +
+LLM extraction.  This agent's job is narrower and faster:
 
-Tools:
-  - find_companies_for_trends: Discover companies affected by trends
-  - find_contacts: Find decision-makers at target companies
-  - generate_outreach: Create personalized pitch emails
-  - assess_company_relevance: Score company-trend fit via bandit
+1. Read lead sheets from deps._lead_sheets (populated by crystallize step)
+2. For each unique company: find domain via quick SearXNG search
+3. Build CompanyData objects (needed by ContactFinder / EmailGenerator)
+4. Run ContactFinder per company (Apollo primary, SearXNG fallback)
+5. Run EmailGenerator per contact (Apollo → Hunter → pattern)
+
+Expected time: 60-120s (down from 490s when discovering companies from scratch).
 """
 
+import asyncio
+import hashlib
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
-from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
+from pydantic import BaseModel
 
 from app.agents.deps import AgentDeps
 
@@ -38,210 +37,173 @@ class LeadGenResult(BaseModel):
     reasoning: str = ""
 
 
-# ── System prompt ─────────────────────────────────────────────────────
+# ── Domain resolution ────────────────────────────────────────────────
 
-LEAD_GEN_PROMPT = """\
-You are the Lead Gen Agent for a sales intelligence pipeline. Your job is to \
-find companies, contacts, and generate personalized outreach for each trend.
-
-WORKFLOW:
-1. Find companies affected by each high-confidence trend using the company finder.
-2. Assess company-trend relevance — skip weak fits to save API calls.
-3. Find decision-maker contacts at promising companies.
-4. Generate personalized outreach emails connecting the trend to the company's needs.
-
-QUALITY RULES:
-- Only pursue companies where the trend creates a genuine pain point.
-- Target the right role: tech trends → CTO/VP Engineering, regulatory → GC/CCO, \
-  market shifts → CEO/CSO.
-- Personalize emails with specific trend details — no generic templates.
-- Quality over quantity: 5 great leads > 20 mediocre ones.
-"""
-
-
-# ── Agent definition ──────────────────────────────────────────────────
-
-lead_gen = Agent(
-    'test',  # Placeholder — overridden at runtime via deps.get_model()
-    deps_type=AgentDeps,
-    output_type=LeadGenResult,
-    system_prompt=LEAD_GEN_PROMPT,
-    retries=2,
-)
+async def _resolve_domain(search_manager, company_name: str) -> str:
+    """Find a company's domain via SearXNG search."""
+    try:
+        data = await search_manager.web_search(
+            f"{company_name} official website India", max_results=3,
+        )
+        from app.tools.domain_utils import extract_clean_domain
+        for r in data.get("results", []):
+            url = r.get("url", "")
+            if url:
+                domain = extract_clean_domain(url)
+                if domain:
+                    return domain
+    except Exception as e:
+        logger.debug(f"Domain resolution for '{company_name}' failed: {e}")
+    return ""
 
 
-# ── Tools ─────────────────────────────────────────────────────────────
+async def _build_companies_from_leads(
+    deps: AgentDeps,
+    lead_sheets: list,
+) -> list:
+    """Build CompanyData objects from unique company names in lead sheets.
 
-@lead_gen.tool
-async def find_companies_for_trends(ctx: RunContext[AgentDeps]) -> str:
-    """Find companies affected by each analyzed trend.
-
-    Uses the existing CompanyDiscovery pipeline with NER-based
-    hallucination guard and Wikipedia verification.
+    Resolves domains via SearXNG for each unique company.
     """
-    from app.agents.workers.company_agent import CompanyDiscovery
-    from app.schemas import AgentState
+    from app.schemas.sales import CompanyData
 
-    trends = ctx.deps._trend_data
-    impacts = ctx.deps._impacts
-    if not trends:
-        return "ERROR: No trends available."
+    seen: dict[str, Any] = {}  # company_name -> CompanyData
+    sem = asyncio.Semaphore(5)
 
-    discovery = CompanyDiscovery(
-        mock_mode=ctx.deps.mock_mode,
-        deps=ctx.deps,
-        log_callback=ctx.deps.log_callback,
-    )
+    async def _build_one(name: str, lead):
+        if name in seen:
+            return
+        async with sem:
+            domain = await _resolve_domain(deps.search_manager, name)
+            cid = hashlib.md5(name.encode()).hexdigest()[:12]
+            seen[name] = CompanyData(
+                id=cid,
+                company_name=name,
+                industry=lead.event_type or "general",
+                domain=domain,
+                website=f"https://{domain}" if domain else "",
+                reason_relevant=lead.pain_point or lead.trend_title,
+                trend_id=str(lead.trend_title),
+            )
+            if domain:
+                logger.info(f"  Resolved domain: {name} → {domain}")
+            else:
+                logger.debug(f"  No domain found for: {name}")
 
-    state = AgentState(trends=trends, impacts=impacts)
-    result = await discovery.find_companies(state)
+    tasks = []
+    for lead in lead_sheets:
+        name = lead.company_name
+        if name and not name.startswith("[") and name not in seen:
+            tasks.append(_build_one(name, lead))
 
-    ctx.deps._companies = result.companies or []
-    verified = sum(1 for c in ctx.deps._companies if getattr(c, 'ner_verified', False))
+    if tasks:
+        await asyncio.gather(*tasks)
 
-    return (
-        f"Found {len(ctx.deps._companies)} companies across {len(trends)} trends. "
-        f"NER-verified: {verified}. Errors: {len(result.errors)}"
-    )
-
-
-@lead_gen.tool
-async def find_contacts_for_companies(ctx: RunContext[AgentDeps]) -> str:
-    """Find decision-maker contacts at target companies.
-
-    Uses Apollo (primary) + web search (fallback) to find
-    name, role, LinkedIn, and email.
-    """
-    from app.agents.contact_agent import ContactFinder
-    from app.schemas import AgentState
-
-    companies = ctx.deps._companies
-    trends = ctx.deps._trend_data
-    impacts = ctx.deps._impacts
-    if not companies:
-        return "No companies to find contacts for."
-
-    finder = ContactFinder(mock_mode=ctx.deps.mock_mode, deps=ctx.deps)
-    state = AgentState(
-        trends=trends,
-        impacts=impacts,
-        companies=companies,
-    )
-    result = await finder.find_contacts(state)
-
-    ctx.deps._contacts = result.contacts or []
-    with_email = sum(1 for c in ctx.deps._contacts if getattr(c, 'email', ''))
-
-    return (
-        f"Found {len(ctx.deps._contacts)} contacts "
-        f"({with_email} with email). "
-        f"Errors: {len(result.errors)}"
-    )
-
-
-@lead_gen.tool
-async def generate_outreach_emails(ctx: RunContext[AgentDeps]) -> str:
-    """Generate personalized outreach emails for all contacts.
-
-    Creates pitch emails connecting the specific trend to the
-    company's pain points and CMI's relevant services.
-    """
-    from app.agents.email_agent import EmailGenerator
-    from app.schemas import AgentState
-
-    contacts = ctx.deps._contacts
-    companies = ctx.deps._companies
-    trends = ctx.deps._trend_data
-    if not contacts:
-        return "No contacts to generate outreach for."
-
-    generator = EmailGenerator(mock_mode=ctx.deps.mock_mode, deps=ctx.deps)
-    state = AgentState(
-        trends=trends,
-        companies=companies,
-        contacts=contacts,
-    )
-    result = await generator.process_emails(state)
-
-    ctx.deps._contacts = result.contacts or contacts
-    ctx.deps._outreach = result.outreach_emails or []
-
-    return (
-        f"Generated {len(ctx.deps._outreach)} outreach emails. "
-        f"Errors: {len(result.errors)}"
-    )
-
-
-@lead_gen.tool
-async def assess_company_relevance(
-    ctx: RunContext[AgentDeps],
-    company_size: str,
-    event_type: str,
-    industry_match: float = 0.5,
-    trend_severity: str = "medium",
-) -> str:
-    """Assess how relevant a company-trend pairing is using the bandit.
-
-    Uses Thompson Sampling contextual bandit for company relevance scoring.
-    Higher scores = better fit between company profile and trend characteristics.
-
-    Args:
-        company_size: Company size category ("startup", "mid", "large", "enterprise").
-        event_type: Trend event type ("regulation", "funding", "technology", etc.).
-        industry_match: Overlap between company industry and trend sectors (0.0-1.0).
-        trend_severity: Trend severity ("high", "medium", "low").
-    """
-    bandit = ctx.deps.company_bandit
-    score = bandit.compute_relevance(
-        company_size=company_size,
-        event_type=event_type,
-        industry_match=industry_match,
-        trend_severity=trend_severity,
-    )
-    return (
-        f"Company relevance ({company_size}, {event_type}): {score:.3f} "
-        f"(industry_match={industry_match:.2f}, severity={trend_severity})"
-    )
+    return list(seen.values())
 
 
 # ── Public runner ─────────────────────────────────────────────────────
 
 async def run_lead_gen(deps: AgentDeps) -> tuple:
-    """Run the Lead Gen Agent. Returns (companies, contacts, outreach, result)."""
-    trends = deps._trend_data
-    impacts = deps._impacts
+    """Enrich pre-resolved lead sheets with contacts and emails.
 
-    prompt = (
-        f"Find companies and contacts for {len(trends)} trends "
-        f"({len(impacts)} with impact analysis). "
-        f"Generate personalized outreach emails."
+    Returns (companies, contacts, outreach, result).
+    """
+    lead_sheets = getattr(deps, "_lead_sheets", [])
+    if not lead_sheets:
+        logger.warning("Lead gen: no lead sheets from crystallizer — skipping enrichment")
+        return [], [], [], LeadGenResult(reasoning="No lead sheets to enrich")
+
+    logger.info(f"Lead gen: enriching {len(lead_sheets)} lead sheets")
+    agent_reasoning_parts = []
+
+    # Step 1: Build CompanyData from lead sheets (with domain resolution)
+    try:
+        companies = await asyncio.wait_for(
+            _build_companies_from_leads(deps, lead_sheets),
+            timeout=120.0,
+        )
+        deps._companies = companies
+        with_domain = sum(1 for c in companies if c.domain)
+        agent_reasoning_parts.append(
+            f"Resolved {len(companies)} companies ({with_domain} with domain)"
+        )
+        logger.info(f"Lead gen: {len(companies)} companies, {with_domain} with domain")
+    except asyncio.TimeoutError:
+        logger.warning("Lead gen: domain resolution timed out")
+        deps._companies = []
+        agent_reasoning_parts.append("Domain resolution timed out")
+    except Exception as e:
+        logger.error(f"Lead gen: company build failed: {e}")
+        deps._companies = []
+        agent_reasoning_parts.append(f"Company build error: {e}")
+
+    # Step 2: Find contacts (Apollo primary, SearXNG fallback)
+    if deps._companies:
+        try:
+            from app.agents.workers.contact_agent import ContactFinder
+            from app.schemas import AgentState
+
+            finder = ContactFinder(mock_mode=deps.mock_mode, deps=deps)
+            state = AgentState(
+                trends=deps._trend_data,
+                impacts=deps._impacts,
+                companies=deps._companies,
+            )
+            result = await asyncio.wait_for(
+                finder.find_contacts(state), timeout=180.0,
+            )
+            deps._contacts = result.contacts or []
+            with_email = sum(1 for c in deps._contacts if getattr(c, "email", ""))
+            agent_reasoning_parts.append(
+                f"Found {len(deps._contacts)} contacts ({with_email} with email)"
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Lead gen: contact search timed out")
+            agent_reasoning_parts.append("Contact search timed out")
+        except Exception as e:
+            logger.error(f"Lead gen: contact search failed: {e}")
+            agent_reasoning_parts.append(f"Contact error: {e}")
+
+    # Step 3: Find emails and generate outreach
+    if deps._contacts:
+        try:
+            from app.agents.workers.email_agent import EmailGenerator
+            from app.schemas import AgentState
+
+            generator = EmailGenerator(mock_mode=deps.mock_mode, deps=deps)
+            state = AgentState(
+                trends=deps._trend_data,
+                companies=deps._companies,
+                contacts=deps._contacts,
+            )
+            result = await asyncio.wait_for(
+                generator.process_emails(state), timeout=180.0,
+            )
+            deps._contacts = result.contacts or deps._contacts
+            deps._outreach = result.outreach_emails or []
+            agent_reasoning_parts.append(
+                f"Generated {len(deps._outreach)} outreach emails"
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Lead gen: email generation timed out")
+            agent_reasoning_parts.append("Email generation timed out")
+        except Exception as e:
+            logger.error(f"Lead gen: email generation failed: {e}")
+            agent_reasoning_parts.append(f"Email error: {e}")
+
+    agent_result = LeadGenResult(
+        companies_found=len(deps._companies),
+        contacts_found=len(deps._contacts),
+        emails_generated=len(deps._outreach),
+        outreach_generated=len(deps._outreach),
+        reasoning=" | ".join(agent_reasoning_parts) or "No data produced",
     )
 
-    agent_result = None
-    try:
-        model = deps.get_model()
-        result = await lead_gen.run(prompt, deps=deps, model=model)
-        agent_result = result.output
-        logger.info(
-            f"Lead Gen Agent: {len(deps._companies)} companies, "
-            f"{len(deps._contacts)} contacts, {len(deps._outreach)} outreach"
-        )
-    except Exception as e:
-        logger.error(f"Lead Gen Agent failed: {e}")
+    logger.info(
+        f"Lead gen complete: {agent_result.companies_found} companies, "
+        f"{agent_result.contacts_found} contacts, "
+        f"{agent_result.outreach_generated} outreach"
+    )
 
-    # Run full lead gen pipeline if agent's tools didn't populate deps (e.g. mock mode)
-    if not deps._companies and impacts:
-        from app.agents.workers.company_agent import run_company_agent
-        from app.agents.workers.contact_agent import run_contact_agent
-        from app.agents.workers.email_agent import run_email_agent
-        from app.schemas import AgentState
-
-        state = AgentState(trends=trends, impacts=impacts)
-        state = await run_company_agent(state, deps=deps)
-        state = await run_contact_agent(state, deps=deps)
-        state = await run_email_agent(state, deps=deps)
-        deps._companies = state.companies
-        deps._contacts = state.contacts
-        deps._outreach = state.outreach_emails
-
-    return deps._companies, deps._contacts, deps._outreach, agent_result or LeadGenResult(reasoning="Fallback pipeline")
+    return deps._companies, deps._contacts, deps._outreach, agent_result

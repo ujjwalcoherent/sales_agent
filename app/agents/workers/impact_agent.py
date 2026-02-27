@@ -552,10 +552,24 @@ Find 2-4 company types affected by 2+ trends simultaneously."""
         return result
 
     def _build_impact_from_llm(self, result, trend: TrendData) -> ImpactAnalysis:
-        """Build ImpactAnalysis from ImpactAnalysisLLM result (shared by structured + json paths)."""
+        """Build ImpactAnalysis from ImpactAnalysisLLM result (shared by structured + json paths).
+
+        This runs when council fails but single-call LLM succeeds.
+        Sets council_confidence based on output richness (number of direct impacts,
+        reasoning length) rather than hardcoding — rewards detailed LLM responses.
+        """
         target_roles = result.target_roles
         if not target_roles:
             target_roles = self._get_roles_from_keywords(trend.keywords)
+
+        # Compute lightweight confidence from output richness:
+        # - More direct impacts = better analysis (0-4 items → 0.0-0.2)
+        # - Longer reasoning = more thought (0-200 chars → 0.0-0.15)
+        # Base: 0.45 (just above threshold). Max: ~0.80.
+        n_impacts = len(result.direct_impact) if result.direct_impact else 0
+        reasoning_len = len(result.direct_impact_reasoning or "")
+        richness = 0.45 + min(0.20, n_impacts * 0.05) + min(0.15, reasoning_len / 1400)
+        fallback_confidence = round(min(0.80, richness), 3)
 
         impact = ImpactAnalysis(
             trend_id=trend.id,
@@ -574,12 +588,18 @@ Find 2-4 company types affected by 2+ trends simultaneously."""
             target_roles=target_roles,
             relevant_services=result.relevant_services,
             pitch_angle=result.pitch_angle,
+            council_confidence=fallback_confidence,
         )
-        logger.info(f"Created ImpactAnalysis with {len(impact.direct_impact)} direct impacts")
+        logger.info(f"Created ImpactAnalysis with {len(impact.direct_impact)} direct impacts (fallback confidence={fallback_confidence:.2f})")
         return impact
 
     def _create_basic_impact(self, trend: TrendData) -> ImpactAnalysis:
-        """Create a basic impact analysis when LLM fails."""
+        """Create a basic impact analysis when ALL LLM calls fail.
+
+        Sets council_confidence=0.35 — below the 0.40 quality gate threshold
+        by default, but the fail-open logic in quality_route will still include
+        top impacts if nothing else passes. Template impacts without LLM reasoning.
+        """
         return ImpactAnalysis(
             trend_id=trend.id,
             trend_title=trend.trend_title,
@@ -596,6 +616,7 @@ Find 2-4 company types affected by 2+ trends simultaneously."""
             target_roles=self._get_roles_from_keywords(trend.keywords),
             relevant_services=["Market Intelligence", "Industry Analysis"],
             pitch_angle=f"Expert insights on {trend.trend_title[:50]}...",
+            council_confidence=0.35,
         )
     
     def _get_roles_from_keywords(self, keywords: List[str]) -> List[str]:

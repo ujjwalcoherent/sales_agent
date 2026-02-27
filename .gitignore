@@ -1,42 +1,32 @@
-# Environment variables & credentials
+# ── Credentials & secrets ──
 .env
 .env.local
 .env.*.local
 *-service-account*.json
-sales-agent-vertex-488510-4e62ef5ad9dd.json
-primeval-alloy-487712-b3-0521868accce.json
 *.json.key
 *credentials*.json
+# GCP service account files (project-specific)
+sales-agent-vertex-*.json
+primeval-alloy-*.json
 
-# Python
+# ── Python ──
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
+/build/
+/dist/
+/venv/
+/.venv/
 
-# Virtual environments
-venv/
-ENV/
-env/
-.venv/
+# ── Node.js ──
+node_modules/
+.next/
+.turbo/
 
-# IDE
+# ── IDE ──
 .claude/
 .idea/
 .vscode/
@@ -44,43 +34,26 @@ env/
 *.swo
 *~
 
-# MCP / Playwright
+# ── MCP / Playwright ──
 .mcp.json
 .playwright-mcp/
-screenshots/
 .deepeval/
 
-# Node.js
-node_modules/
-package-lock.json
-
-# Test artifacts
-test-results/
-
-# Screenshots (verification / UI testing)
-*.png
-*.jpeg
-*.jpg
-
-# Database
+# ── Database ──
 *.db
 *.sqlite
 *.sqlite3
 
-# Debug / Logs
+# ── Runtime data (generated per run) ──
+/data/
+
+# ── Internal docs & dev scripts ──
+/docs/
+/scripts/
+
+# ── Logs ──
 *.log
-trend_engine_debug.log
-nul
 
-# Data outputs
-data/
-app/outputs/
-
-# OS
+# ── OS ──
 .DS_Store
 Thumbs.db
-nul
-
-# Misc generated files
-verify_output.txt
-verify_ui.js

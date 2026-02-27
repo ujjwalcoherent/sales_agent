@@ -187,7 +187,7 @@ class KeywordExtractor:
     def __init__(
         self,
         top_n: int = 10,
-        min_word_length: int = 2,
+        min_word_length: int = 3,
         ngram_range: Tuple[int, int] = (1, 3),
         ner_boost: float = 2.0,
         mmr_lambda: float = 0.7,
@@ -196,7 +196,7 @@ class KeywordExtractor:
         """
         Args:
             top_n: Number of keywords per cluster.
-            min_word_length: Min word length (2 keeps "AI", "EV", "IT").
+            min_word_length: Min word length (3 filters gibberish; AI/EV/IT/IPO excepted).
             ngram_range: (1, 3) = unigrams + bigrams + trigrams.
                          Trigrams like "electric_vehicle_policy" are highly specific.
             ner_boost: Score multiplier for named entities (2.0 = double).
@@ -339,10 +339,14 @@ class KeywordExtractor:
         """
         words = re.findall(r'[a-zA-Z][a-zA-Z0-9]*', text.lower())
 
+        # V4: Valid 2-letter acronyms that should pass despite min_word_length=3
+        _VALID_SHORT_ACRONYMS = {"ai", "ev", "it", "uk", "us", "eu", "ipo"}
+
         # Only remove function words — everything else is a candidate
         filtered = [
             w for w in words
-            if len(w) >= self.min_word_length and w not in _FUNCTION_WORDS
+            if (len(w) >= self.min_word_length or w in _VALID_SHORT_ACRONYMS)
+            and w not in _FUNCTION_WORDS
         ]
 
         tokens = []

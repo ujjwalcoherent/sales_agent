@@ -131,6 +131,7 @@ class TrendData(BaseModel):
     affected_regions: List[str] = Field(default_factory=list)
     trend_score: float = 0.0
     actionability_score: float = 0.0
+    oss_score: float = 0.0
     article_count: int = 0
     article_snippets: List[str] = Field(default_factory=list)  # Top-5 raw excerpts for impact council
 

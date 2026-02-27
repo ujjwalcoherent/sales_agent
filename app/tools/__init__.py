@@ -5,7 +5,7 @@ from .tavily_tool import TavilyTool
 from .apollo_tool import ApolloTool
 from .hunter_tool import HunterTool
 from .embeddings import EmbeddingTool, embed, embed_batch, cosine_similarity
-from .trend_synthesizer import TrendSynthesizer, synthesize_trends
+from .provider_health import provider_health, ProviderHealthTracker
 from .domain_utils import (
     extract_clean_domain,
     is_valid_company_domain,
@@ -21,14 +21,14 @@ __all__ = [
     "TavilyTool",
     "ApolloTool",
     "HunterTool",
+    # Provider health / circuit breaker
+    "provider_health",
+    "ProviderHealthTracker",
     # Embeddings
     "EmbeddingTool",
     "embed",
     "embed_batch",
     "cosine_similarity",
-    # Trend Synthesis
-    "TrendSynthesizer",
-    "synthesize_trends",
     # Domain utils
     "extract_clean_domain",
     "is_valid_company_domain",

@@ -6,7 +6,6 @@ No hardcoded VIP lists or regulatory entity lists — uses NER output
 and the embedding-based event classifier instead.
 
 SIGNALS:
-  entity_momentum:       Is an entity dominating this cluster? (concentration)
   key_person_flag:       Does a PERSON entity appear in article titles? (prominence)
   company_count:         How many unique companies are mentioned?
   entity_density:        Entities per article (higher = more specific/actionable).
@@ -29,35 +28,12 @@ def compute_entity_signals(articles: list) -> Dict[str, Any]:
         return _empty_signals()
 
     return {
-        "entity_momentum": _compute_entity_momentum(articles),
         "key_person_flag": _check_key_person(articles),
-        "key_persons_found": _find_key_persons(articles),
         "company_count": _count_companies(articles),
         "entity_density": _compute_entity_density(articles),
         "regulatory_entity_flag": _check_regulatory_entities(articles),
         "top_entities": _get_top_entities(articles, top_n=10),
     }
-
-
-def _compute_entity_momentum(articles: list) -> float:
-    """
-    How concentrated are entity mentions? Higher = more focused topic.
-
-    Formula: top_entity_count / total_entity_count
-    >0.3: Highly focused (one entity dominates)
-    <0.1: Diffuse (many entities, generic industry news)
-    """
-    all_entities = []
-    for a in articles:
-        names = getattr(a, 'entity_names', [])
-        all_entities.extend(n.lower() for n in names)
-
-    if not all_entities:
-        return 0.0
-
-    counts = Counter(all_entities)
-    top_count = counts.most_common(1)[0][1]
-    return top_count / len(all_entities)
 
 
 def _check_key_person(articles: list) -> bool:
@@ -87,27 +63,6 @@ def _check_key_person(articles: list) -> bool:
                     return True
 
     return False
-
-
-def _find_key_persons(articles: list) -> List[str]:
-    """Return PERSON entities that appear in article titles (prominent figures)."""
-    found = set()
-    for a in articles:
-        title = (getattr(a, 'title', '') or '').lower()
-
-        people = getattr(a, 'mentioned_people', [])
-        for person in people:
-            if person.lower().strip() in title:
-                found.add(person.strip())
-
-        entities = getattr(a, 'entities', [])
-        for ent in entities:
-            if getattr(ent, 'type', '') == 'PERSON':
-                name = getattr(ent, 'text', '').strip()
-                if name and name.lower() in title:
-                    found.add(name)
-
-    return sorted(found)
 
 
 def _count_companies(articles: list) -> int:
@@ -170,9 +125,7 @@ def _get_top_entities(articles: list, top_n: int = 10) -> List[Dict[str, Any]]:
 def _empty_signals() -> Dict[str, Any]:
     """Return zero signals when no articles are available."""
     return {
-        "entity_momentum": 0.0,
         "key_person_flag": False,
-        "key_persons_found": [],
         "company_count": 0,
         "entity_density": 0.0,
         "regulatory_entity_flag": False,

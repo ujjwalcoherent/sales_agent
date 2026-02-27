@@ -5,29 +5,32 @@ WHY SCRAPE FULL CONTENT:
   RSS feeds only provide title + summary (~50-100 words).
   Full articles give 500-2000 words → 10-20x richer embeddings → better clustering.
 
-  Example: A 60-word RSS summary "RBI holds repo rate at 6.5%" produces a generic
-  embedding. The full 800-word article mentioning inflation targets, GDP forecasts,
-  sector-specific impacts produces a far more discriminative embedding.
-
 APPROACH:
+  - Scrape top N articles by source credibility (not all — RSS summary is fallback)
   - Async parallel scraping with concurrency limit (avoid hammering sources)
   - trafilatura handles: paywall detection, boilerplate removal, encoding issues
   - Fallback to BeautifulSoup if trafilatura fails
-  - Respects robots.txt implicitly (trafilatura checks by default)
-  - Caches extracted content to avoid re-scraping
 
 PERFORMANCE:
   50 articles:  ~8-12 sec (parallel, 10 concurrent)
-  200 articles: ~25-40 sec
+  150 articles: ~20-30 sec (default cap)
 """
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Optional
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+# Silence trafilatura completely — "empty HTML tree: None" and "parsed tree length: 1"
+# are expected noise from paywalled/JS-heavy sites, not actionable errors for us.
+for _noisy in ("trafilatura", "trafilatura.core", "trafilatura.utils", "trafilatura.htmlprocessing",
+               "trafilatura.settings", "trafilatura.feeds"):
+    _tlog = logging.getLogger(_noisy)
+    _tlog.setLevel(logging.CRITICAL + 1)  # Above CRITICAL — suppress everything
+    _tlog.propagate = False               # Don't bubble up to root logger
 
 # Browser-like headers to avoid being blocked
 _HEADERS = {
@@ -124,26 +127,38 @@ async def scrape_article(url: str, client: httpx.AsyncClient) -> Optional[str]:
         return None
 
 
-async def scrape_articles(articles: list, max_concurrent: int = _MAX_CONCURRENT) -> int:
+async def scrape_articles(
+    articles: list,
+    max_concurrent: int = _MAX_CONCURRENT,
+    max_articles: int = 150,
+) -> int:
     """
-    Scrape full content for articles that don't have it yet.
+    Scrape full content for the top N articles by source credibility.
 
     Modifies articles in-place (sets article.content).
     Returns count of articles successfully enriched.
-
-    Uses a shared httpx.AsyncClient for connection pooling.
+    Articles beyond max_articles keep their RSS summary as embedding fallback.
 
     Args:
         articles: List of NewsArticle objects
         max_concurrent: Max parallel HTTP connections
+        max_articles: Cap on how many articles to scrape (highest credibility first)
     """
-    # Only scrape articles without content
-    to_scrape = [a for a in articles if not a.content and a.url]
-    if not to_scrape:
+    # Only scrape articles without content — sorted by source credibility descending
+    candidates = sorted(
+        [a for a in articles if not a.content and a.url],
+        key=lambda a: getattr(a, "source_credibility", 0.5),
+        reverse=True,
+    )
+    to_scrape = candidates[:max_articles]
+
+    if not candidates:
         logger.info("All articles already have content, skipping scrape")
         return 0
 
-    logger.info(f"Scraping full content for {len(to_scrape)}/{len(articles)} articles...")
+    skipped = len(candidates) - len(to_scrape)
+    skip_note = f", {skipped} skipped (RSS summary used)" if skipped else ""
+    logger.info(f"Scraping full content for {len(to_scrape)}/{len(articles)} articles{skip_note}...")
 
     semaphore = asyncio.Semaphore(max_concurrent)
     enriched = 0
@@ -153,10 +168,19 @@ async def scrape_articles(articles: list, max_concurrent: int = _MAX_CONCURRENT)
         async def _scrape_one(article):
             nonlocal enriched
             async with semaphore:
-                text = await scrape_article(article.url, client)
-                if text:
-                    article.content = text[:5000]  # Cap at 5000 chars
-                    enriched += 1
+                try:
+                    # Wrap with overall timeout of 20 seconds (httpx has 15s, but this ensures fast failure)
+                    text = await asyncio.wait_for(
+                        scrape_article(article.url, client),
+                        timeout=20.0
+                    )
+                    if text:
+                        article.content = text[:5000]  # Cap at 5000 chars
+                        enriched += 1
+                except asyncio.TimeoutError:
+                    logger.debug(f"⏱️ Scrape timeout for {article.url}")
+                except Exception as e:
+                    logger.debug(f"Scrape error for {article.url}: {e}")
 
         await asyncio.gather(*[_scrape_one(a) for a in to_scrape], return_exceptions=True)
 

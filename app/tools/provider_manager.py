@@ -5,6 +5,7 @@ Builds pydantic-ai model instances and manages provider health.
 Class-level cooldown state is shared across all instances.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -50,6 +51,42 @@ except ImportError:
     pass
 
 
+class _TokenBucket:
+    """Async token bucket — smooths burst requests to a steady per-second rate.
+
+    Allows up to `capacity` requests to fire immediately, then paces subsequent
+    requests at `rate` per second. Thread-safe via asyncio.Lock (lazy-initialised
+    so it binds to the running event loop on first use).
+    """
+
+    def __init__(self, rate: float, capacity: float):
+        self._rate = rate          # tokens refilled per second
+        self._capacity = capacity  # max burst size
+        self._tokens = capacity    # start full so first N calls are instant
+        self._last_refill = time.monotonic()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    async def acquire(self) -> None:
+        """Wait until a token is available, then consume one."""
+        async with self._get_lock():
+            now = time.monotonic()
+            elapsed = now - self._last_refill
+            self._tokens = min(self._capacity, self._tokens + elapsed * self._rate)
+            self._last_refill = now
+            if self._tokens >= 1.0:
+                self._tokens -= 1.0
+                return
+            wait = (1.0 - self._tokens) / self._rate
+        # Release lock while sleeping so other coroutines can check/wait too
+        await asyncio.sleep(wait)
+        await self.acquire()  # re-enter to consume token after sleep
+
+
 class ProviderManager:
     """Manages LLM provider lifecycle with cooldown-based failover.
 
@@ -59,21 +96,30 @@ class ProviderManager:
     """
 
     _failed_providers: Dict[str, float] = {}
+    _failure_counts: Dict[str, int] = {}   # For exponential backoff
     _FAILURE_COOLDOWN = 0.0    # Switch instantly on generic errors
-    _RATELIMIT_COOLDOWN = 30.0 # 30s for rate-limit (429) — prevents hammering
+    _RATELIMIT_COOLDOWN = 30.0 # Base 429 cooldown — actual = 30 * 2^(n-1), capped at 300s
     _BILLING_COOLDOWN = 3600.0  # 1 hour for billing/payment errors (effectively permanent)
     _TIMEOUT_COOLDOWN = 0.0    # Switch instantly on timeout
     _billing_disabled: set = set()  # Providers with permanent billing issues
     _lock = threading.Lock()   # Thread-safe for Streamlit multi-thread
 
+    # GCP rate limiter — 1.5 req/s sustained, burst of 2.
+    # Vertex AI DSQ (Dynamic Shared Quota) doesn't guarantee fixed RPM.
+    # Observed: new $300-credit project gets ~30 RPM actual from DSQ.
+    # 1.5 req/s (90 RPM) is 3× the observed capacity — safe headroom.
+    # Previous: 4 req/s hit 429 after just 12 calls. 12 req/s was catastrophic.
+    _gcp_bucket: Optional[_TokenBucket] = None
+
     # Vertex AI API Service token cache (class-level so all instances share one refresh)
     _vertex_token: Optional[str] = None
     _vertex_token_expiry: float = 0.0
 
-    def __init__(self, settings=None, mock_mode: bool = False, force_groq: bool = False):
+    def __init__(self, settings=None, mock_mode: bool = False, force_groq: bool = False, disabled_providers: list[str] | None = None):
         self.settings = settings or get_settings()
         self.mock_mode = mock_mode
         self.force_groq = force_groq
+        self.disabled_providers = set(disabled_providers or [])
         self._provider_order: List[str] = []  # Track order for failure mapping
 
     def get_model(self):
@@ -102,8 +148,8 @@ class ProviderManager:
     def get_lite_model(self):
         """Get a cheaper/faster model for classification tasks.
 
-        Uses gemini-2.5-flash-lite via Vertex Express if available,
-        otherwise falls back to the standard model chain.
+        Uses gemini-2.5-flash-lite via Vertex AI (separate DSQ pool from main model).
+        Falls back to Groq (free) then standard chain.
         Classification tasks: event classification, trend validation, lead filtering.
         """
         if self.mock_mode:
@@ -114,41 +160,64 @@ class ProviderManager:
         if getattr(self.settings, 'offline_mode', False):
             return self.get_model()
 
-        # Prefer flash-lite for classification (cheaper, faster)
-        # But skip if GeminiDirect is in cooldown (billing/rate limit)
-        has_vertex = self.settings.gcp_project_id or self.settings.vertex_express_api_key
+        providers = []
         now = time.time()
-        if _google_available and has_vertex and not self._is_cooling_down("GeminiDirect", now):
-            lite = self._build_gemini_direct_model(lite=True)
-            available = self._get_available_providers()
-            if available:
-                return FallbackModel(
-                    lite, *[m for _, m in available],
-                    fallback_on=self._should_fallback,
-                )
-            return lite
 
-        # No lite model available or in cooldown — fall back to standard chain
-        return self.get_model()
+        # 1. OpenAI nano FIRST — $0.10/1M input, 500+ RPM, great for classification
+        if getattr(self.settings, 'openai_api_key', '') and self._is_provider_available("OpenAINano", now):
+            providers.append(self._build_openai_model(lite=True))
+
+        # 2. GeminiDirect flash-lite — separate DSQ pool, cheapest
+        # Uses "GeminiDirectLite" cooldown (independent from flash-2.0)
+        has_vertex = self.settings.gcp_project_id or self.settings.vertex_express_api_key
+        if _google_available and has_vertex and self._is_provider_available("GeminiDirectLite", now):
+            providers.append(self._build_gemini_direct_model(lite=True))
+
+        # 3. Groq — FREE, instant catch for OpenAI/GeminiDirect 429s
+        if self.settings.groq_api_key and self._is_provider_available("Groq", now):
+            model = self._build_groq_model()
+            if model:
+                providers.append(model)
+
+        # 3. Standard chain fallback (NVIDIA, OpenRouter, Ollama)
+        for _, m in self._get_available_providers():
+            if m not in providers:
+                providers.append(m)
+
+        if not providers:
+            return self.get_model()
+        if len(providers) == 1:
+            return providers[0]
+
+        return FallbackModel(
+            providers[0], *providers[1:],
+            fallback_on=self._should_fallback,
+        )
 
     def get_provider_names(self) -> List[str]:
         """Get current provider order (set after get_model() call)."""
         return list(self._provider_order)
 
+    def _is_provider_available(self, name: str, now: float) -> bool:
+        """Check if a provider is available (not disabled and not in cooldown)."""
+        if name in self.disabled_providers:
+            return False
+        return not self._is_cooling_down(name, now)
+
     def _get_available_providers(self) -> List[Tuple[str, "Model"]]:
-        """Build ordered provider list, skipping cooled-down providers.
+        """Build ordered provider list, skipping cooled-down and disabled providers.
 
-        Priority order (correct for $300 GCP free trial):
-        1. GeminiDirect (gemini-2.5-flash-lite via Vertex — COVERED by $300 credits, native structured output)
-        2. Groq (free tier, 14K req/day — zero cost, fast fallback)
-        3. NVIDIA (separate API key, capable)
-        4. VertexLlama (meta/llama-3.3-70b-instruct-maas — LAST: $300 trial does NOT cover
-                        third-party MaaS partner models; upgrade to paid account to use this)
-        5. OpenRouter (cloud proxy fallback)
-        6. Ollama (local fallback)
+        Priority order (OpenAI-first for reliability + RPM):
+        1. OpenAI (GPT-4.1-mini — 500+ RPM, best structured output + tool calling)
+        2. GeminiDirect (Vertex AI Gemini — $300 trial, 300 RPM Tier 1 via DSQ)
+        3. VertexLlama (Llama 3.3 70B via Model Garden — same GCP project)
+        4. NVIDIA (separate API, no daily token limit — good fallback)
+        5. Groq (free but 100K tokens/day — last cloud resort)
+        6. OpenRouter (cloud proxy)
+        7. Ollama (local fallback)
 
-        NOTE: $300 free trial credits only cover Google's own Vertex AI models (Gemini).
-        Partner/MaaS models (Llama, DeepSeek) require upgrading to a full paid account.
+        Rate limiter at 1.5 req/s (90 RPM) keeps GeminiDirect under DSQ ceiling.
+        Exponential backoff on 429s. flash-lite uses separate cooldown (GeminiDirectLite).
         """
         providers = []
         now = time.time()
@@ -156,68 +225,67 @@ class ProviderManager:
         offline = getattr(self.settings, 'offline_mode', False)
 
         # In offline mode, Ollama goes FIRST (skip cloud providers)
-        if offline and self.settings.use_ollama and not self._is_cooling_down("Ollama", now):
+        if offline and self.settings.use_ollama and self._is_provider_available("Ollama", now):
             logger.info(f"LLM: OFFLINE MODE — using Ollama ({self.settings.ollama_model}) at {self.settings.ollama_base_url}")
             providers.append(("Ollama", self._build_ollama_model()))
             self._provider_order = [name for name, _ in providers]
             return providers
 
-        # GeminiDirect FIRST — covered by $300 free trial, native structured output support
+        # 1. OpenAI FIRST — GPT-4.1-mini (500+ RPM, best structured output + tool calling)
+        if getattr(self.settings, 'openai_api_key', '') and self._is_provider_available("OpenAI", now):
+            providers.append(("OpenAI", self._build_openai_model()))
+
+        # 2. GeminiDirect — $300 Vertex AI trial, 300 RPM Tier 1 (DSQ)
         has_gemini = self.settings.gcp_project_id or self.settings.vertex_express_api_key or self.settings.gemini_api_key
-        if _google_available and has_gemini and not self._is_cooling_down("GeminiDirect", now):
+        if _google_available and has_gemini and self._is_provider_available("GeminiDirect", now):
             providers.append(("GeminiDirect", self._build_gemini_direct_model()))
 
-        # Groq — free tier (no GCP credits needed), fast, 14K req/day
-        if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
-            model = self._build_groq_model()
-            if model:
-                providers.append(("Groq", model))
-
-        # DeepSeek V3.2 via Vertex AI API Service (NOT covered by free trial — paid only)
-        if (self.settings.gcp_project_id
-                and getattr(self.settings, 'vertex_deepseek_model', '')
-                and not self._is_cooling_down("VertexDeepSeek", now)):
-            model = self._build_vertex_openai_model(self.settings.vertex_deepseek_model)
-            if model:
-                providers.append(("VertexDeepSeek", model))
-
-        # VertexLlama LAST — NOT covered by $300 free trial (third-party MaaS partner model).
-        # Will 429/fail on free trial accounts. Keep as fallback in case account is upgraded.
+        # 3. VertexLlama — same GCP project, separate model endpoint
         if (self.settings.gcp_project_id
                 and getattr(self.settings, 'vertex_llama_model', '')
-                and not self._is_cooling_down("VertexLlama", now)):
+                and self._is_provider_available("VertexLlama", now)):
             model = self._build_vertex_openai_model(self.settings.vertex_llama_model)
             if model:
                 providers.append(("VertexLlama", model))
 
-        # NVIDIA (capable but often rate-limited)
-        if self.settings.nvidia_api_key and not self._is_cooling_down("NVIDIA", now):
+        # 4. NVIDIA (separate API, no TPD limits — good GCP fallback)
+        if self.settings.nvidia_api_key and self._is_provider_available("NVIDIA", now):
             providers.append(("NVIDIA", self._build_nvidia_model()))
 
-        # OpenRouter (cloud fallback)
-        if self.settings.openrouter_api_key and not self._is_cooling_down("OpenRouter", now):
+        # 5. Groq (free but only 100K tokens/day — use sparingly)
+        if self.settings.groq_api_key and self._is_provider_available("Groq", now):
+            model = self._build_groq_model()
+            if model:
+                providers.append(("Groq", model))
+
+        # 6. OpenRouter (cloud proxy fallback)
+        if self.settings.openrouter_api_key and self._is_provider_available("OpenRouter", now):
             providers.append(("OpenRouter", self._build_openrouter_model()))
 
-        # Ollama (local fallback)
-        if self.settings.use_ollama and not self._is_cooling_down("Ollama", now):
+        # 7. Ollama (local fallback)
+        if self.settings.use_ollama and self._is_provider_available("Ollama", now):
             providers.append(("Ollama", self._build_ollama_model()))
 
         self._provider_order = [name for name, _ in providers]
         return providers
 
     def get_structured_output_model(self):
-        """Get model for structured JSON output — skips VertexLlama and NVIDIA.
+        """Get model for structured JSON output — GCP + Groq chain.
 
-        These providers return 400 for structured output:
+        Providers known to fail structured output (excluded):
         - VertexLlama: "forced function calling (mode=ANY) not supported"
         - NVIDIA DeepSeek: "Invalid grammar request" (JSON schema validation)
+        - OpenRouter: 402 payment required (no credits)
 
-        Only GeminiDirect and Groq reliably support pydantic-ai structured output
-        (tool_choice='required'). When both are rate-limited, raises RuntimeError
-        so LLMService.run_structured() can wait for cooldown and retry instead of
-        cascading into known-failing providers.
+        Priority:
+        1. OpenAI — GPT-4.1-mini (confirmed structured output + function calling, 500+ RPM)
+        2. GeminiDirect — native structured output via Vertex AI function calling
+        3. Groq — FREE, confirmed function calling (active secondary, not last resort)
+        4. Ollama — local fallback
 
-        Use this in LLMService._get_or_create_agent() when output_type is not str.
+        Raises RuntimeError when all providers are in cooldown so LLMService
+        can wait for the shortest cooldown to expire rather than cascading into
+        known-failing providers.
         """
         if self.mock_mode:
             from . import mock_responses
@@ -226,29 +294,30 @@ class ProviderManager:
         providers = []
         now = time.time()
 
-        # GeminiDirect first — native structured output via Vertex AI function calling
+        # 1. OpenAI — GPT-4.1-mini (confirmed structured output + function calling, 500+ RPM)
+        if getattr(self.settings, 'openai_api_key', '') and self._is_provider_available("OpenAI", now):
+            providers.append(("OpenAI", self._build_openai_model()))
+
+        # 2. GeminiDirect — native structured output via Vertex AI function calling
         has_gemini = self.settings.gcp_project_id or self.settings.vertex_express_api_key or self.settings.gemini_api_key
-        if _google_available and has_gemini and not self._is_cooling_down("GeminiDirect", now):
+        if _google_available and has_gemini and self._is_provider_available("GeminiDirect", now):
             providers.append(("GeminiDirect", self._build_gemini_direct_model()))
 
-        # Groq — confirmed function calling support (when not rate-limited)
-        if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
+        # 3. Groq — FREE active secondary (confirmed function calling, 30 RPM)
+        if self.settings.groq_api_key and self._is_provider_available("Groq", now):
             model = self._build_groq_model()
             if model:
                 providers.append(("Groq", model))
 
-        # Ollama last resort (local, no rate limits)
-        if self.settings.use_ollama and not self._is_cooling_down("Ollama", now):
+        # 4. Ollama — local last resort (no rate limits)
+        if self.settings.use_ollama and self._is_provider_available("Ollama", now):
             providers.append(("Ollama", self._build_ollama_model()))
 
         # NOTE: VertexLlama excluded — 400 on tool_choice='required' (mode=ANY not supported)
         # NOTE: NVIDIA excluded — 400 "Invalid grammar request" on JSON schema structured output
-        # NOTE: OpenRouter excluded — 402 payment required (no credits)
 
         if not providers:
-            # Raise so LLMService.run_structured() waits for shortest cooldown to expire
-            # (better than cascading into NVIDIA/VertexLlama which always fail with 400)
-            raise RuntimeError("No LLM providers available (GeminiDirect and Groq both in cooldown)")
+            raise RuntimeError("No LLM providers available for structured output (all in cooldown)")
 
         if len(providers) == 1:
             return providers[0][1]
@@ -311,8 +380,13 @@ class ProviderManager:
                     logger.warning(f"{provider_name}: Auth failed (401) — disabled for session")
                 self._failed_providers[provider_name] = now
             elif "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                logger.warning(f"{provider_name}: Rate limited — cooldown {int(self._RATELIMIT_COOLDOWN)}s")
-                self._failed_providers[provider_name] = now - (self._FAILURE_COOLDOWN - self._RATELIMIT_COOLDOWN)
+                # Exponential backoff: 30s, 60s, 120s, 300s (capped)
+                count = self._failure_counts.get(provider_name, 0) + 1
+                self._failure_counts[provider_name] = count
+                _max_cd = getattr(self.settings, 'provider_ratelimit_max_seconds', 120.0)
+                cooldown = min(self._RATELIMIT_COOLDOWN * (2 ** (count - 1)), _max_cd)
+                logger.info(f"{provider_name}: Rate limited — {int(cooldown)}s cooldown (#{count})")
+                self._failed_providers[provider_name] = now - (self._FAILURE_COOLDOWN - cooldown)
             elif "404" in error_str and ("does not exist" in error_str.lower() or "model_not_found" in error_str.lower()):
                 self._billing_disabled.add(provider_name)
                 logger.warning(f"{provider_name}: Model not found (404) — disabled for session. Check model name in config.")
@@ -336,6 +410,8 @@ class ProviderManager:
                     return True
                 else:
                     del self._failed_providers[provider_name]
+                    # Reset failure count on successful recovery
+                    self._failure_counts.pop(provider_name, None)
                     logger.info(f"{provider_name} cooldown expired, re-enabling")
         return False
 
@@ -353,8 +429,13 @@ class ProviderManager:
         model_name = match.group(1) if match else ""
 
         # Direct model name match (most reliable)
-        if model_name in (s.gemini_model, s.gemini_lite_model):
-            # Distinguish GeminiDirect vs OpenRouter-routed Gemini
+        # CRITICAL: flash-lite and flash-2.0 are in SEPARATE GCP DSQ pools.
+        # A flash-lite 429 must NOT put flash-2.0 into cooldown.
+        if model_name == s.gemini_lite_model:
+            if "openrouter" in err.lower():
+                return "OpenRouter"
+            return "GeminiDirectLite"
+        if model_name == s.gemini_model:
             if "openrouter" in err.lower():
                 return "OpenRouter"
             return "GeminiDirect"
@@ -370,6 +451,11 @@ class ProviderManager:
             return "OpenRouter"
         if model_name == getattr(s, 'groq_model', ''):
             return "Groq"
+        # OpenAI models
+        if model_name == getattr(s, 'openai_model', 'gpt-4.1-mini'):
+            return "OpenAI"
+        if model_name == getattr(s, 'openai_lite_model', 'gpt-4.1-nano'):
+            return "OpenAINano"
 
         # URL-based fallback
         if "integrate.api.nvidia" in err:
@@ -378,6 +464,10 @@ class ProviderManager:
             return "OpenRouter"
         if "localhost:11434" in err:
             return "Ollama"
+        if "api.openai.com" in err:
+            if "nano" in model_name:
+                return "OpenAINano"
+            return "OpenAI"
         # Vertex API Service uses aiplatform.googleapis.com — check model name first
         if "aiplatform.googleapis.com" in err:
             if "deepseek" in err.lower():
@@ -446,6 +536,24 @@ class ProviderManager:
             provider=OpenAIProvider(
                 base_url="https://openrouter.ai/api/v1",
                 api_key=self.settings.openrouter_api_key,
+            ),
+        )
+
+    def _build_openai_model(self, lite: bool = False):
+        """OpenAI native API — GPT-4.1-mini (gen) or GPT-4.1-nano (lite).
+
+        Uses pydantic-ai's OpenAIChatModel with OpenAIProvider pointed at
+        the official api.openai.com. No custom base_url needed.
+        """
+        model_name = (
+            getattr(self.settings, 'openai_lite_model', 'gpt-4.1-nano')
+            if lite
+            else getattr(self.settings, 'openai_model', 'gpt-4.1-mini')
+        )
+        return OpenAIChatModel(
+            model_name=model_name,
+            provider=OpenAIProvider(
+                api_key=self.settings.openai_api_key,
             ),
         )
 
@@ -626,10 +734,16 @@ class ProviderManager:
     def get_tool_capable_model(self):
         """Get a model guaranteed to support tool/function calling.
 
-        VertexLlama (meta/llama-3.3-70b-instruct-maas) is primary — uses GCP credits.
-        Falls back to Groq llama-3.3-70b-versatile if Vertex rate-limits.
+        GCP + Groq priority — Gemini native function calling + Groq free fallback.
 
-        Use this for Phase 3 agentic agents that call tools (search, scrape, etc.)
+        Priority:
+        1. OpenAI — GPT-4.1-mini (full parallel function calling, 500+ RPM)
+        2. GeminiDirect — Gemini 2.0 Flash native function calling
+        3. Groq llama-3.3-70b-versatile — FREE active secondary (30 RPM)
+        4. VertexLlama — Llama 3.3 70B via Model Garden (paid account)
+        5. Ollama llama3.2:3b — local offline fallback
+
+        Use this for agentic agents that call tools (search, scrape, etc.)
         rather than just producing structured output.
         """
         if self.mock_mode:
@@ -639,13 +753,22 @@ class ProviderManager:
         now = time.time()
         providers = []
 
-        # Groq FIRST for tool calling — free, confirmed tool-calling support, no trial restrictions
+        # 1. OpenAI FIRST — GPT-4.1-mini (full parallel function calling, 500+ RPM)
+        if getattr(self.settings, 'openai_api_key', '') and not self._is_cooling_down("OpenAI", now):
+            providers.append(("OpenAI-Tool", self._build_openai_model()))
+
+        # 2. GeminiDirect — native function calling, $300 Vertex AI trial
+        has_gemini = self.settings.gcp_project_id or self.settings.vertex_express_api_key or self.settings.gemini_api_key
+        if _google_available and has_gemini and not self._is_cooling_down("GeminiDirect", now):
+            providers.append(("GeminiDirect-Tool", self._build_gemini_direct_model()))
+
+        # 3. Groq — FREE active secondary (confirmed tool calling, 30 RPM)
         if self.settings.groq_api_key and not self._is_cooling_down("Groq", now):
             model = self._build_groq_model(tool_capable=True)
             if model:
                 providers.append(("Groq-Tool", model))
 
-        # VertexLlama — NOT covered by $300 free trial, but try if available (paid accounts)
+        # 4. VertexLlama — Llama 3.3 70B (paid account required)
         if (self.settings.gcp_project_id
                 and getattr(self.settings, 'vertex_llama_model', '')
                 and not self._is_cooling_down("VertexLlama", now)):
@@ -653,16 +776,9 @@ class ProviderManager:
             if model:
                 providers.append(("VertexLlama-Tool", model))
 
-        # Fall back to standard providers (may still work for tool calls)
-        standard = self._get_available_providers()
-        for name, m in standard:
-            if name not in ("VertexLlama", "Groq"):  # Already added above
-                providers.append((name, m))
-
-        # Ollama llama3.2:3b — offline tool-calling fallback (only local model with tool support)
+        # 5. Ollama llama3.2:3b — offline fallback (only local model with tool support)
         if self.settings.use_ollama and not self._is_cooling_down("Ollama", now):
-            if not any(name == "Ollama" for name, _ in providers):
-                providers.append(("Ollama-Tool", self._build_ollama_tool_model()))
+            providers.append(("Ollama-Tool", self._build_ollama_tool_model()))
 
         if not providers:
             raise RuntimeError("No tool-capable LLM provider available")
@@ -693,6 +809,7 @@ class ProviderManager:
         gemini_ok = bool(self.settings.gemini_api_key)
         groq_ok = bool(self.settings.groq_api_key)
         openrouter_ok = bool(self.settings.openrouter_api_key)
+        openai_ok = bool(getattr(self.settings, 'openai_api_key', ''))
         vertex_deepseek_ok = has_gcp and bool(getattr(self.settings, 'vertex_deepseek_model', ''))
         vertex_llama_ok = has_gcp and bool(getattr(self.settings, 'vertex_llama_model', ''))
 
@@ -704,11 +821,12 @@ class ProviderManager:
             "gemini": gemini_ok,
             "groq": groq_ok,
             "openrouter": openrouter_ok,
+            "openai": openai_ok,
             "vertex_deepseek": vertex_deepseek_ok,
             "vertex_llama": vertex_llama_ok,
             "any_available": (
                 nvidia_ok or ollama_ok or vertex_full_ok or vertex_express_ok
-                or gemini_ok or groq_ok or openrouter_ok
+                or gemini_ok or groq_ok or openrouter_ok or openai_ok
                 or vertex_deepseek_ok or vertex_llama_ok
             ),
         }
@@ -732,8 +850,20 @@ class ProviderManager:
         return min(valid) if valid else 0.0
 
     @classmethod
+    async def acquire_gcp_rate_limit(cls) -> None:
+        """Throttle GCP (Gemini + VertexLlama) calls to ≤1.5 req/s.
+
+        Vertex AI DSQ observed capacity: ~30 RPM for new $300-credit projects.
+        1.5 req/s (90 RPM) = 3× observed, with burst of 2 for tool-call pairs.
+        """
+        if cls._gcp_bucket is None:
+            cls._gcp_bucket = _TokenBucket(rate=1.5, capacity=2.0)
+        await cls._gcp_bucket.acquire()
+
+    @classmethod
     def reset_cooldowns(cls):
-        """Clear all cooldowns. Useful for testing."""
+        """Clear all cooldowns and failure counts for a fresh pipeline run."""
         with cls._lock:
             cls._failed_providers.clear()
             cls._billing_disabled.clear()
+            cls._failure_counts.clear()

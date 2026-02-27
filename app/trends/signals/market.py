@@ -7,7 +7,6 @@ these signals focus on quantitative measurements the LLM can't do.
 
 SIGNALS:
   regulatory_flag:     Uses embedding-based event classifier (no hardcoded keywords).
-  company_density:     Company mentions per article (from NER, no keywords).
   financial_indicator: Concrete financial numbers (NER MONEY entities + regex for currencies).
   financial_amounts:   Extracted dollar/rupee amounts.
 
@@ -38,7 +37,6 @@ def compute_market_signals(articles: list) -> Dict[str, Any]:
 
     return {
         "regulatory_flag": _check_regulatory(articles),
-        "company_density": _compute_company_density(articles),
         "financial_indicator": _check_financial_indicator(articles),
         "financial_amounts": _extract_financial_amounts(articles),
     }
@@ -64,25 +62,6 @@ def _check_regulatory(articles: list) -> bool:
                 return True
 
     return False
-
-
-def _compute_company_density(articles: list) -> float:
-    """
-    Company mentions per article (from NER, no hardcoded lists).
-
-    Interpretation:
-      <0.5: No specific companies (generic news)
-      0.5-2: Some companies mentioned
-      >2: Company-rich (M&A, earnings, partnerships)
-    """
-    if not articles:
-        return 0.0
-
-    total_companies = sum(
-        len(getattr(a, 'mentioned_companies', []))
-        for a in articles
-    )
-    return total_companies / len(articles)
 
 
 def _check_financial_indicator(articles: list) -> bool:
@@ -148,7 +127,6 @@ def _empty_signals() -> Dict[str, Any]:
     """Return zero signals when no articles are available."""
     return {
         "regulatory_flag": False,
-        "company_density": 0.0,
         "financial_indicator": False,
         "financial_amounts": [],
     }

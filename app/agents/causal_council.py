@@ -15,9 +15,10 @@ BEFORE it produces the structured output — not post-hoc rationalization.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel
 from pydantic_ai import RunContext  # noqa: F401 — needed for tool annotation resolution
@@ -69,7 +70,7 @@ HOP 3 (third-order): Companies affected by hop-2 impacts.
 
 For each hop, you MUST:
 1. Be SPECIFIC: not "technology companies" but "Tier-2 brake component suppliers, 50-200 employees, Pune"
-2. Call search_company_kb to find REAL companies in that segment
+2. Use search_articles and web_search_companies to find REAL companies in that segment
 3. Estimate urgency in weeks
 4. Classify as pain / opportunity / risk / intelligence
 
@@ -90,7 +91,6 @@ async def run_causal_council(
     keywords: list[str],
     geo: str = "India",
     provider_manager=None,
-    company_kb=None,
     search_manager=None,
     max_hops: int = 3,
 ) -> CausalChainResult:
@@ -104,10 +104,9 @@ async def run_causal_council(
 
     @dataclass
     class _Deps:
-        kb: Any
         sm: Any
 
-    deps = _Deps(kb=company_kb, sm=search_manager)
+    deps = _Deps(sm=search_manager)
 
     agent: Agent[_Deps, CausalChainResult] = Agent(
         model=provider_manager.get_tool_capable_model() if provider_manager else "groq:llama-3.3-70b-versatile",
@@ -115,21 +114,6 @@ async def run_causal_council(
         system_prompt=_SYSTEM_PROMPT,
         deps_type=_Deps,
     )
-
-    @agent.tool
-    async def search_company_kb(ctx: RunContext, segment: str, state: str = "") -> str:
-        """
-        Search the local India company database (1.8M+ companies, SQLite FTS5).
-        Call this for EVERY hop to find real company names. Always try before web search.
-        Returns: JSON list of up to 5 matching companies with name and state.
-        """
-        import json
-        if ctx.deps.kb and ctx.deps.kb.is_loaded:
-            results = ctx.deps.kb.search(segment, state=state or None, limit=10)
-            if results:
-                names = [f"{r['name']} ({r['state']})" for r in results[:5]]
-                return f"Found {len(results)} companies: {json.dumps(names)}"
-        return "Company KB empty or not loaded — try web_search_companies instead"
 
     @agent.tool
     async def search_articles(ctx: RunContext, query: str) -> str:
@@ -176,26 +160,176 @@ Instructions:
 3. Trace Hop 2 (who buys from or sells to Hop 1?)
 {"4. Trace Hop 3 (who is affected by Hop 2?)" if max_hops >= 3 else ""}
 
-For each hop: use search_company_kb, then search_articles, then web_search_companies as fallback.
+For each hop: use search_articles first, then web_search_companies for additional companies.
 Be specific. No large enterprises. Confidence 0-1 based on directness of causal link.
 
 Produce a complete CausalChainResult with {max_hops} hops and full reasoning."""
 
+    # ── Attempt 1: pydantic-ai agent with tool calling ──
+    chain = await _try_agent_run(agent, prompt, deps, trend_title)
+    if chain and chain.hops:
+        return chain
+
+    # ── Attempt 2: Retry after 5s backoff (transient 429s often clear) ──
+    logger.info(f"Causal council: retrying '{trend_title[:40]}' after 5s backoff...")
+    await asyncio.sleep(5)
+    chain = await _try_agent_run(agent, prompt, deps, trend_title)
+    if chain and chain.hops:
+        return chain
+
+    # ── Attempt 3: Direct LLM structured output (bypasses tool calling) ──
+    chain = await _try_llm_structured_fallback(
+        trend_title, trend_summary, event_type, keywords, geo,
+    )
+    if chain and chain.hops:
+        return chain
+
+    # ── Attempt 4: Build synthetic hops from templates (no LLM needed) ──
+    chain = _build_synthetic_hops(
+        trend_title, trend_summary, event_type, keywords,
+    )
+    return chain
+
+
+# ── Helper functions for resilient causal council ─────────────────────────────
+
+async def _try_agent_run(agent, prompt, deps, trend_title) -> Optional[CausalChainResult]:
+    """Run pydantic-ai agent, returning None on failure."""
     try:
+        from app.tools.provider_manager import ProviderManager
+        await ProviderManager.acquire_gcp_rate_limit()
         result = await agent.run(prompt, deps=deps)
         chain = result.output
-        # Post-process: fill companies_found from KB if agent missed it
-        for hop in chain.hops:
-            if not hop.companies_found and company_kb and company_kb.is_loaded:
-                kb_results = company_kb.search(hop.segment, limit=5)
-                hop.companies_found = [r["name"] for r in kb_results]
         logger.info(f"Causal council: '{trend_title[:50]}' → {len(chain.hops)} hops")
         return chain
     except Exception as e:
-        logger.error(f"Causal council failed for '{trend_title[:40]}': {e}")
-        return CausalChainResult(
-            event_summary=trend_title,
-            event_type=event_type,
-            hops=[],
-            reasoning=f"Agent failed: {e}",
+        logger.warning(f"Causal council agent failed for '{trend_title[:40]}': {type(e).__name__}: {e}")
+        return None
+
+
+async def _try_llm_structured_fallback(
+    trend_title: str,
+    trend_summary: str,
+    event_type: str,
+    keywords: list[str],
+    geo: str,
+) -> Optional[CausalChainResult]:
+    """Fallback: use LLMService structured output instead of pydantic-ai agent.
+
+    Bypasses tool calling entirely — just asks the LLM to produce the
+    CausalChainResult JSON directly. Works when providers support structured
+    output but not function calling (e.g., NVIDIA DeepSeek).
+    """
+    try:
+        from app.tools.llm_service import LLMService
+        llm = LLMService()
+
+        prompt = f"""Analyze this business trend and trace its causal impact chain.
+
+TREND: {trend_title}
+EVENT TYPE: {event_type}
+GEOGRAPHY: {geo}
+KEY ENTITIES: {", ".join(keywords[:10])}
+SUMMARY: {trend_summary[:600]}
+
+For each hop, identify specific company SEGMENTS (not individual companies).
+Focus on mid-size Indian companies (50-5000 employees).
+
+Return JSON with:
+- event_summary: the trend title
+- event_type: "{event_type}"
+- reasoning: your step-by-step causal chain analysis
+- hops: array of 2-3 hops, each with:
+  - hop: 1/2/3
+  - segment: specific company segment (e.g. "Tier-2 auto parts suppliers, 50-200 employees, Pune")
+  - lead_type: "pain" or "opportunity" or "risk" or "intelligence"
+  - mechanism: how this trend affects them (e.g. "Steel duty → input cost increase of ~15%")
+  - urgency_weeks: estimated weeks until impact materializes
+  - geo_hint: specific Indian cities/states
+  - employee_band: "sme" (50-500) or "mid" (500-5000)
+  - confidence: 0.0-1.0 based on directness of causal link
+  - companies_found: [] (leave empty)"""
+
+        raw = await llm.generate_json(
+            prompt=prompt,
+            system_prompt=_SYSTEM_PROMPT,
         )
+        if not isinstance(raw, dict) or "error" in raw:
+            logger.warning(f"Structured fallback returned error: {raw}")
+            return None
+
+        chain = CausalChainResult(**{
+            "event_summary": raw.get("event_summary", trend_title),
+            "event_type": raw.get("event_type", event_type),
+            "reasoning": raw.get("reasoning", "LLM structured fallback"),
+            "hops": [CausalHop(**h) for h in raw.get("hops", []) if isinstance(h, dict)],
+        })
+
+        logger.info(f"Causal council (structured fallback): '{trend_title[:50]}' → {len(chain.hops)} hops")
+        return chain
+
+    except Exception as e:
+        logger.warning(f"Causal council structured fallback failed for '{trend_title[:40]}': {type(e).__name__}: {e}")
+        return None
+
+
+def _build_synthetic_hops(
+    trend_title: str,
+    trend_summary: str,
+    event_type: str,
+    keywords: list[str],
+) -> CausalChainResult:
+    """Last-resort: build template hops without any LLM calls.
+
+    Constructs hop-1 and hop-2 entries from event type and keywords.
+    Lower quality but guarantees non-zero hops when all LLM providers
+    are exhausted. Companies will be found later by the company agent
+    via web search.
+    """
+    # Event type → default mechanism templates
+    mechanism_templates = {
+        "funding": "New funding round creates demand for market intelligence and growth strategy",
+        "acquisition": "M&A activity creates demand for due diligence and market sizing",
+        "regulation": "New regulation creates compliance burden and need for advisory",
+        "crisis": "Crisis event creates urgent need for risk assessment and crisis response",
+        "technology": "Technology shift creates need for competitive analysis and strategy pivot",
+        "market": "Market shift creates need for repositioning and competitive intelligence",
+        "policy": "Policy change creates need for impact assessment and compliance planning",
+        "ipo": "IPO activity creates demand for market positioning and valuation analysis",
+    }
+    base_mechanism = mechanism_templates.get(event_type, "Market event creates demand for consulting intelligence")
+    sector_label = ", ".join(keywords[:3]) if keywords else "general"
+
+    hops = [
+        CausalHop(
+            hop=1,
+            segment=f"Companies in {sector_label} sector",
+            lead_type="pain" if event_type in ("crisis", "regulation") else "opportunity",
+            mechanism=base_mechanism,
+            urgency_weeks=2 if event_type in ("crisis", "regulation") else 4,
+            geo_hint="India",
+            employee_band="sme",
+            confidence=0.45,
+        ),
+        CausalHop(
+            hop=2,
+            segment=f"Suppliers and service providers to {sector_label} companies",
+            lead_type="intelligence",
+            mechanism=f"Downstream effect: {base_mechanism.lower()}",
+            urgency_weeks=6,
+            geo_hint="India",
+            employee_band="sme",
+            confidence=0.40,
+        ),
+    ]
+
+    logger.info(
+        f"Causal council (synthetic fallback): '{trend_title[:50]}' → {len(hops)} template hops"
+    )
+
+    return CausalChainResult(
+        event_summary=trend_title,
+        event_type=event_type,
+        hops=hops,
+        reasoning=f"Synthetic template hops (all LLM providers exhausted). Keywords: {', '.join(keywords[:5])}",
+    )

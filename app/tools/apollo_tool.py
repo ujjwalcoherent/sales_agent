@@ -90,17 +90,17 @@ class ApolloTool:
         last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
         
         payload = {
-            "api_key": self.api_key,
             "first_name": first_name,
             "last_name": last_name,
             "organization_name": domain.replace(".com", "").replace(".in", ""),
             "domain": domain
         }
-        
+
         if role:
             payload["title"] = role
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
+
+        headers = {"X-Api-Key": self.api_key}
+        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
             response = await client.post(url, json=payload)
             
             if response.status_code == 200:
@@ -138,21 +138,21 @@ class ApolloTool:
         last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
         
         payload = {
-            "api_key": self.api_key,
             "q_organization_domains": domain,
             "page": 1,
             "per_page": 5
         }
-        
+
         if first_name:
             payload["q_keywords"] = full_name
-        
+
         if role:
             payload["person_titles"] = [role]
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
+
+        headers = {"X-Api-Key": self.api_key}
+        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
             response = await client.post(url, json=payload)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 people = data.get("people", [])
@@ -211,17 +211,17 @@ class ApolloTool:
         url = f"{self.APOLLO_BASE_URL}/mixed_people/search"
         
         payload = {
-            "api_key": self.api_key,
             "q_organization_domains": domain,
             "page": 1,
             "per_page": limit
         }
-        
+
         if roles:
             payload["person_titles"] = roles
-        
+
+        headers = {"X-Api-Key": self.api_key}
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
                 response = await client.post(url, json=payload)
                 
                 if response.status_code == 200:

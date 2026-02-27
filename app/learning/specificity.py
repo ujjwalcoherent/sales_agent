@@ -53,121 +53,7 @@ VAGUE_PHRASES = frozenset({
 })
 
 
-def _get_generic_geo() -> frozenset:
-    """Build the generic-geo set dynamically from app settings if available."""
-    try:
-        from app.config import get_settings
-        country = get_settings().country.lower()
-        # india -> indian, japan -> japanese (simple heuristic: append 'n' if not ending in 'n')
-        country_adj = country + "n" if not country.endswith("n") else country
-    except Exception:
-        country, country_adj = "india", "indian"
-    return frozenset({
-        country, country_adj, "global", "worldwide", "international",
-        "asia", "asian", "domestic", "foreign", "overseas",
-        "country", "region", "world",
-    })
-
-
-# Generic geography terms (don't count as specific) — evaluated lazily
-_GENERIC_GEO = _get_generic_geo()
-
-# ---------------------------------------------------------------------------
-# Fallback hardcoded geo pattern (used when geonamescache is unavailable)
-# ---------------------------------------------------------------------------
-_SPECIFIC_GEO_PATTERNS_FALLBACK = re.compile(
-    r'\b(?:'
-    # Major cities
-    r'mumbai|delhi|bangalore|bengaluru|chennai|hyderabad|pune|kolkata|'
-    r'ahmedabad|jaipur|lucknow|kanpur|nagpur|indore|thane|bhopal|'
-    r'visakhapatnam|patna|vadodara|ghaziabad|ludhiana|agra|nashik|'
-    r'faridabad|meerut|rajkot|surat|coimbatore|kochi|noida|gurgaon|'
-    r'gurugram|chandigarh|trivandrum|thiruvananthapuram|mysore|mysuru|'
-    # States
-    r'maharashtra|karnataka|tamil\s*nadu|telangana|andhra\s*pradesh|'
-    r'gujarat|rajasthan|uttar\s*pradesh|west\s*bengal|kerala|'
-    r'madhya\s*pradesh|punjab|haryana|bihar|odisha|jharkhand|'
-    r'chhattisgarh|assam|uttarakhand|himachal|goa|'
-    # Industrial clusters
-    r'peenya|bhiwandi|ludhiana|tiruppur|surat|jamnagar|'
-    # International specific
-    r'paris|london|tokyo|singapore|dubai|beijing|shanghai|'
-    r'new\s*york|san\s*francisco|silicon\s*valley|'
-    r'france|germany|japan|uk|usa|china|'
-    # Tier classification (specific)
-    r'tier[- ]?[123]'
-    r')\b',
-    re.IGNORECASE,
-)
-
-
-@functools.lru_cache(maxsize=8)
-def _build_geo_pattern(country_codes: tuple = ("IN",)) -> re.Pattern:
-    """Build geo specificity regex dynamically from geonamescache.
-
-    Uses cities with population >= 100_000 from geonamescache, then merges
-    in the hardcoded fallback terms (Indian industrial clusters, states, and
-    cities not present in geonamescache such as Rajkot, Peenya, Bhiwandi).
-    Falls back to hardcoded-only list if geonamescache is unavailable.
-    LRU-cached per country_codes tuple — compiled once per config.
-    """
-    # Hardcoded extras that geonamescache may miss (industrial clusters, Tier-2 cities)
-    _HARDCODED_EXTRAS = [
-        # Indian cities / industrial clusters not always in geonamescache
-        r'rajkot', r'peenya', r'bhiwandi', r'tiruppur', r'jamnagar',
-        r'ludhiana', r'coimbatore', r'nashik', r'noida', r'gurgaon',
-        r'gurugram', r'faridabad', r'meerut', r'agra', r'vadodara',
-        r'ghaziabad', r'visakhapatnam', r'thiruvananthapuram', r'trivandrum',
-        r'mysore', r'mysuru', r'thane', r'bhopal', r'indore', r'nagpur',
-        r'patna', r'kanpur', r'lucknow',
-        # Indian states
-        r'maharashtra', r'karnataka', r'tamil\s*nadu', r'telangana',
-        r'andhra\s*pradesh', r'gujarat', r'rajasthan', r'uttar\s*pradesh',
-        r'west\s*bengal', r'kerala', r'madhya\s*pradesh', r'punjab',
-        r'haryana', r'bihar', r'odisha', r'jharkhand', r'chhattisgarh',
-        r'assam', r'uttarakhand', r'himachal', r'goa',
-        # Key international cities/regions
-        r'paris', r'london', r'tokyo', r'singapore', r'dubai',
-        r'beijing', r'shanghai', r'new\s*york', r'san\s*francisco',
-        r'silicon\s*valley',
-        # Key countries (as geo specificity markers)
-        r'france', r'germany', r'japan', r'uk', r'usa', r'china',
-        # Tier classification
-        r'tier[- ]?[123]',
-    ]
-
-    try:
-        import geonamescache
-        gc = geonamescache.GeonamesCache()
-        cities = gc.get_cities()
-
-        city_names = set()
-        for city_data in cities.values():
-            if city_data.get("countrycode") in country_codes:
-                if city_data.get("population", 0) >= 100_000:
-                    name = city_data.get("name", "").lower().strip()
-                    if name and len(name) >= 4:
-                        city_names.add(re.escape(name))
-
-        if city_names:
-            # Merge geonamescache cities with hardcoded extras
-            all_terms = sorted(city_names, key=len, reverse=True) + _HARDCODED_EXTRAS
-            pattern_str = r'\b(?:' + '|'.join(all_terms) + r')\b'
-            return re.compile(pattern_str, re.IGNORECASE)
-    except ImportError:
-        logger.debug("geonamescache not available — using hardcoded geo pattern fallback")
-    except Exception as exc:
-        logger.warning("Failed to build geo pattern from geonamescache: %s — using fallback", exc)
-
-    # Fallback: original hardcoded pattern
-    return _SPECIFIC_GEO_PATTERNS_FALLBACK
-
-
-# ---------------------------------------------------------------------------
-# Keep a module-level alias so existing imports of _SPECIFIC_GEO_PATTERNS
-# continue to work (points at the fallback; real callers use _build_geo_pattern)
-# ---------------------------------------------------------------------------
-_SPECIFIC_GEO_PATTERNS = _SPECIFIC_GEO_PATTERNS_FALLBACK
+from app.shared.geo import GENERIC_GEO as _GENERIC_GEO, get_geo_pattern as _build_geo_pattern, SPECIFIC_GEO_PATTERN as _SPECIFIC_GEO_PATTERNS
 
 # Generic industry terms (don't count as specific sub-segments)
 _GENERIC_INDUSTRY = frozenset({
@@ -329,7 +215,6 @@ def compute_specificity_score(synthesis: Dict[str, Any]) -> Tuple[float, List[st
         issues.append(f"Low numeric density ({numeric_count}): include specific numbers, percentages, dates")
 
     # -- Component 3: Geo specificity (0.20) --
-    # Use dynamically-built pattern (geonamescache if available, else fallback)
     geo_pattern = _build_geo_pattern(("IN",))
     unique_geos = set(g.lower() for g in geo_pattern.findall(all_text))
     geo_count = len(unique_geos)

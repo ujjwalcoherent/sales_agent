@@ -16,6 +16,10 @@ import asyncio
 import httpx
 import feedparser
 
+from langdetect import detect, LangDetectException
+from langdetect import DetectorFactory
+DetectorFactory.seed = 0  # Deterministic language detection
+
 from ..config import get_settings, NEWS_SOURCES, DEFAULT_ACTIVE_SOURCES
 from ..schemas import NewsArticle, SourceType, SourceTier
 
@@ -31,6 +35,23 @@ class RSSTool:
     # Source health tracking
     _source_health: Dict[str, Dict[str, Any]] = {}
 
+    @staticmethod
+    def _is_target_language(text: str, target_lang: str = "en") -> bool:
+        """Check if text is in the target language using langdetect.
+
+        Uses Google's n-gram language detection (55+ languages).
+        Scales globally — works for any language, no hardcoded Unicode ranges.
+        Returns True if detected language matches target, or if text is too
+        short for reliable detection (< 20 chars).
+        """
+        if not text or len(text.strip()) < 20:
+            return True  # Too short to reliably detect
+        try:
+            detected = detect(text[:500])  # Cap input for speed
+            return detected == target_lang
+        except LangDetectException:
+            return True  # Ambiguous — let through
+
     def __init__(self, mock_mode: bool = False):
         """Initialize RSS tool."""
         self.settings = get_settings()
@@ -40,8 +61,8 @@ class RSSTool:
     async def fetch_all_sources(
         self,
         source_ids: Optional[List[str]] = None,
-        max_per_source: int = 10,
-        hours_ago: int = 48
+        max_per_source: int = None,
+        hours_ago: int = None
     ) -> List[NewsArticle]:
         """
         Fetch news from ALL configured sources in parallel.
@@ -54,18 +75,37 @@ class RSSTool:
         Returns:
             List of NewsArticle objects with deduplication
         """
+        # Default from config if not provided
+        if max_per_source is None:
+            max_per_source = self.settings.rss_max_per_source
+        if hours_ago is None:
+            hours_ago = self.settings.rss_hours_ago
+
         if self.mock_mode:
             return self._get_mock_articles()
 
         source_ids = source_ids or self.active_sources
         all_articles: List[NewsArticle] = []
 
-        # Fetch from all sources in parallel
-        tasks = []
-        for source_id in source_ids:
-            if source_id in NEWS_SOURCES:
-                tasks.append(self._fetch_source(source_id, max_per_source))
+        # Source bandit: allocate more articles to higher-quality sources
+        source_caps = self._compute_source_caps(source_ids, max_per_source)
 
+        # Fetch from all sources with concurrency limit (avoid overwhelming network)
+        semaphore = asyncio.Semaphore(6)
+
+        async def _fetch_limited(sid):
+            async with semaphore:
+                try:
+                    # Add per-source timeout of 15 seconds (httpx has 30s, but this ensures overall progress)
+                    return await asyncio.wait_for(
+                        self._fetch_source(sid, source_caps.get(sid, max_per_source)),
+                        timeout=15.0
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"[TIMEOUT] {NEWS_SOURCES.get(sid, {}).get('name', sid)}: Fetch timeout (15s), skipping")
+                    return []
+
+        tasks = [_fetch_limited(sid) for sid in source_ids if sid in NEWS_SOURCES]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for result in results:
@@ -84,7 +124,7 @@ class RSSTool:
         # Sort by recency
         all_articles.sort(key=lambda x: x.published_at, reverse=True)
 
-        logger.info(f"📰 Fetched {len(all_articles)} unique articles from {len(source_ids)} sources")
+        logger.info(f"[RSS] Fetched {len(all_articles)} unique articles from {len(source_ids)} sources")
         return all_articles
 
     async def _fetch_source(self, source_id: str, max_results: int) -> List[NewsArticle]:
@@ -110,7 +150,7 @@ class RSSTool:
                 "articles_fetched": len(articles)
             }
 
-            logger.info(f"✓ {source['name']}: {len(articles)} articles")
+            logger.info(f"[OK] {source['name']}: {len(articles)} articles")
             return articles
 
         except Exception as e:
@@ -120,8 +160,64 @@ class RSSTool:
             health["last_error"] = str(e)
             self._source_health[source_id] = health
 
-            logger.warning(f"✗ {source['name']}: {e}")
+            logger.warning(f"[FAIL] {source['name']}: {e}")
             return []
+
+    def _compute_source_caps(
+        self, source_ids: List[str], base_cap: int
+    ) -> Dict[str, int]:
+        """Allocate per-source article caps using Source Bandit posteriors.
+
+        Higher-quality sources (learned from previous runs via Thompson Sampling)
+        get more article slots. Lower-quality sources get fewer but never zero.
+
+        Allocation: base_cap * quality_multiplier, where:
+          - Top 25% sources: 1.5x base_cap
+          - Middle 50%: 1.0x base_cap (default)
+          - Bottom 25%: 0.6x base_cap (still fetched, just fewer)
+
+        Falls back to equal allocation if no bandit data exists.
+        """
+        try:
+            from app.learning.source_bandit import SourceBandit
+            bandit = SourceBandit()
+            estimates = bandit.get_quality_estimates()
+        except Exception:
+            return {sid: base_cap for sid in source_ids}
+
+        if not estimates:
+            return {sid: base_cap for sid in source_ids}
+
+        # Get quality estimates for active sources (default 0.5 for unknown)
+        qualities = {sid: estimates.get(sid, 0.5) for sid in source_ids}
+
+        # Compute percentile thresholds
+        vals = sorted(qualities.values())
+        if len(vals) < 4:
+            return {sid: base_cap for sid in source_ids}
+
+        p25 = vals[len(vals) // 4]
+        p75 = vals[(3 * len(vals)) // 4]
+
+        caps = {}
+        for sid in source_ids:
+            q = qualities[sid]
+            if q >= p75:
+                caps[sid] = int(base_cap * 1.5)
+            elif q <= p25:
+                caps[sid] = max(3, int(base_cap * 0.6))
+            else:
+                caps[sid] = base_cap
+
+        boosted = sum(1 for c in caps.values() if c > base_cap)
+        reduced = sum(1 for c in caps.values() if c < base_cap)
+        if boosted or reduced:
+            logger.info(
+                f"Source bandit caps: {boosted} boosted, {reduced} reduced "
+                f"(base={base_cap}, p25={p25:.3f}, p75={p75:.3f})"
+            )
+
+        return caps
 
     # Browser-like User-Agent to avoid being blocked by some RSS feeds (e.g. Inc42)
     _USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
@@ -133,7 +229,7 @@ class RSSTool:
             return []
 
         headers = {"User-Agent": self._USER_AGENT}
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=12.0) as client:
             response = await client.get(rss_url, follow_redirects=True, headers=headers)
             response.raise_for_status()
 
@@ -580,7 +676,20 @@ class RSSTool:
                     logger.debug("GDELT returned HTML (error page), skipping")
                     return []
 
-                data = response.json()
+                try:
+                    data = response.json()
+                except Exception:
+                    # GDELT sometimes returns JSONP or malformed JSON
+                    text = response.text.strip()
+                    # Try stripping JSONP wrapper: callback({...})
+                    if text.startswith("(") and text.endswith(")"):
+                        text = text[1:-1]
+                    try:
+                        import json
+                        data = json.loads(text)
+                    except Exception:
+                        logger.debug(f"GDELT returned unparseable response ({len(text)} chars)")
+                        return []
                 raw_articles = data.get("articles", [])
 
                 articles = []
@@ -657,6 +766,14 @@ class RSSTool:
             summary = re.sub(r'<[^>]+>', '', summary)  # Strip HTML tags
             summary = html.unescape(summary)[:500]     # Decode &nbsp; &amp; etc.
             title = html.unescape(title)                # Decode entities in title too
+
+            # Language filter: reject non-English articles (Hindi, Bengali, etc.)
+            # Uses langdetect (Google n-gram detector) — scales to any language
+            target_lang = source.get("language", "en")
+            check_text = f"{title} {summary[:200]}"
+            if not self._is_target_language(check_text, target_lang):
+                logger.debug(f"Filtered non-{target_lang} article: {title[:60]}...")
+                return None
 
             published = datetime.utcnow()
             if entry.get("published_parsed"):
@@ -948,5 +1065,5 @@ class RSSTool:
                 "query": "India business news today"
             }
         ]
-        logger.info(f"📰 Returning {len(mock_news)} mock news items")
+        logger.info(f"[RSS] Returning {len(mock_news)} mock news items")
         return mock_news

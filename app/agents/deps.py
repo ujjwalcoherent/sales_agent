@@ -32,6 +32,7 @@ class AgentDeps:
 
     mock_mode: bool = False
     log_callback: Optional[object] = field(default=None, repr=False)
+    disabled_providers: List[str] = field(default_factory=list, repr=False)
 
     # Lazy-initialized tools
     _llm_service: Optional[object] = field(default=None, repr=False)
@@ -60,21 +61,43 @@ class AgentDeps:
     _outreach: List[Any] = field(default_factory=list, repr=False)
 
     # Pipeline agents (causal chain + lead crystallization)
-    _company_kb: Optional[object] = field(default=None, repr=False)
     _search_manager: Optional[object] = field(default=None, repr=False)
     _causal_results: List[Any] = field(default_factory=list, repr=False)
     _lead_sheets: List[Any] = field(default_factory=list, repr=False)
     # Per-run quality metrics for autonomous weight/bandit learning
     _signals: List[Any] = field(default_factory=list, repr=False)
 
+    # Run recorder — captures step snapshots for mock replay (real runs only)
+    _recorder: Optional[object] = field(default=None, repr=False)
+    _pipeline_t0: float = 0.0  # Pipeline start time (set by orchestrator)
+
     @classmethod
-    def create(cls, mock_mode: bool = False, log_callback=None) -> AgentDeps:
-        """Create deps with settings-aware mock_mode."""
+    def create(
+        cls,
+        mock_mode: bool = False,
+        log_callback=None,
+        run_id: str = "",
+        disabled_providers: list[str] | None = None,
+    ) -> AgentDeps:
+        """Create deps with settings-aware mock_mode.
+
+        When mock_mode=False and run_id is provided, a RunRecorder is
+        automatically created to capture step snapshots for replay.
+        """
         from app.config import get_settings
         settings = get_settings()
+        effective_mock = mock_mode or settings.mock_mode
+
+        recorder = None
+        if not effective_mock and run_id:
+            from app.tools.run_recorder import RunRecorder
+            recorder = RunRecorder(run_id=run_id)
+
         return cls(
-            mock_mode=mock_mode or settings.mock_mode,
+            mock_mode=effective_mock,
             log_callback=log_callback,
+            disabled_providers=disabled_providers or [],
+            _recorder=recorder,
         )
 
     def _log(self, msg: str, level: str = "info"):
@@ -92,14 +115,21 @@ class AgentDeps:
     def llm_service(self):
         if self._llm_service is None:
             from app.tools.llm_service import LLMService
-            self._llm_service = LLMService(mock_mode=self.mock_mode)
+            self._llm_service = LLMService(
+                mock_mode=self.mock_mode,
+                disabled_providers=self.disabled_providers,
+            )
         return self._llm_service
 
     @property
     def llm_lite_service(self):
         if self._llm_lite_service is None:
             from app.tools.llm_service import LLMService
-            self._llm_lite_service = LLMService(mock_mode=self.mock_mode, lite=True)
+            self._llm_lite_service = LLMService(
+                mock_mode=self.mock_mode,
+                lite=True,
+                disabled_providers=self.disabled_providers,
+            )
         return self._llm_lite_service
 
     @property
@@ -159,23 +189,6 @@ class AgentDeps:
         return self._company_bandit
 
     @property
-    def company_kb(self):
-        """Local SQLite FTS5 company knowledge base (India MCA data, 1.8M companies)."""
-        if self._company_kb is None:
-            try:
-                from app.data.company_kb import CompanyKB
-                from app.config import get_settings
-                settings = get_settings()
-                kb_path = getattr(settings, "company_kb_path", "data/company_kb.sqlite")
-                if getattr(settings, "company_kb_enabled", True):
-                    kb = CompanyKB(kb_path)
-                    kb.init()   # synchronous sqlite3 — safe to call in property
-                    self._company_kb = kb
-            except Exception as e:
-                logger.warning(f"Company KB init failed (pipeline will still run): {e}")
-        return self._company_kb
-
-    @property
     def search_manager(self):
         """Unified search manager — BM25 → SearXNG → DDG fallback chain."""
         if self._search_manager is None:
@@ -190,6 +203,11 @@ class AgentDeps:
             except Exception as e:
                 logger.warning(f"SearchManager init failed: {e}")
         return self._search_manager
+
+    @property
+    def recorder(self):
+        """RunRecorder instance (None in mock mode)."""
+        return self._recorder
 
     def get_model(self):
         """Get the pydantic-ai model from ProviderManager.
