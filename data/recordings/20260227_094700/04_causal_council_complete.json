@@ -1,0 +1,208 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Amazon's significant investment in custom AI chips (Trainium) via AWS aims to reduce reliance on Nvidia chips, targeting improved performance and lower AI compute costs in cloud infrastructure. The nascent enterprise adoption of AI, as noted by OpenAI's COO, shows the market is still evolving. Annapurna Labs' Texas-based chip design capability supports Amazon's innovation. This impacts a growing AI and cloud ecosystem in India.",
+      "event_type": "technology",
+      "reasoning": "Amazon's investment in AI chips (Trainium) via AWS directly affects Indian AI chip design and hardware startups aiming to participate in the ecosystem (hop 1). This is an opportunity for mid-size chip design companies to innovate and capture new business dealing with cutting-edge AI cloud infrastructure demands.\n\nIn hop 2, SaaS companies in India face pressure to upgrade AI features to leverage cost and performance benefits from AWS's custom chips, causing investment and integration challenges (",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian AI chip and hardware design startups (50-500 employees) contributing to AI chip ecosystem",
+          "lead_type": "opportunity",
+          "mechanism": "Amazon's push in custom AI chips stimulates demand for Indian AI chip design and hardware innovation startups that can complement or integrate with AWS technologies and chip design trends. These startups gain opportunities for partnerships or contracts with AWS-related supply chain activities.",
+          "companies_found": [
+            "Ineda Systems",
+            "Sahasra Electronics"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size SaaS companies in India integrating AI capabilities for cloud platforms (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Reduction in AI compute costs by Amazon AWS creates pressure on SaaS companies to upgrade AI capabilities, investing in custom AI solutions or risk losing competitive edge, thus increasing cost and innovation risks in short term.",
+          "companies_found": [
+            "Yellow.ai",
+            "Haptik"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size Indian enterprises using SaaS AI solutions, particularly in sectors like retail and BFSI, with 100-2000 employees",
+          "lead_type": "pain",
+          "mechanism": "Increased AI capabilities and SaaS adoption at hop-2 raise adoption demand and costs for mid-sized enterprises, who must integrate these solutions and face evolving technology adaptation and cybersecurity risks due to AI-generated content fraud.",
+          "companies_found": [
+            "Zivame",
+            "Lenskart"
+          ],
+          "confidence": 0.6,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "India's AI ecosystem is rapidly growing, supported by government and private sector investment in generative AI data centers and critical mineral processing facilities. This growth directly benefits mid-size AI technology firms and data center operators, enabling them to expand infrastructure and capabilities. The Competition Commission of India enforces policies shaping this competitive landscape. Subsequently, agricultural and defense technology SMEs adopt these enhanced AI capabilities to improve their products and services, driving innovation and sector growth downstream.",
+      "event_type": "technology",
+      "reasoning": "The news trend highlights India's growing AI ecosystem fueled by government initiatives and investment surges, particularly in generative AI data centers and mineral processing. The Competition Commission of India plays a role in regulating this market environment.\n\nHop 1 focuses on mid-size AI technology firms (50-500 employees) directly benefiting from AI investments as they expand AI infrastructure and capabilities. Companies like Manthan, SigTuple, and Mad Street are examples known for AI in",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "mid-size AI technology firms in India, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Direct expansion of AI data centers and generative AI investments enables these firms to scale AI capabilities and infrastructure rapidly in India's pro-business environment.",
+          "companies_found": [
+            "Manthan",
+            "SigTuple",
+            "Mad Street"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "data center operators in India, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Data center operators directly supply infrastructure and cloud services to AI technology firms, benefiting from increased AI investment and expansion.",
+          "companies_found": [
+            "E2E Networks Ltd",
+            "Virajo Autosoft Pvt. Ltd."
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "agriculture and defense technology SMEs in India adopting AI, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Agritech and defense tech SMEs adopt enhanced AI capabilities supported by expanded AI infrastructure, improving product innovation and service delivery.",
+          "companies_found": [
+            "Craic Precision Pvt. Ltd.",
+            "Ninjacart"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "India faces uncertainty in US tariff policy following a US Supreme Court ruling, impacting India-US trade deals. Indian refiners reduce Russian crude oil imports to avoid tariff risks. Crocs expands manufacturing in India to diversify supply chains and mitigate tariff exposure, shifting competitive dynamics.",
+      "event_type": "geopolitical",
+      "reasoning": "The US Supreme Court ruling creates tariff policy uncertainty directly impacting Indian crude oil refiners dependent on Russian imports (Hop 1). SMEs in refining sectors typically have 100-1000 employees; despite limited specific company data in this range, the impact is strongly inferred from sector news. These refiners consequently adjust sourcing, affecting their supply chain partners including mid-sized oil suppliers and logistics firms (Hop 2), who face demand fluctuations and logistical ch",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian crude oil refiners reducing Russian crude imports due to US tariff uncertainty",
+          "lead_type": "pain",
+          "mechanism": "Indian refiners face tariff uncertainty and reduce Russian crude purchases, increasing sourcing costs and supply chain risk.",
+          "companies_found": [],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size Indian suppliers and logistics firms serving crude oil refiners, and mid-size footwear manufacturers affected by Crocs expansion",
+          "lead_type": "pain",
+          "mechanism": "Refiners changing crude source alters demand for oil suppliers and logistics providers causing supply chain disruptions. Crocs expanding local manufacturing intensifies competition and supply chain pressure on mid-size footwear manufacturers.",
+          "companies_found": [],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME Indian OEMs and retailers relying on mid-size footwear manufacturers and logistics providers for crude oil supply chains",
+          "lead_type": "risk",
+          "mechanism": "OEMs face higher input costs and risks of supply delays due to upstream tariff-driven disruptions. Retailers confront pricing pressure and inventory risks from footwear market shifts.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Major tech companies like Google, Samsung, and Dell are accelerating AI integration in mobile devices and data center technologies in India. Google enhances AI video generation tools, Samsung embeds AI capabilities into Android smartphones, and Dell aims to double AI server revenue by 2027 due to AI infrastructure investments.",
+      "event_type": "technology",
+      "reasoning": "The trend of AI integration by Google, Samsung, and Dell directly impacts their immediate partners and suppliers in India. At Hop 1, Google AI software development teams in Indian SMEs such as Huvora Technologies benefit from increased demand for AI software innovation. At Hop 2, Samsung's embedding of AI features in smartphones boosts demand for AI hardware components produced by Indian mid-size firms like Mindgrove Technologies. At Hop 3, Dell's AI server revenue growth leads to increased need",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Indian AI software development SMEs collaborating with Google AI teams, typically 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Google's push in AI software and tools (e.g., Nano Banana) drives demand for Indian mid-sized AI software development SMEs to innovate and supply Google with AI solutions.",
+          "companies_found": [
+            "Huvora Technologies Private Limited"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Indian mid-size smartphone AI hardware component manufacturers supplying Samsung with 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Samsung embedding advanced AI in smartphones raises demand for AI hardware components, benefiting Indian mid-size manufacturers specializing in smartphone AI components.",
+          "companies_found": [
+            "Mindgrove Technologies"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Indian mid-size AI infrastructure service providers and data center equipment SMEs supporting Dell's AI server growth, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Dell's expected rise in AI server revenue drives demand for Indian mid-size AI infrastructure and data center SMEs supplying installation, maintenance, and support services.",
+          "companies_found": [],
+          "confidence": 0.6,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "The MSCI February 2026 index rebalancing causes approximately $260 million net outflow from Indian equities, directly impacting stock valuations, especially large Indian IT stocks like Infosys and TCS which saw a 20% crash and a subsequent 3% rebound. Simultaneously, NSE's Global Access platform launched enabling Indian investors to access over 30 global markets and accelerate outbound investments, adding to volatility in Indian IT stocks.\n\nFirst order impact involves direct volatility and capital outflow from large Indian IT stocks such as Infosys and TCS, facing valuation pressure and investor portfolio shocks.\n\nSecond order impact concerns mid-size Indian IT companies (100-1000 employees) that supply services or contract with these large IT firms. These mid-size companies face revenue and operational uncertainties due to reduced contract commitments and spending adjustments by large IT firms trying to manage capital outflows and volatility.\n\nThird order impact includes IT staffing and outsourcing SMEs (50-500 employees) that service mid-size IT firms, potentially facing delayed contract slowdowns and hiring freezes due to mid-size firms' revenue pressures. There might also be a secondary effect on small product development firms serving mid-size IT services providers.\n\nUrgency: Hop 1 immediate (0-2 weeks), Hop 2 medium term (2-6 weeks) as contracts adjust, Hop 3 longer term (4-12 weeks) with staffing and smaller vendor impacts manifesting.",
+      "event_type": "market_movement",
+      "reasoning": "Step-by-step analysis of the MSCI rebalancing and NSE Global Access launch impact:\n\nHop 1: Directly affected are Infosys and TCS (large IT stocks), facing immediate valuation and investor outflow shocks. Mid-size companies that supply or contract with these large firms face immediate order reductions and revenue uncertainties. Real mid-size IT companies in India found include Ajackus and Kyrus Technologies.\n\nHop 2: Mid-size companies reduce contracts with their vendors, including IT staffing and",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian IT services companies supplying/contracting with large IT firms Infosys, TCS (100-1000 employees)",
+          "lead_type": "pain",
+          "mechanism": "Direct capital outflows and stock volatility cause Infosys and TCS to reduce contract commitments to mid-size suppliers, hitting their revenues and operations.",
+          "companies_found": [
+            "Ajackus",
+            "Kyrus Technologies"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "IT staffing and outsourcing SMEs servicing mid-size IT firms (50-500 employees) in Bangalore and Pune",
+          "lead_type": "pain",
+          "mechanism": "Mid-size IT companies reduce vendor contracts and hiring, causing operational and revenue pressures on smaller staffing and outsourcing SMEs supporting them.",
+          "companies_found": [
+            "LinkTag",
+            "InfoBeans"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Small Indian software product firms (50-200 employees) providing technological solutions to IT staffing and mid-size IT companies",
+          "lead_type": "pain",
+          "mechanism": "Delayed revenue impact as mid-size and staffing firms reduce expenditure on product development and technology solutions, potentially slowing growth and innovation.",
+          "companies_found": [
+            "Squareboat",
+            "Primacy Infotech"
+          ],
+          "confidence": 0.6,
+          "urgency_weeks": 12
+        }
+      ]
+    }
+  ],
+  "total_hops": 15,
+  "log_messages": []
+}

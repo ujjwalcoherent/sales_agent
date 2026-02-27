@@ -1,0 +1,221 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "In March, several companies in India launched IPOs with mixed outcomes. Gaudium IVF's shares listed at a premium (+5%), whereas Manilam Industries and others like Clean Max Enviro Energy Solutions and Shree Ram Twistex faced discounted debuts (-20%), indicating potential valuation and market sentiment challenges. SEDEMAC Mechatronics and XED Executive Development are proceeding with IPOs. This mixed performance impacts investors' confidence and creates uncertainty for companies planning to go public.",
+      "event_type": "ipo",
+      "reasoning": "The news highlights mixed IPO performance among several mid-size Indian companies spanning different sectors: medical services (Gaudium IVF), textiles (Manilam Industries, Shree Ram Twistex), renewable energy (Clean Max Enviro), development consulting (XED Executive Development), mechatronics (SEDEMAC), and diamond wholesale (PNGS Reva Diamond).\n\nHop 1 clearly identifies these IPO companies as the most directly impacted by valuation uncertainty, immediate investor reaction, and funding constrain",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size companies in India that recently conducted IPOs or planning IPO - Manilam Industries (textile machinery), Gaudium IVF (medical services), Clean Max Enviro Energy Solutions (renewable energy projects), Shree Ram Twistex (textiles machinery), SEDEMAC Mechatronics (mechatronics components), XED Executive Development (executive development consulting), PNGS Reva Diamond (diamond wholesaling)",
+          "lead_type": "pain",
+          "mechanism": "Direct impact of mixed IPO performance causing immediate valuation and funding risks for these mid-size IPO firms and their investors",
+          "companies_found": [
+            "Manilam Industries",
+            "Gaudium IVF",
+            "Clean Max Enviro Energy Solutions",
+            "Shree Ram Twistex",
+            "SEDEMAC Mechatronics",
+            "XED Executive Development",
+            "PNGS Reva Diamond"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Suppliers and service providers to IPO companies - e.g., suppliers of textile machinery components to Manilam and Shree Ram Twistex, medical equipment vendors to Gaudium IVF, renewable energy contractors for Clean Max Enviro, consulting service providers for XED, diamond logistics and wholesalers linked to PNGS Reva Diamond",
+          "lead_type": "pain",
+          "mechanism": "Secondary cost and demand pressure on suppliers and service providers from revenue and financial uncertainty in IPO firms, reducing orders and payments on a 2-6 weeks horizon",
+          "companies_found": [
+            "IVF clinic equipment suppliers",
+            "Mechatronics component suppliers",
+            "Textile machinery manufacturers",
+            "Renewable energy project developers",
+            "Diamond wholesalers",
+            "Executive consulting firms"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "End customers and clients of tier-2 suppliers supporting the IPO firms, e.g., hospitals and clinics served by IVF suppliers, industrial manufacturers dependent on textile machinery makers, downstream renewable energy investors and users, SME clients for consulting services or executives trained by XED",
+          "lead_type": "intelligence",
+          "mechanism": "Potential delays and cost adjustments in downstream sectors due to reduced capacity or price changes in suppliers, felt over 4-12 weeks timeframe",
+          "companies_found": [],
+          "confidence": 0.5,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "India's startup ecosystem, especially in deeptech and AI sectors, is witnessing a significant funding surge with a 37% YoY increase amounting to $2.3 billion in 2025. Key entities like Info Edge, B8 Fund I, Sauce.vc, and Cr Fund are actively investing in growth-stage tech startups, intensifying competition among VC firms. This trend fuels deeper engagement from VCs offering strategic guidance beyond capital, impacting the broader supply chain connected to these startups.",
+      "event_type": "funding",
+      "reasoning": "The provided trend highlights a strong increase in funding for Indian deeptech and AI startups, spearheaded by firms like Info Edge, B8 Fund I, Sauce.vc, and Cr Fund. This influx directly benefits mid-sized startups (Hop 1) by providing critical growth capital. The immediate impact is on deeptech startups such as Stellapps, SigTuple, Niramai, and Haptik—which are known mid-sized ventures in AI and deeptech sectors in India—creating an opportunity for expansion and innovation.\n\nThe second-order i",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "deeptech and AI startups in India receiving funding from Info Edge, B8 Fund I, Sauce.vc, Cr Fund",
+          "lead_type": "opportunity",
+          "mechanism": "Direct capital infusion enabling growth, product development, and scaling in funded startups",
+          "companies_found": [
+            "Stellapps",
+            "SigTuple",
+            "Niramai",
+            "Haptik"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 0
+        },
+        {
+          "hop": 2,
+          "segment": "venture capital and startup ecosystem service providers catering to funded deeptech startups in India, including mentorship, technology, and business services",
+          "lead_type": "opportunity",
+          "mechanism": "Increased funding volume and competition among VC firms drive demand for enhanced support services like mentorship, legal, marketing, and tech development providers",
+          "companies_found": [
+            "LetsVenture",
+            "ClearTax",
+            "LawRato"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "vendors and technology suppliers serving startup ecosystem service providers and funded deeptech startups in India",
+          "lead_type": "opportunity",
+          "mechanism": "Growth in startups and service providers escalates demand for hardware, software, and operational supplies from vendors and technology suppliers",
+          "companies_found": [
+            "Zoho Corporation",
+            "Freshworks",
+            "Postman"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Supreme Court rulings on Insolvency and Bankruptcy Code (IBC) in the Sarda Energy & Minerals case tighten the framework around distressed asset acquisitions, impacting companies operating in this space. Additional court rulings on excise license fee exemptions for private companies and discharge of Aam Aadmi Party leaders in excise corruption cases contribute to regulatory uncertainty. The Aravalli Hills mining environmental rulings add compliance burdens on mining companies.",
+      "event_type": "regulation",
+      "reasoning": "The SC rulings particularly the Sarda Energy case impacts companies directly involved in distressed asset acquisitions by clarifying that repeated legal challenges undermine the IBC framework; this reduces their ability to acquire assets efficiently (Hop 1). Companies performing these acquisitions often rely on legal, financial, due diligence SMEs which will face reduced business due to fewer deals (Hop 2). These advisory SMEs in turn influence investment firms and banks that fund acquisitions; ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-sized distressed asset acquisition companies (50-5000 employees) in India dealing with IBC-related asset sales",
+          "lead_type": "pain",
+          "mechanism": "SC judgement tightens criteria and limits challenges against asset sales reducing acquisition opportunities/increasing legal risk",
+          "companies_found": [],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Financial advisory firms and SMEs providing legal, due diligence and asset valuation services to distressed asset acquisition companies in India (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Less distressed asset acquisitions reduce demand for advisory and legal services from these SMEs",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Small and mid-sized investors, asset management firms and banks in India that invest in distressed assets or fund acquisitions (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Reduced deal flow and higher legal risk lowers investment opportunities and increases portfolio risk",
+          "companies_found": [],
+          "confidence": 0.6,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Investec's recent market ratings and sector outlooks have led to downgrades for Public Sector Oil Marketing Companies (OMCs) such as Hindustan Petroleum (HPCL), Bharat Petroleum (BPCL), and Indian Oil Corporation (IOC), while showing preference for Reliance Industries due to a refining upcycle. These downgrades have caused the OMC stocks to remain range-bound, potentially pressuring SME fuel retail and distribution companies that source from these OMCs. In the cement sector, Investec's cautious outlook highlights weaker EBITDA margins and operating performance for most cement SMEs, signaling potential financial strain. Additionally, a 20% cut in the Fetch Rate by CDSL and NSDL is expected to reduce operating profits for custodian service providers and related SMEs relying on these services. Finally, Zscaler's wider quarterly losses stemming from higher spending amid cautious IT budgets indicate strain on mid-sized IT security firms that service cautious Indian IT buyers.",
+      "event_type": "market_movement",
+      "reasoning": "The first-hop companies directly mentioned or impacted are the OMCs (HPCL, BPCL, IOC) downgraded by Investec. This downgrade causes market uncertainty and price constraints impacting downstream fuel retailers and distributors—typically SMEs with 50-500 employees in India sourcing fuel from these OMCs. These companies face pain from price and credit risks, with urgency around 4 weeks due to stock price and credit environment shifts.\n\nSecond-hop companies are cement manufacturing SMEs impacted by ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "SME fuel retail and distribution companies in India (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Downgrade of HPCL, BPCL, IOC stocks by Investec leads to range-bound OMC stock prices, pressuring fuel distributors reliant on OMC supply and credit terms.",
+          "companies_found": [
+            "No specific SMEs found in articles, but segment well defined"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Cement manufacturing SMEs in India with 50-500 employees",
+          "lead_type": "pain",
+          "mechanism": "Investec's cautious outlook on cement sector predicts weaker EBITDA per tonne affecting small-to-mid sized cement manufacturers, impairing profitability and investment.",
+          "companies_found": [
+            "No specific SMEs found in news but realistic segment"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Custodian service providers and mid-sized IT security firms in India (50-500 employees) relying on CDSL and NSDL services",
+          "lead_type": "pain",
+          "mechanism": "CDSL and NSDL's 20% Fetch Rate cut reduces operating profit margins for custodian service SMEs; concurrent cautious IT budgets and Zscaler losses pressure mid-sized IT security companies servicing cautious clients.",
+          "companies_found": [
+            "Talentica Software",
+            "Bootstrap Paradox (OPC) Pvt. Ltd.",
+            "WebInfoMart",
+            "Ouriken",
+            "Aspire Software Con"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "India is experiencing growing energy demand, expected to surpass the US by the 2040s and China by the 2060s. Concurrently, there is a government and industry push for green energy and green steel, aiming for 26% green steel production by FY30 and 59% renewable electricity generation by 2050. This trend directly affects steel manufacturers who must source green steel, increasing their demand for renewable energy. This creates a ripple effect across the supply chain including equipment suppliers for green steel production, renewable energy technology firms, and specialized logistics services.",
+      "event_type": "sustainability",
+      "reasoning": "India's policy push for green steel and renewables directly impacts companies involved in green steel production (Hop 1), where mid-sized players like Shree TMT, Kalyani Steels, and Vardhman Special Steel benefit from increased mandates. These steel manufacturers then increase their sourcing of green steel production equipment and renewable energy technology (Hop 2), benefiting SME equipment suppliers like Fitwell Corporation and Vinayaka Bright Steels. The third level sees a ripple effect on sp",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-sized green steel manufacturing companies in India (50-5000 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "Green steel mandates requiring steel manufacturers to source 26% green steel by FY30 create immediate demand for green steel production, directly benefiting mid-sized green steel producers who are certified or developing green steel.",
+          "companies_found": [
+            "Shree TMT",
+            "Kalyani Steels",
+            "Vardhman Special Steel"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "SME suppliers of green steel production equipment and renewable energy equipment in India (50-500 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "Green steel manufacturers (hop 1) increase their procurement of specialized equipment for green steel production and renewable energy technologies, benefiting SME equipment suppliers who provide heat exchangers, fabrication, and renewable components.",
+          "companies_found": [
+            "Fitwell Corporation",
+            "Vinayaka Bright Steels Pvt. Ltd."
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Specialized logistics and transportation services for green steel supply chain in India (50-200 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "SME suppliers of green steel production equipment and renewable technology require specialized transportation and logistics services capable of handling sensitive equipment and green steel material, creating new demand for niche logistics providers.",
+          "companies_found": [],
+          "confidence": 0.75,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "total_hops": 15,
+  "log_messages": []
+}

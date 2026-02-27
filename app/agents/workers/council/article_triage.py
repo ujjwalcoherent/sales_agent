@@ -113,8 +113,8 @@ async def triage_articles(
         for i in range(0, len(articles), batch_size)
     ]
 
-    # Process batches with limited concurrency (DSQ ~30 RPM)
-    semaphore = asyncio.Semaphore(2)
+    # Process batches with limited concurrency
+    semaphore = asyncio.Semaphore(5)
     all_judgments: Dict[int, dict] = {}  # global_idx → judgment
 
     async def _triage_batch(batch: list, batch_offset: int):

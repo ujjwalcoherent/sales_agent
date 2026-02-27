@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import {
   Building2, ChevronRight, Star,
-  Target, Clock, Layers, MessageSquare, Sparkles,
+  Target, Clock, Layers, MessageSquare, Sparkles, Newspaper, ExternalLink,
 } from "lucide-react";
-import type { LeadRecord } from "@/lib/types";
+import { usePipelineContext } from "@/contexts/pipeline-context";
+import type { LeadRecord, TrendData } from "@/lib/types";
 
 // ── Score color ────────────────────────────────────
 
@@ -158,6 +159,8 @@ function cleanOpeningLine(line: string): string {
 }
 
 function LeadDetail({ lead }: { lead: LeadRecord }) {
+  const { trends } = usePipelineContext();
+  const matchedTrend = trends.find((t) => t.title === lead.trend_title);
   const location = [lead.company_city, lead.company_state].filter(Boolean).join(", ");
   const triggerEvent = cleanTriggerEvent(lead);
   const openingLine = cleanOpeningLine(lead.opening_line);
@@ -265,7 +268,7 @@ function LeadDetail({ lead }: { lead: LeadRecord }) {
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12 }}>
           {[
             { label: "Confidence", value: `${Math.round(lead.confidence * 100)}%`, color: confidenceColor(lead.confidence) },
-            { label: "OSS Score", value: lead.oss_score.toFixed(2), color: "var(--blue)" },
+            { label: "OSS Score", value: lead.oss_score > 0 ? lead.oss_score.toFixed(2) : "—", color: "var(--blue)" },
             { label: "Urgency", value: `${lead.urgency_weeks}w`, color: "var(--amber)" },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ flex: 1, padding: "8px 0", textAlign: "center" }}>
@@ -274,6 +277,9 @@ function LeadDetail({ lead }: { lead: LeadRecord }) {
             </div>
           ))}
         </div>
+
+        {/* Source articles from parent trend */}
+        <InlineSourceArticles matchedTrend={matchedTrend} />
 
         {/* Data sources */}
         {lead.data_sources.length > 0 && (
@@ -300,6 +306,60 @@ function DetailSection({ label, icon: Icon, children }: { label: string; icon: R
       </div>
       {children}
     </div>
+  );
+}
+
+/** Extract domain from URL */
+function extractDomain(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ""); }
+  catch { return url.substring(0, 40); }
+}
+
+/** Compact source articles for the inline detail pane */
+function InlineSourceArticles({ matchedTrend }: { matchedTrend?: TrendData | null }) {
+  if (!matchedTrend) return null;
+  const snippets = matchedTrend.article_snippets;
+  const links = matchedTrend.source_links;
+  if ((!snippets || snippets.length === 0) && (!links || links.length === 0)) return null;
+
+  const count = Math.max(snippets?.length ?? 0, links?.length ?? 0);
+
+  return (
+    <DetailSection label={`SOURCE ARTICLES (${count})`} icon={Newspaper}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {snippets?.map((snippet, i) => {
+          const colonIdx = snippet.indexOf(":");
+          const title = colonIdx > 0 && colonIdx < 120 ? snippet.substring(0, colonIdx).trim() : snippet.substring(0, 80);
+          const link = links?.[i];
+          const domain = link ? extractDomain(link) : null;
+          return (
+            <a
+              key={i}
+              href={link || "#"}
+              target={link ? "_blank" : undefined}
+              rel={link ? "noopener noreferrer" : undefined}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
+                padding: "7px 10px", background: "var(--surface-raised)", borderRadius: 6,
+                borderLeft: "2px solid var(--blue)", textDecoration: "none",
+                transition: "background 150ms", cursor: link ? "pointer" : "default",
+              }}
+              onMouseEnter={(e) => { if (link) (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-raised)"; }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {title}
+              </span>
+              {domain && (
+                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "var(--blue)", flexShrink: 0 }}>
+                  {domain} <ExternalLink size={9} />
+                </span>
+              )}
+            </a>
+          );
+        })}
+      </div>
+    </DetailSection>
   );
 }
 

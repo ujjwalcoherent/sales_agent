@@ -423,44 +423,7 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
       )}
 
       {/* Source Articles */}
-      {(trend.article_snippets?.length > 0 || trend.source_links?.length > 0) && (
-        <DetailSection label="SOURCE ARTICLES" icon={<Newspaper size={11} style={{ color: "var(--blue)" }} />}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {trend.article_snippets?.map((snippet, i) => {
-              // Snippets are "Title: content[:500]" format — split on first ":"
-              const colonIdx = snippet.indexOf(":");
-              const title = colonIdx > 0 ? snippet.substring(0, colonIdx).trim() : snippet.substring(0, 80);
-              const body = colonIdx > 0 ? snippet.substring(colonIdx + 1).trim() : "";
-              const link = trend.source_links?.[i];
-              return (
-                <div key={i} style={{ padding: "8px 10px", background: "var(--surface-raised)", borderRadius: 7, borderLeft: "2px solid var(--blue)" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: body ? 3 : 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>{title}</div>
-                    {link && (
-                      <a href={link} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, color: "var(--blue)", display: "flex" }}>
-                        <ExternalLink size={11} />
-                      </a>
-                    )}
-                  </div>
-                  {body && (
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, maxHeight: 60, overflow: "hidden" }}>
-                      {body.length > 200 ? body.substring(0, 200) + "..." : body}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {/* Show source_links without matching snippets */}
-            {trend.source_links?.slice(trend.article_snippets?.length || 0).map((link, i) => (
-              <a key={`link-${i}`} href={link} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 11, color: "var(--blue)", display: "flex", alignItems: "center", gap: 4, padding: "4px 0" }}>
-                <ExternalLink size={10} />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</span>
-              </a>
-            ))}
-          </div>
-        </DetailSection>
-      )}
+      <SourceArticlesSection snippets={trend.article_snippets} links={trend.source_links} />
     </div>
   );
 }
@@ -485,5 +448,131 @@ function TagList({ items, className = "badge-amber" }: { items: string[]; classN
         <span key={`${item}-${idx}`} className={`badge ${className}`}>{item}</span>
       ))}
     </div>
+  );
+}
+
+/** Extract domain from a URL for display, e.g. "livemint.com" */
+function extractDomain(url: string): string {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.replace(/^www\./, "");
+  } catch {
+    return url.substring(0, 40);
+  }
+}
+
+/** Parse a snippet "Title: body..." into parts */
+function parseSnippet(snippet: string): { title: string; body: string } {
+  const colonIdx = snippet.indexOf(":");
+  if (colonIdx > 0 && colonIdx < 120) {
+    return { title: snippet.substring(0, colonIdx).trim(), body: snippet.substring(colonIdx + 1).trim() };
+  }
+  return { title: snippet.substring(0, 100), body: "" };
+}
+
+/** Shared source articles section — used in trends detail and lead detail */
+function SourceArticlesSection({ snippets, links }: { snippets?: string[]; links?: string[] }) {
+  const hasSnippets = snippets && snippets.length > 0;
+  const hasLinks = links && links.length > 0;
+  if (!hasSnippets && !hasLinks) return null;
+
+  const count = Math.max(snippets?.length ?? 0, links?.length ?? 0);
+
+  return (
+    <DetailSection
+      label={`SOURCE ARTICLES (${count})`}
+      icon={<Newspaper size={11} style={{ color: "var(--blue)" }} />}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {snippets?.map((snippet, i) => {
+          const { title, body } = parseSnippet(snippet);
+          const link = links?.[i];
+          const domain = link ? extractDomain(link) : null;
+
+          return (
+            <a
+              key={i}
+              href={link || "#"}
+              target={link ? "_blank" : undefined}
+              rel={link ? "noopener noreferrer" : undefined}
+              style={{
+                display: "block",
+                padding: "10px 12px",
+                background: "var(--surface-raised)",
+                borderRadius: 8,
+                borderLeft: "3px solid var(--blue)",
+                textDecoration: "none",
+                transition: "background 150ms, box-shadow 150ms",
+                cursor: link ? "pointer" : "default",
+              }}
+              onMouseEnter={(e) => {
+                if (link) {
+                  (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-sm)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "var(--surface-raised)";
+                (e.currentTarget as HTMLElement).style.boxShadow = "none";
+              }}
+            >
+              {/* Domain + external link icon */}
+              {domain && (
+                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, color: "var(--blue)", fontWeight: 500 }}>{domain}</span>
+                  <ExternalLink size={9} style={{ color: "var(--blue)", opacity: 0.6 }} />
+                </div>
+              )}
+
+              {/* Title */}
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, marginBottom: body ? 4 : 0 }}>
+                {title}
+              </div>
+
+              {/* Body excerpt */}
+              {body && (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  {body.length > 250 ? body.substring(0, 250) + "..." : body}
+                </div>
+              )}
+            </a>
+          );
+        })}
+
+        {/* Orphan links (more links than snippets) */}
+        {links?.slice(snippets?.length ?? 0).map((link, i) => {
+          const domain = extractDomain(link);
+          return (
+            <a
+              key={`link-${i}`}
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 12px",
+                borderRadius: 8,
+                background: "var(--surface-raised)",
+                borderLeft: "3px solid var(--blue)",
+                textDecoration: "none",
+                fontSize: 12,
+                color: "var(--blue)",
+                transition: "background 150ms",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-raised)"; }}
+            >
+              <ExternalLink size={11} />
+              <span style={{ fontWeight: 500 }}>{domain}</span>
+              <span style={{ color: "var(--text-xmuted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                {link}
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </DetailSection>
   );
 }

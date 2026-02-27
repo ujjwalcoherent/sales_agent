@@ -565,7 +565,7 @@ async def validate_all_clusters_llm(
     )
 
     # Run validations concurrently (semaphore limits parallel LLM calls)
-    sem = asyncio.Semaphore(2)  # Max 2 concurrent — DSQ ~30 RPM
+    sem = asyncio.Semaphore(5)  # OpenAI primary — 500+ RPM
 
     async def _validate_one(cid, arts, enr):
         async with sem:

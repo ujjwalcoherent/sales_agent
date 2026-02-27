@@ -120,7 +120,7 @@ class Settings(BaseSettings):
 
     # Engine: Pipeline-level settings
     engine_max_depth: int = Field(default=3, alias="ENGINE_MAX_DEPTH")
-    engine_max_concurrent_llm: int = Field(default=2, alias="ENGINE_MAX_CONCURRENT_LLM")
+    engine_max_concurrent_llm: int = Field(default=5, alias="ENGINE_MAX_CONCURRENT_LLM")
 
     # Signal weights for actionability scoring (JSON string, override via env)
     # These determine how trends are ranked for sales outreach.
@@ -147,7 +147,7 @@ class Settings(BaseSettings):
 
     # ── LLM Synthesis Quality (T5) ──
     # Max articles to include in synthesis context (per cluster)
-    synthesis_max_articles: int = Field(default=10, alias="SYNTHESIS_MAX_ARTICLES")
+    synthesis_max_articles: int = Field(default=15, alias="SYNTHESIS_MAX_ARTICLES")
     # Max characters per article in synthesis context (increased for richer context)
     synthesis_article_char_limit: int = Field(default=2000, alias="SYNTHESIS_ARTICLE_CHAR_LIMIT")
     # Max retries on synthesis failure before returning empty (3 = struct + specificity)
@@ -164,7 +164,7 @@ class Settings(BaseSettings):
     # Tier 2 LLM catches ambiguous cases above threshold.
     event_classifier_threshold: float = Field(default=0.35, alias="EVENT_CLASSIFIER_THRESHOLD")
     event_classifier_ambiguity_margin: float = Field(default=0.04, alias="EVENT_CLASSIFIER_AMBIGUITY_MARGIN")
-    event_max_llm_calls: int = Field(default=50, alias="EVENT_MAX_LLM_CALLS")
+    event_max_llm_calls: int = Field(default=80, alias="EVENT_MAX_LLM_CALLS")
 
     # ── Coherence Validation ──
     coherence_min: float = Field(default=0.48, alias="COHERENCE_MIN")
@@ -179,9 +179,9 @@ class Settings(BaseSettings):
     # ── Article Triage Agent ──
     # Confidence floor: articles with event classifier confidence below this get LLM triage
     triage_confidence_floor: float = Field(default=0.45, alias="TRIAGE_CONFIDENCE_FLOOR")
-    # Max articles to send to LLM triage per run (cost cap).
-    # 30 articles × batch_size=15 = 2 LLM calls (was 50×10 = 5 calls).
-    triage_max_articles: int = Field(default=30, alias="TRIAGE_MAX_ARTICLES")
+    # Max articles to send to LLM triage per run.
+    # 50 articles × batch_size=15 = ~4 LLM calls.
+    triage_max_articles: int = Field(default=50, alias="TRIAGE_MAX_ARTICLES")
     # Batch size for LLM triage calls (15 optimal — fewer calls, same quality)
     triage_batch_size: int = Field(default=15, alias="TRIAGE_BATCH_SIZE")
 
@@ -194,7 +194,7 @@ class Settings(BaseSettings):
     semantic_dedup_max_articles: int = Field(default=2000, alias="SEMANTIC_DEDUP_MAX_ARTICLES")
     scrape_enabled: bool = Field(default=False, alias="SCRAPE_ENABLED")
     scrape_max_concurrent: int = Field(default=10, alias="SCRAPE_MAX_CONCURRENT")
-    scrape_max_articles: int = Field(default=150, alias="SCRAPE_MAX_ARTICLES")
+    scrape_max_articles: int = Field(default=250, alias="SCRAPE_MAX_ARTICLES")
     summary_max_chars: int = Field(default=1500, alias="SUMMARY_MAX_CHARS")
 
     # ── Scoring Weights (JSON strings, same pattern as actionability_weights) ──
@@ -237,7 +237,7 @@ class Settings(BaseSettings):
     # Enable/disable the validator (disable to save LLM calls during development)
     validator_enabled: bool = Field(default=True, alias="VALIDATOR_ENABLED")
     # Max back-and-forth rounds between synthesizer and validator (1 = validate only, 2+ = revise)
-    validator_max_rounds: int = Field(default=2, alias="VALIDATOR_MAX_ROUNDS")
+    validator_max_rounds: int = Field(default=3, alias="VALIDATOR_MAX_ROUNDS")
     # Overall groundedness score threshold to PASS (0.0-1.0). Below this = REVISE.
     validator_pass_threshold: float = Field(default=0.40, alias="VALIDATOR_PASS_THRESHOLD")
     # Overall groundedness score below which we REJECT outright (no revision attempt).
@@ -288,8 +288,8 @@ class Settings(BaseSettings):
     # Application Settings
     country: str = Field(default="India", alias="COUNTRY")
     country_code: str = Field(default="IN", alias="COUNTRY_CODE")
-    max_trends: int = Field(default=8, alias="MAX_TRENDS")
-    max_companies_per_trend: int = Field(default=10, alias="MAX_COMPANIES_PER_TREND")
+    max_trends: int = Field(default=12, alias="MAX_TRENDS")
+    max_companies_per_trend: int = Field(default=15, alias="MAX_COMPANIES_PER_TREND")
     max_contacts_per_company: int = Field(default=3, alias="MAX_CONTACTS_PER_COMPANY")
     email_confidence_threshold: int = Field(default=70, alias="EMAIL_CONFIDENCE_THRESHOLD")
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
@@ -333,7 +333,7 @@ class Settings(BaseSettings):
     cross_trend_inner_timeout: float = Field(default=120.0, alias="CROSS_TREND_INNER_TIMEOUT")
 
     # ── Per-Trend Causal Council (Step 3.7 in orchestrator) ──
-    per_trend_max_impacts: int = Field(default=5, alias="PER_TREND_MAX_IMPACTS")
+    per_trend_max_impacts: int = Field(default=8, alias="PER_TREND_MAX_IMPACTS")
 
     # ── Lead Gen Agent ──
     # Max seconds for the entire lead_gen step (company + contact + outreach)

@@ -80,7 +80,7 @@ async def validate_trends(
         llm_service = LLMService(mock_mode=get_settings().mock_mode, lite=True)
 
     # Process trends in parallel with semaphore
-    semaphore = asyncio.Semaphore(2)  # DSQ ~30 RPM, keep concurrency low
+    semaphore = asyncio.Semaphore(5)  # OpenAI primary — 500+ RPM
 
     async def _validate_one(trend: Dict[str, Any]) -> TrendValidation:
         async with semaphore:

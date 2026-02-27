@@ -583,7 +583,7 @@ async def run_causal_council(
     llm_service: Optional[LLMService] = None,
     max_candidates: int = 5,
     max_cascades: int = 2,
-    concurrency: int = 3,
+    concurrency: int = 5,
 ) -> CausalCouncilResult:
     """Orchestrate the 4-agent Causal Council pipeline.
 

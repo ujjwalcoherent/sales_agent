@@ -264,9 +264,8 @@ class CompanyDiscovery:
                     self._log(f"  Capping {len(all_results)} search results to {_max_results} (rate limit safety)")
                     all_results = all_results[:_max_results]
                 self._log(f"  Extracting companies from {len(all_results)} search results...")
-                # Low concurrency (2) to stay under provider rate limits
-                # (Gemini free: 10-15 RPM, Vertex Express: 10 RPM)
-                sem = asyncio.Semaphore(2)
+                # OpenAI primary — 500+ RPM allows higher concurrency
+                sem = asyncio.Semaphore(5)
                 async def _limited_extract(result):
                     async with sem:
                         return await self._extract_companies_with_intent(result, impact, queries_to_run[0])
@@ -670,7 +669,7 @@ RULES:
         # Build impact lookup: trend_id → ImpactAnalysis
         impact_map = {imp.trend_id: imp for imp in state.impacts}
 
-        semaphore = asyncio.Semaphore(2)
+        semaphore = asyncio.Semaphore(5)
         validated: List[CompanyData] = []
         filtered_count = 0
 

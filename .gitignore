@@ -45,7 +45,10 @@ node_modules/
 *.sqlite3
 
 # ── Runtime data (generated per run) ──
-/data/
+/data/*
+!/data/recordings/
+app/outputs/
+tmp_result.json
 
 # ── Internal docs & dev scripts ──
 /docs/

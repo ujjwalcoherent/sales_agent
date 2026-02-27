@@ -1201,7 +1201,7 @@ class EmbeddingEventClassifier:
         )
 
         import asyncio
-        semaphore = asyncio.Semaphore(1)  # Sequential: prevents 429 cascade
+        semaphore = asyncio.Semaphore(3)  # OpenAI 500+ RPM allows parallelism
         reclassified = 0
         consecutive_failures = 0
         max_consecutive_failures = 5  # Early exit if providers are exhausted

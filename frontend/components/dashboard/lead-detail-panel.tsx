@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   X, Building2, ArrowRight, MessageSquare,
-  Target, Clock, Layers, Sparkles, Mail, User, Globe, ExternalLink,
+  Target, Clock, Layers, Sparkles, Mail, User, Globe, ExternalLink, Newspaper,
 } from "lucide-react";
+import { usePipelineContext } from "@/contexts/pipeline-context";
 import type { LeadRecord } from "@/lib/types";
 
 /** Clean up trigger_event: remove if it's just the trend_title repeated/truncated */
@@ -59,6 +60,7 @@ interface LeadDetailPanelProps {
 
 export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDetailPanelProps) {
   const router = useRouter();
+  const { trends } = usePipelineContext();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -289,7 +291,7 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
           <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12 }}>
             {[
               { label: "Confidence", value: `${Math.round(lead.confidence * 100)}%`, color: confidenceColor(lead.confidence) },
-              { label: "OSS Score", value: lead.oss_score.toFixed(2), color: "var(--blue)" },
+              { label: "OSS Score", value: lead.oss_score > 0 ? lead.oss_score.toFixed(2) : "—", color: "var(--blue)" },
               { label: "Urgency", value: `${lead.urgency_weeks}w`, color: "var(--amber)" },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ flex: 1, padding: "8px 0", textAlign: "center" }}>
@@ -298,6 +300,9 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
               </div>
             ))}
           </div>
+
+          {/* Source articles from parent trend */}
+          <PanelSourceArticles trendTitle={lead.trend_title} trends={trends} />
 
           {/* Data sources */}
           {lead.data_sources.length > 0 && (
@@ -355,5 +360,71 @@ function PanelSection({ label, icon: Icon, children }: { label: string; icon: Re
       </div>
       {children}
     </div>
+  );
+}
+
+/** Extract domain from URL */
+function extractDomain(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ""); }
+  catch { return url.substring(0, 40); }
+}
+
+/** Compact source articles for the panel drawer — cross-references via trend_title */
+function PanelSourceArticles({ trendTitle, trends }: { trendTitle: string; trends: import("@/lib/types").TrendData[] }) {
+  const matchedTrend = trends.find((t) => t.title === trendTitle);
+  const snippets = matchedTrend?.article_snippets;
+  const links = matchedTrend?.source_links;
+  const hasSnippets = snippets && snippets.length > 0;
+  const hasLinks = links && links.length > 0;
+  if (!hasSnippets && !hasLinks) return null;
+
+  const count = Math.max(snippets?.length ?? 0, links?.length ?? 0);
+
+  return (
+    <PanelSection label={`SOURCE ARTICLES (${count})`} icon={Newspaper}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {snippets?.map((snippet, i) => {
+          const colonIdx = snippet.indexOf(":");
+          const title = colonIdx > 0 && colonIdx < 120 ? snippet.substring(0, colonIdx).trim() : snippet.substring(0, 80);
+          const link = links?.[i];
+          const domain = link ? extractDomain(link) : null;
+          return (
+            <a
+              key={i}
+              href={link || "#"}
+              target={link ? "_blank" : undefined}
+              rel={link ? "noopener noreferrer" : undefined}
+              style={{
+                display: "block", padding: "8px 10px",
+                background: "var(--surface-raised)", borderRadius: 7,
+                borderLeft: "2px solid var(--blue)",
+                textDecoration: "none", transition: "background 150ms",
+                cursor: link ? "pointer" : "default",
+              }}
+              onMouseEnter={(e) => { if (link) (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-raised)"; }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {title}
+                </div>
+                {domain && (
+                  <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "var(--blue)", flexShrink: 0 }}>
+                    {domain} <ExternalLink size={9} />
+                  </span>
+                )}
+              </div>
+            </a>
+          );
+        })}
+        {links?.slice(snippets?.length ?? 0).map((link, i) => (
+          <a key={`link-${i}`} href={link} target="_blank" rel="noopener noreferrer"
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 10px", fontSize: 11, color: "var(--blue)", textDecoration: "none" }}
+          >
+            <ExternalLink size={10} /> {extractDomain(link)}
+          </a>
+        ))}
+      </div>
+    </PanelSection>
   );
 }
