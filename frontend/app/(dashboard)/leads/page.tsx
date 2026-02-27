@@ -63,7 +63,16 @@ function LeadsContent() {
           l.company_name.toLowerCase().includes(q) ||
           l.trend_title.toLowerCase().includes(q) ||
           l.pain_point.toLowerCase().includes(q) ||
-          l.event_type.toLowerCase().includes(q)
+          l.event_type.toLowerCase().includes(q) ||
+          (l.contact_name || "").toLowerCase().includes(q) ||
+          (l.contact_role || "").toLowerCase().includes(q) ||
+          (l.contact_email || "").toLowerCase().includes(q) ||
+          (l.service_pitch || "").toLowerCase().includes(q) ||
+          (l.reason_relevant || "").toLowerCase().includes(q) ||
+          (l.opening_line || "").toLowerCase().includes(q) ||
+          (l.company_city || "").toLowerCase().includes(q) ||
+          (l.company_state || "").toLowerCase().includes(q) ||
+          (l.email_subject || "").toLowerCase().includes(q)
         );
       }
       return true;

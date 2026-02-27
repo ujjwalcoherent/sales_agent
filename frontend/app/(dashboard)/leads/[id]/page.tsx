@@ -5,7 +5,8 @@ import Link from "next/link";
 import {
   ArrowLeft, Building2, TrendingUp, Target,
   Layers, MessageSquare, Clock, Sparkles,
-  ThumbsUp, ThumbsDown,
+  ThumbsUp, ThumbsDown, Mail, User, ExternalLink,
+  Globe, Newspaper,
 } from "lucide-react";
 import { usePipelineContext } from "@/contexts/pipeline-context";
 import { api } from "@/lib/api";
@@ -183,7 +184,14 @@ function CallSheetTab({ lead }: { lead: LeadRecord }) {
       {/* Company Info */}
       <Section title="COMPANY" icon={Building2}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{lead.company_name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{lead.company_name}</div>
+            {lead.company_website && (
+              <a href={lead.company_website} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--blue)" }}>
+                <Globe size={10} /> {lead.company_domain || "website"}
+              </a>
+            )}
+          </div>
           {lead.company_cin && (
             <div style={{ fontSize: 11, color: "var(--text-muted)" }}>CIN: {lead.company_cin}</div>
           )}
@@ -192,8 +200,44 @@ function CallSheetTab({ lead }: { lead: LeadRecord }) {
             {lead.company_city && <span className="badge badge-muted">{lead.company_city}</span>}
             {lead.company_state && <span className="badge badge-muted">{lead.company_state}</span>}
           </div>
+          {lead.reason_relevant && (
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, marginTop: 4 }}>
+              {lead.reason_relevant}
+            </div>
+          )}
         </div>
       </Section>
+
+      {/* Contact Info */}
+      {(lead.contact_name || lead.contact_email) && (
+        <Section title="CONTACT" icon={User}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {lead.contact_name && (
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{lead.contact_name}</div>
+            )}
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{lead.contact_role}</div>
+            {lead.contact_email && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Mail size={11} style={{ color: "var(--text-muted)" }} />
+                <a href={`mailto:${lead.contact_email}`} style={{ fontSize: 12, color: "var(--blue)" }}>
+                  {lead.contact_email}
+                </a>
+                {lead.email_confidence > 0 && (
+                  <span className="badge badge-muted" style={{ fontSize: 9 }}>
+                    {lead.email_confidence}% verified
+                  </span>
+                )}
+              </div>
+            )}
+            {lead.contact_linkedin && (
+              <a href={lead.contact_linkedin} target="_blank" rel="noopener noreferrer"
+                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--blue)" }}>
+                <ExternalLink size={10} /> LinkedIn Profile
+              </a>
+            )}
+          </div>
+        </Section>
+      )}
 
       {/* Pain Point — full width */}
       {lead.pain_point && (
@@ -222,6 +266,51 @@ function CallSheetTab({ lead }: { lead: LeadRecord }) {
             &ldquo;{lead.opening_line}&rdquo;
           </div>
         </Section>
+      )}
+
+      {/* Email Preview — full width */}
+      {lead.email_subject && (
+        <div style={{ gridColumn: "1 / -1" }}>
+          <Section title="PERSONALIZED EMAIL" icon={Mail}>
+            <div style={{ background: "var(--surface-raised)", borderRadius: 8, padding: "14px 16px" }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
+                <span style={{ fontWeight: 600 }}>Subject: </span>
+                <span style={{ color: "var(--text)" }}>{lead.email_subject}</span>
+              </div>
+              {lead.contact_email && (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>
+                  To: {lead.contact_name ? `${lead.contact_name} <${lead.contact_email}>` : lead.contact_email}
+                </div>
+              )}
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                {lead.email_body}
+              </div>
+            </div>
+          </Section>
+        </div>
+      )}
+
+      {/* Company News */}
+      {lead.company_news?.length > 0 && (
+        <div style={{ gridColumn: "1 / -1" }}>
+          <Section title="RECENT COMPANY NEWS" icon={Newspaper}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {lead.company_news.map((news, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, padding: "6px 10px", background: "var(--surface-raised)", borderRadius: 6 }}>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                    {news.title}
+                    {news.date && <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 6 }}>{news.date}</span>}
+                  </div>
+                  {news.url && (
+                    <a href={news.url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, color: "var(--blue)" }}>
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Section>
+        </div>
       )}
 
       {/* Scores — full width */}

@@ -68,8 +68,23 @@ class CallSheetModel(Base):
     trend_title = Column(String(500))
     event_type = Column(String(50))
 
-    # Sales content
+    # Company enrichment (from lead_gen)
+    company_website = Column(String(500), default="")
+    company_domain = Column(String(300), default="")
+    reason_relevant = Column(Text, default="")
+
+    # Contact enrichment (from Apollo/Hunter via lead_gen)
+    contact_name = Column(String(300), default="")
     contact_role = Column(String(200))
+    contact_email = Column(String(300), default="")
+    contact_linkedin = Column(String(500), default="")
+    email_confidence = Column(Integer, default=0)
+
+    # Personalized outreach (from email_agent)
+    email_subject = Column(String(500), default="")
+    email_body = Column(Text, default="")
+
+    # Sales content
     trigger_event = Column(Text)
     pain_point = Column(Text)
     service_pitch = Column(Text)
@@ -80,6 +95,7 @@ class CallSheetModel(Base):
     # Metadata
     reasoning = Column(Text)
     data_sources = Column(Text)  # JSON array
+    company_news = Column(Text, default="[]")  # JSON array of {title, url, date}
     oss_score = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -162,8 +178,31 @@ class Database:
         self.SessionLocal = sessionmaker(bind=self.engine)
 
     def create_tables(self):
-        """Create all tables (safe to call multiple times)."""
+        """Create all tables and add any missing columns (safe to call multiple times).
+
+        SQLAlchemy's create_all only creates NEW tables — it won't add columns
+        to existing ones. For SQLite we use ALTER TABLE ADD COLUMN for each
+        missing column (SQLite doesn't support DROP/ALTER COLUMN, but ADD is fine).
+        """
         Base.metadata.create_all(self.engine)
+        self._migrate_columns()
+
+    def _migrate_columns(self):
+        """Add any missing columns to existing tables (SQLite-compatible)."""
+        from sqlalchemy import inspect as sa_inspect, text
+        inspector = sa_inspect(self.engine)
+        for table_name, model in [("call_sheets", CallSheetModel)]:
+            if not inspector.has_table(table_name):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table_name)}
+            for col in model.__table__.columns:
+                if col.name not in existing:
+                    col_type = col.type.compile(self.engine.dialect)
+                    default = "''" if "VARCHAR" in str(col_type) or "TEXT" in str(col_type) else "0"
+                    sql = f"ALTER TABLE {table_name} ADD COLUMN {col.name} {col_type} DEFAULT {default}"
+                    with self.engine.begin() as conn:
+                        conn.execute(text(sql))
+                    logger.info(f"Migration: added column {table_name}.{col.name} ({col_type})")
 
     @contextmanager
     def get_session(self) -> Session:
@@ -236,8 +275,14 @@ class Database:
 
     # ── Call Sheets (primary leads) ───────────────────────────────────
 
-    def save_call_sheet(self, run_id: str, sheet) -> int:
-        """Save a LeadSheet as a call_sheet row. Returns the row ID."""
+    def save_call_sheet(self, run_id: str, sheet, enrichment: dict = None) -> int:
+        """Save a LeadSheet as a call_sheet row with optional enrichment. Returns the row ID.
+
+        enrichment dict can contain: company_website, company_domain, reason_relevant,
+        contact_name, contact_email, contact_linkedin, email_confidence,
+        email_subject, email_body, company_news.
+        """
+        enr = enrichment or {}
         with self.get_session() as session:
             row = CallSheetModel(
                 run_id=run_id,
@@ -246,11 +291,20 @@ class Database:
                 company_state=getattr(sheet, "company_state", ""),
                 company_city=getattr(sheet, "company_city", ""),
                 company_size_band=getattr(sheet, "company_size_band", ""),
+                company_website=enr.get("company_website", ""),
+                company_domain=enr.get("company_domain", ""),
+                reason_relevant=enr.get("reason_relevant", ""),
                 hop=getattr(sheet, "hop", 1),
                 lead_type=getattr(sheet, "lead_type", ""),
                 trend_title=getattr(sheet, "trend_title", ""),
                 event_type=getattr(sheet, "event_type", ""),
-                contact_role=getattr(sheet, "contact_role", ""),
+                contact_name=enr.get("contact_name", ""),
+                contact_role=enr.get("contact_role", "") or getattr(sheet, "contact_role", ""),
+                contact_email=enr.get("contact_email", ""),
+                contact_linkedin=enr.get("contact_linkedin", ""),
+                email_confidence=enr.get("email_confidence", 0),
+                email_subject=enr.get("email_subject", ""),
+                email_body=enr.get("email_body", ""),
                 trigger_event=getattr(sheet, "trigger_event", ""),
                 pain_point=getattr(sheet, "pain_point", ""),
                 service_pitch=getattr(sheet, "service_pitch", ""),
@@ -259,6 +313,7 @@ class Database:
                 confidence=getattr(sheet, "confidence", 0.0),
                 reasoning=getattr(sheet, "reasoning", ""),
                 data_sources=json.dumps(getattr(sheet, "data_sources", [])),
+                company_news=json.dumps(enr.get("company_news", getattr(sheet, "company_news", []))),
                 oss_score=getattr(sheet, "oss_score", 0.0),
             )
             session.add(row)
@@ -295,11 +350,20 @@ class Database:
                     "company_state": r.company_state,
                     "company_city": r.company_city,
                     "company_size_band": r.company_size_band,
+                    "company_website": getattr(r, "company_website", "") or "",
+                    "company_domain": getattr(r, "company_domain", "") or "",
+                    "reason_relevant": getattr(r, "reason_relevant", "") or "",
                     "hop": r.hop,
                     "lead_type": r.lead_type,
                     "trend_title": r.trend_title,
                     "event_type": r.event_type,
+                    "contact_name": getattr(r, "contact_name", "") or "",
                     "contact_role": r.contact_role,
+                    "contact_email": getattr(r, "contact_email", "") or "",
+                    "contact_linkedin": getattr(r, "contact_linkedin", "") or "",
+                    "email_confidence": getattr(r, "email_confidence", 0) or 0,
+                    "email_subject": getattr(r, "email_subject", "") or "",
+                    "email_body": getattr(r, "email_body", "") or "",
                     "trigger_event": r.trigger_event,
                     "pain_point": r.pain_point,
                     "service_pitch": r.service_pitch,
@@ -308,6 +372,7 @@ class Database:
                     "confidence": r.confidence,
                     "reasoning": r.reasoning,
                     "data_sources": json.loads(r.data_sources) if r.data_sources else [],
+                    "company_news": json.loads(getattr(r, "company_news", "[]") or "[]"),
                     "oss_score": r.oss_score,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                 }

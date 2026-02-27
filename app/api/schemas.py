@@ -65,6 +65,9 @@ class TrendResponse(BaseModel):
     buying_intent: Dict[str, str] = Field(default_factory=dict)
     affected_companies: List[str] = Field(default_factory=list)
     actionable_insight: str = ""
+    # Source articles (top evidence snippets from clustered articles)
+    article_snippets: List[str] = Field(default_factory=list)
+    source_links: List[str] = Field(default_factory=list)
     # Impact analysis fields (from ImpactAnalysis, joined by trend_title)
     direct_impact: List[str] = Field(default_factory=list)
     indirect_impact: List[str] = Field(default_factory=list)
@@ -85,11 +88,23 @@ class LeadResponse(BaseModel):
     company_state: str = ""
     company_city: str = ""
     company_size_band: str = ""
+    company_website: str = ""
+    company_domain: str = ""
+    reason_relevant: str = ""
     hop: int = 1
     lead_type: str = ""
     trend_title: str = ""
     event_type: str = ""
+    # Contact enrichment (from Apollo/Hunter via lead_gen)
+    contact_name: str = ""
     contact_role: str = ""
+    contact_email: str = ""
+    contact_linkedin: str = ""
+    email_confidence: int = 0
+    # Personalized outreach (from email_agent)
+    email_subject: str = ""
+    email_body: str = ""
+    # Sales content
     trigger_event: str = ""
     pain_point: str = ""
     service_pitch: str = ""
@@ -98,6 +113,7 @@ class LeadResponse(BaseModel):
     confidence: float = 0.0
     oss_score: float = 0.0
     data_sources: List[str] = Field(default_factory=list)
+    company_news: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class LeadListResponse(BaseModel):
@@ -132,3 +148,10 @@ class HealthResponse(BaseModel):
     timestamp: str
     providers: Dict[str, Any] = Field(default_factory=dict)
     config: Dict[str, Any] = Field(default_factory=dict)
+
+
+# Resolve forward references so FastAPI serializes all fields correctly.
+# Without this, List["LeadResponse"] / List["TrendResponse"] remain unresolved
+# ForwardRefs and FastAPI's schema-based serialization silently drops new fields.
+PipelineResultResponse.model_rebuild()
+LeadListResponse.model_rebuild()

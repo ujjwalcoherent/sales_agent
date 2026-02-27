@@ -23,6 +23,9 @@ export interface TrendData {
   buying_intent: Record<string, string>;
   affected_companies: string[];
   actionable_insight: string;
+  // Source articles (top evidence snippets from clustered articles)
+  article_snippets: string[];
+  source_links: string[];
   // Impact analysis (joined from ImpactAnalysis by trend_title)
   direct_impact: string[];
   indirect_impact: string[];
@@ -44,11 +47,23 @@ export interface LeadRecord {
   company_state: string;
   company_city: string;
   company_size_band: string;
+  company_website: string;
+  company_domain: string;
+  reason_relevant: string;
   hop: number;
   lead_type: string;
   trend_title: string;
   event_type: string;
+  // Contact enrichment (from Apollo/Hunter via lead_gen)
+  contact_name: string;
   contact_role: string;
+  contact_email: string;
+  contact_linkedin: string;
+  email_confidence: number;
+  // Personalized outreach (from email_agent)
+  email_subject: string;
+  email_body: string;
+  // Sales content
   trigger_event: string;
   pain_point: string;
   service_pitch: string;
@@ -57,6 +72,7 @@ export interface LeadRecord {
   confidence: number;
   oss_score: number;
   data_sources: string[];
+  company_news: { title: string; url: string; date?: string }[];
 }
 
 export interface LeadListResponse {

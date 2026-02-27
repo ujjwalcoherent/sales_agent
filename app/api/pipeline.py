@@ -400,6 +400,57 @@ def _generate_replay_logs(step_name: str, step_data: dict, step_info: dict) -> l
     return msgs
 
 
+def _load_run_from_recording(run_id: str, recording_dir: Path) -> PipelineRun:
+    """Load a completed run from recording files (no SSE streaming).
+
+    Used when a run is not in memory (e.g. after server restart) but
+    recording files exist on disk.
+    """
+    manifest = json.loads((recording_dir / "manifest.json").read_text(encoding="utf-8"))
+    run = run_manager.create_run(run_id)
+
+    replay_trends = []
+    replay_leads = []
+    replay_impacts = []
+    replay_companies = []
+    replay_contacts = []
+    replay_outreach = []
+
+    for step_info in manifest["steps"]:
+        step_name = step_info["step"]
+        sf = recording_dir / f"{step_info['order']:02d}_{step_name}.json"
+        if not sf.exists():
+            continue
+        sd = json.loads(sf.read_text(encoding="utf-8"))
+        if step_name == "analysis_complete":
+            replay_trends = sd.get("trends", [])
+            run.trends_count = len(replay_trends)
+        if step_name == "impact_complete":
+            replay_impacts = sd.get("impacts", [])
+        if step_name == "lead_crystallize_complete":
+            replay_leads = sd.get("lead_sheets", [])
+            run.leads_count = sd.get("lead_count", len(replay_leads))
+        if step_name == "lead_gen_complete":
+            run.companies_count = sd.get("company_count", 0)
+            replay_companies = sd.get("companies", [])
+            replay_contacts = sd.get("contacts", [])
+            replay_outreach = sd.get("outreach", [])
+
+    run.result = {
+        "recording": str(recording_dir),
+        "replay": True,
+        "trends": replay_trends,
+        "leads": replay_leads,
+        "impacts": replay_impacts,
+        "companies": replay_companies,
+        "contacts": replay_contacts,
+        "outreach": replay_outreach,
+    }
+    run.status = "completed"
+    run.completed_at = datetime.now(timezone.utc)
+    return run
+
+
 async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
     """Replay a recorded pipeline run with compressed timing for demos.
 
@@ -480,6 +531,9 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
         replay_trends = []
         replay_leads = []
         replay_impacts = []
+        replay_companies = []
+        replay_contacts = []
+        replay_outreach = []
         for step_info in manifest["steps"]:
             step_name = step_info["step"]
             sf = recording_dir / f"{step_info['order']:02d}_{step_name}.json"
@@ -496,6 +550,9 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
                 run.leads_count = sd.get("lead_count", len(replay_leads))
             if step_name == "lead_gen_complete":
                 run.companies_count = sd.get("company_count", 0)
+                replay_companies = sd.get("companies", [])
+                replay_contacts = sd.get("contacts", [])
+                replay_outreach = sd.get("outreach", [])
 
         run.result = {
             "recording": str(recording_dir),
@@ -503,6 +560,9 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
             "trends": replay_trends,
             "leads": replay_leads,
             "impacts": replay_impacts,
+            "companies": replay_companies,
+            "contacts": replay_contacts,
+            "outreach": replay_outreach,
         }
 
         run.status = "completed"
@@ -608,14 +668,31 @@ async def get_status(run_id: str):
 async def get_result(run_id: str):
     """Get full pipeline results after completion."""
     run = run_manager.get_run(run_id)
+    # If run is in memory but has no enrichment data, reload from recordings
+    if run and run.result and isinstance(run.result, dict) and not run.result.get("companies"):
+        logger.info(f"Result {run_id}: reloading from recordings (missing enrichment)")
+        run = None  # Force recording reload
     if not run:
-        raise HTTPException(404, "Run not found")
+        # Fallback: load from recordings (handles server restart / in-memory loss)
+        from app.tools.run_recorder import get_recording
+        recording_dir = get_recording(run_id)
+        if recording_dir and (recording_dir / "manifest.json").exists():
+            run = _load_run_from_recording(run_id, recording_dir)
+        else:
+            raise HTTPException(404, "Run not found")
     if run.status not in ("completed", "failed"):
         raise HTTPException(202, "Pipeline still running")
 
     # Build trend + lead responses from final state OR replay data
     trends = []
     leads = []
+
+    logger.info(
+        f"Result {run_id}: has_result={run.result is not None}, "
+        f"is_replay={run.result.get('replay') if isinstance(run.result, dict) else 'N/A'}, "
+        f"has_final_state={run.final_state is not None}, "
+        f"companies={len(run.result.get('companies', [])) if isinstance(run.result, dict) else 'N/A'}"
+    )
 
     # Check if this is a replay result (dicts from JSON recordings)
     if run.result and isinstance(run.result, dict) and run.result.get("replay"):
@@ -648,6 +725,8 @@ async def get_result(run_id: str):
                 buying_intent=_parse(t.get("buying_intent", {}), {}),
                 affected_companies=_parse(t.get("affected_companies", [])),
                 actionable_insight=t.get("actionable_insight", ""),
+                article_snippets=_parse(t.get("article_snippets", [])),
+                source_links=_parse(t.get("source_links", [])),
                 # Impact analysis fields (joined by trend_title)
                 direct_impact=_parse(imp.get("direct_impact", [])),
                 indirect_impact=_parse(imp.get("indirect_impact", [])),
@@ -658,19 +737,49 @@ async def get_result(run_id: str):
                 who_needs_help=imp.get("who_needs_help", ""),
                 council_confidence=float(imp.get("council_confidence", 0)),
             ))
+
+        # Build enrichment indexes from recorded companies/contacts/outreach
+        _company_by_name: dict[str, dict] = {}
+        for c in run.result.get("companies", []):
+            _company_by_name[c.get("company_name", "")] = c
+        _contacts_by_company: dict[str, list] = {}
+        for ct in run.result.get("contacts", []):
+            cname = ct.get("company_name", "")
+            _contacts_by_company.setdefault(cname, []).append(ct)
+        _outreach_by_company: dict[str, dict] = {}
+        for em in run.result.get("outreach", []):
+            cname = em.get("company_name", "")
+            if cname not in _outreach_by_company:
+                _outreach_by_company[cname] = em
+
         for i, sheet in enumerate(run.result.get("leads", [])):
+            cname = sheet.get("company_name", "")
+            company = _company_by_name.get(cname, {})
+            contacts = _contacts_by_company.get(cname, [])
+            outreach = _outreach_by_company.get(cname, {})
+            # Pick best contact (first with email, or first available)
+            contact = next((c for c in contacts if c.get("email")), contacts[0] if contacts else {})
             leads.append(LeadResponse(
                 id=i,
-                company_name=sheet.get("company_name", ""),
+                company_name=cname,
                 company_cin=sheet.get("company_cin", ""),
                 company_state=sheet.get("company_state", ""),
                 company_city=sheet.get("company_city", ""),
                 company_size_band=sheet.get("company_size_band", ""),
+                company_website=company.get("website", ""),
+                company_domain=company.get("domain", ""),
+                reason_relevant=company.get("reason_relevant", ""),
                 hop=sheet.get("hop", 1),
                 lead_type=sheet.get("lead_type", ""),
                 trend_title=sheet.get("trend_title", ""),
                 event_type=sheet.get("event_type", ""),
-                contact_role=sheet.get("contact_role", ""),
+                contact_name=contact.get("person_name", ""),
+                contact_role=contact.get("role", "") or sheet.get("contact_role", ""),
+                contact_email=contact.get("email", ""),
+                contact_linkedin=contact.get("linkedin_url", ""),
+                email_confidence=int(contact.get("email_confidence", 0)),
+                email_subject=outreach.get("subject", ""),
+                email_body=outreach.get("body", ""),
                 trigger_event=sheet.get("trigger_event", ""),
                 pain_point=sheet.get("pain_point", ""),
                 service_pitch=sheet.get("service_pitch", ""),
@@ -679,6 +788,7 @@ async def get_result(run_id: str):
                 confidence=sheet.get("confidence", 0.0),
                 oss_score=sheet.get("oss_score", 0.0),
                 data_sources=sheet.get("data_sources", []),
+                company_news=sheet.get("company_news", []),
             ))
     elif run.final_state:
         # Index impacts by trend_title for joining
@@ -709,6 +819,8 @@ async def get_result(run_id: str):
                 buying_intent=getattr(t, "buying_intent", {}),
                 affected_companies=getattr(t, "affected_companies", []),
                 actionable_insight=getattr(t, "actionable_insight", ""),
+                article_snippets=getattr(t, "article_snippets", []),
+                source_links=getattr(t, "source_links", []),
                 # Impact analysis fields (joined by trend_title)
                 direct_impact=getattr(imp, "direct_impact", []) if imp else [],
                 indirect_impact=getattr(imp, "indirect_impact", []) if imp else [],
@@ -721,19 +833,48 @@ async def get_result(run_id: str):
             ))
         deps = run.final_state.get("deps")
         if deps:
+            # Build lookup indexes for enrichment data (contacts, companies, emails)
+            _company_by_name: dict[str, Any] = {}
+            for c in getattr(deps, "_companies", []):
+                _company_by_name[getattr(c, "company_name", "")] = c
+            _contacts_by_company: dict[str, list] = {}
+            for ct in getattr(deps, "_contacts", []):
+                cname = getattr(ct, "company_name", "")
+                _contacts_by_company.setdefault(cname, []).append(ct)
+            _outreach_by_company: dict[str, Any] = {}
+            for em in getattr(deps, "_outreach", []):
+                cname = getattr(em, "company_name", "")
+                if cname not in _outreach_by_company:
+                    _outreach_by_company[cname] = em
+
             for i, sheet in enumerate(getattr(deps, "_lead_sheets", [])):
+                cname = getattr(sheet, "company_name", "")
+                company = _company_by_name.get(cname)
+                contacts = _contacts_by_company.get(cname, [])
+                outreach = _outreach_by_company.get(cname)
+                # Pick best contact (first with email, or first available)
+                contact = next((c for c in contacts if getattr(c, "email", "")), contacts[0] if contacts else None)
                 leads.append(LeadResponse(
                     id=i,
-                    company_name=getattr(sheet, "company_name", ""),
+                    company_name=cname,
                     company_cin=getattr(sheet, "company_cin", ""),
                     company_state=getattr(sheet, "company_state", ""),
                     company_city=getattr(sheet, "company_city", ""),
                     company_size_band=getattr(sheet, "company_size_band", ""),
+                    company_website=getattr(company, "website", "") if company else "",
+                    company_domain=getattr(company, "domain", "") if company else "",
+                    reason_relevant=getattr(company, "reason_relevant", "") if company else "",
                     hop=getattr(sheet, "hop", 1),
                     lead_type=getattr(sheet, "lead_type", ""),
                     trend_title=getattr(sheet, "trend_title", ""),
                     event_type=getattr(sheet, "event_type", ""),
-                    contact_role=getattr(sheet, "contact_role", ""),
+                    contact_name=getattr(contact, "person_name", "") if contact else "",
+                    contact_role=getattr(contact, "role", "") if contact else getattr(sheet, "contact_role", ""),
+                    contact_email=getattr(contact, "email", "") if contact else "",
+                    contact_linkedin=getattr(contact, "linkedin_url", "") if contact else "",
+                    email_confidence=getattr(contact, "email_confidence", 0) if contact else 0,
+                    email_subject=getattr(outreach, "subject", "") if outreach else "",
+                    email_body=getattr(outreach, "body", "") if outreach else "",
                     trigger_event=getattr(sheet, "trigger_event", ""),
                     pain_point=getattr(sheet, "pain_point", ""),
                     service_pitch=getattr(sheet, "service_pitch", ""),
@@ -742,6 +883,7 @@ async def get_result(run_id: str):
                     confidence=getattr(sheet, "confidence", 0.0),
                     oss_score=getattr(sheet, "oss_score", 0.0),
                     data_sources=getattr(sheet, "data_sources", []),
+                    company_news=getattr(sheet, "company_news", []),
                 ))
 
     elapsed = 0.0

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, Building2, X } from "lucide-react";
+import { Search, Building2, X, Globe, Mail, User } from "lucide-react";
 import { LeadDetailPanel } from "@/components/dashboard/lead-detail-panel";
 import { usePipelineContext } from "@/contexts/pipeline-context";
 import { api } from "@/lib/api";
@@ -68,7 +68,13 @@ export default function CompaniesPage() {
           lead.company_name.toLowerCase().includes(q) ||
           lead.trend_title.toLowerCase().includes(q) ||
           lead.company_city.toLowerCase().includes(q) ||
-          lead.company_state.toLowerCase().includes(q)
+          lead.company_state.toLowerCase().includes(q) ||
+          (lead.contact_name || "").toLowerCase().includes(q) ||
+          (lead.contact_role || "").toLowerCase().includes(q) ||
+          (lead.pain_point || "").toLowerCase().includes(q) ||
+          (lead.reason_relevant || "").toLowerCase().includes(q) ||
+          (lead.event_type || "").toLowerCase().includes(q) ||
+          (lead.company_domain || "").toLowerCase().includes(q)
         );
       }
       return true;
@@ -184,12 +190,45 @@ function CompanyCard({ lead, onClick }: { lead: LeadRecord; onClick: () => void 
         </div>
       </div>
 
+      {/* Website */}
+      {lead.company_domain && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+          <Globe size={10} style={{ color: "var(--text-muted)" }} />
+          <span style={{ fontSize: 10, color: "var(--blue)" }}>{lead.company_domain}</span>
+        </div>
+      )}
+
       {/* Trigger trend */}
-      <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+      <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
         {lead.trend_title}
       </p>
 
-      <div style={{ height: 1, background: "var(--border)", marginBottom: 10 }} />
+      {/* Contact info */}
+      {(lead.contact_name || lead.contact_email) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "5px 8px", background: "var(--surface-raised)", borderRadius: 6 }}>
+          <User size={10} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {lead.contact_name || lead.contact_role}
+            </div>
+            {lead.contact_email && (
+              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <Mail size={9} style={{ color: "var(--text-xmuted)" }} />
+                <span style={{ fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {lead.contact_email}
+                </span>
+              </div>
+            )}
+          </div>
+          {lead.email_confidence > 0 && (
+            <span style={{ fontSize: 9, color: lead.email_confidence >= 80 ? "var(--green)" : "var(--text-muted)", fontWeight: 600, flexShrink: 0 }}>
+              {lead.email_confidence}%
+            </span>
+          )}
+        </div>
+      )}
+
+      <div style={{ height: 1, background: "var(--border)", marginBottom: 8 }} />
 
       {/* Footer */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

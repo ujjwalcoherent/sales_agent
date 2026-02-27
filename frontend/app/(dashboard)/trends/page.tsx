@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, SlidersHorizontal, X, ArrowDown, Users, AlertTriangle, Quote, Target } from "lucide-react";
+import { Search, SlidersHorizontal, X, ArrowDown, Users, AlertTriangle, Quote, Target, ExternalLink, Newspaper } from "lucide-react";
 import { TrendsFeed } from "@/components/dashboard/trends-feed";
 import { usePipelineContext } from "@/contexts/pipeline-context";
 import { api } from "@/lib/api";
@@ -56,7 +56,18 @@ export default function TrendsPage() {
         return (
           t.title.toLowerCase().includes(q) ||
           t.summary.toLowerCase().includes(q) ||
-          t.industries.some((i) => i.toLowerCase().includes(q))
+          t.industries.some((i) => i.toLowerCase().includes(q)) ||
+          t.keywords?.some((k) => k.toLowerCase().includes(q)) ||
+          t.affected_companies?.some((c) => c.toLowerCase().includes(q)) ||
+          t.actionable_insight?.toLowerCase().includes(q) ||
+          t.pitch_angle?.toLowerCase().includes(q) ||
+          t.who_needs_help?.toLowerCase().includes(q) ||
+          t.causal_chain?.some((s) => s.toLowerCase().includes(q)) ||
+          t.midsize_pain_points?.some((p) => p.toLowerCase().includes(q)) ||
+          t.article_snippets?.some((s) => s.toLowerCase().includes(q)) ||
+          t.target_roles?.some((r) => r.toLowerCase().includes(q)) ||
+          Object.values(t.event_5w1h || {}).some((v) => v.toLowerCase().includes(q)) ||
+          Object.values(t.buying_intent || {}).some((v) => v.toLowerCase().includes(q))
         );
       }
       return true;
@@ -408,6 +419,46 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
       {trend.affected_companies?.length > 0 && (
         <DetailSection label="COMPANIES MENTIONED">
           <TagList items={trend.affected_companies} className="badge-blue" />
+        </DetailSection>
+      )}
+
+      {/* Source Articles */}
+      {(trend.article_snippets?.length > 0 || trend.source_links?.length > 0) && (
+        <DetailSection label="SOURCE ARTICLES" icon={<Newspaper size={11} style={{ color: "var(--blue)" }} />}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {trend.article_snippets?.map((snippet, i) => {
+              // Snippets are "Title: content[:500]" format — split on first ":"
+              const colonIdx = snippet.indexOf(":");
+              const title = colonIdx > 0 ? snippet.substring(0, colonIdx).trim() : snippet.substring(0, 80);
+              const body = colonIdx > 0 ? snippet.substring(colonIdx + 1).trim() : "";
+              const link = trend.source_links?.[i];
+              return (
+                <div key={i} style={{ padding: "8px 10px", background: "var(--surface-raised)", borderRadius: 7, borderLeft: "2px solid var(--blue)" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: body ? 3 : 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>{title}</div>
+                    {link && (
+                      <a href={link} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, color: "var(--blue)", display: "flex" }}>
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                  {body && (
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, maxHeight: 60, overflow: "hidden" }}>
+                      {body.length > 200 ? body.substring(0, 200) + "..." : body}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* Show source_links without matching snippets */}
+            {trend.source_links?.slice(trend.article_snippets?.length || 0).map((link, i) => (
+              <a key={`link-${i}`} href={link} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, color: "var(--blue)", display: "flex", alignItems: "center", gap: 4, padding: "4px 0" }}>
+                <ExternalLink size={10} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</span>
+              </a>
+            ))}
+          </div>
         </DetailSection>
       )}
     </div>

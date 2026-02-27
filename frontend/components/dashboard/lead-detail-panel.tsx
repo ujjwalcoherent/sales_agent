@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   X, Building2, ArrowRight, MessageSquare,
-  Target, Clock, Layers, Sparkles,
+  Target, Clock, Layers, Sparkles, Mail, User, Globe, ExternalLink,
 } from "lucide-react";
 import type { LeadRecord } from "@/lib/types";
 
@@ -224,11 +224,63 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
             </PanelSection>
           )}
 
+          {/* Contact info */}
+          {(lead.contact_name || lead.contact_email) && (
+            <PanelSection label="CONTACT" icon={User}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {lead.contact_name && (
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{lead.contact_name}</div>
+                )}
+                {lead.contact_role && (
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{lead.contact_role}</div>
+                )}
+                {lead.contact_email && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <Mail size={11} style={{ color: "var(--text-muted)" }} />
+                    <a href={`mailto:${lead.contact_email}`} style={{ fontSize: 12, color: "var(--blue)" }}>{lead.contact_email}</a>
+                    {lead.email_confidence > 0 && (
+                      <span className="badge badge-muted" style={{ fontSize: 9 }}>{lead.email_confidence}%</span>
+                    )}
+                  </div>
+                )}
+                {lead.contact_linkedin && (
+                  <a href={lead.contact_linkedin} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--blue)" }}>
+                    <ExternalLink size={10} /> LinkedIn
+                  </a>
+                )}
+              </div>
+            </PanelSection>
+          )}
+
+          {/* Company website */}
+          {lead.company_domain && (
+            <div style={{ padding: "6px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 5 }}>
+              <Globe size={10} style={{ color: "var(--text-muted)" }} />
+              <a href={lead.company_website || `https://${lead.company_domain}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, color: "var(--blue)" }}>{lead.company_domain}</a>
+            </div>
+          )}
+
           {/* Opening line */}
           {openingLine && (
             <PanelSection label="SUGGESTED OPENING" icon={MessageSquare}>
               <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.7, fontStyle: "italic", padding: "10px 14px", background: "var(--accent-light)", borderRadius: 8, borderLeft: "2px solid var(--accent)" }}>
                 &ldquo;{openingLine}&rdquo;
+              </div>
+            </PanelSection>
+          )}
+
+          {/* Email preview */}
+          {lead.email_subject && (
+            <PanelSection label="EMAIL PREVIEW" icon={Mail}>
+              <div style={{ background: "var(--surface-raised)", borderRadius: 7, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+                  <strong>Subject:</strong> <span style={{ color: "var(--text)" }}>{lead.email_subject}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, maxHeight: 120, overflow: "hidden", whiteSpace: "pre-wrap" }}>
+                  {lead.email_body}
+                </div>
               </div>
             </PanelSection>
           )}

@@ -1537,9 +1537,38 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
         for trend in trends:
             db.save_trend(run_id, trend)
 
-        # Save call sheets (primary leads)
+        # Save call sheets with enrichment data (contacts, emails from lead_gen)
+        _co_by_name = {getattr(c, "company_name", ""): c for c in companies}
+        _ct_by_co = {}
+        for ct in contacts:
+            cn = getattr(ct, "company_name", "")
+            _ct_by_co.setdefault(cn, []).append(ct)
+        _em_by_co = {}
+        for em in getattr(deps, "_outreach", []) if deps else []:
+            cn = getattr(em, "company_name", "")
+            if cn not in _em_by_co:
+                _em_by_co[cn] = em
+
         for sheet in lead_sheets:
-            db.save_call_sheet(run_id, sheet)
+            cn = getattr(sheet, "company_name", "")
+            co = _co_by_name.get(cn)
+            cts = _ct_by_co.get(cn, [])
+            ct = next((c for c in cts if getattr(c, "email", "")), cts[0] if cts else None)
+            em = _em_by_co.get(cn)
+            enrichment = {
+                "company_website": getattr(co, "website", "") if co else "",
+                "company_domain": getattr(co, "domain", "") if co else "",
+                "reason_relevant": getattr(co, "reason_relevant", "") if co else "",
+                "contact_name": getattr(ct, "person_name", "") if ct else "",
+                "contact_role": getattr(ct, "role", "") if ct else "",
+                "contact_email": getattr(ct, "email", "") if ct else "",
+                "contact_linkedin": getattr(ct, "linkedin_url", "") if ct else "",
+                "email_confidence": getattr(ct, "email_confidence", 0) if ct else 0,
+                "email_subject": getattr(em, "subject", "") if em else "",
+                "email_body": getattr(em, "body", "") if em else "",
+                "company_news": getattr(sheet, "company_news", []),
+            }
+            db.save_call_sheet(run_id, sheet, enrichment=enrichment)
 
         # Save legacy outreach leads
         for lead in leads:
