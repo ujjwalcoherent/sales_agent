@@ -70,9 +70,10 @@ Pipeline runs ~25-40 min real, ~45s mock replay. Each step is a LangGraph node i
 | Structured | OpenAI -> GeminiDirect -> Groq -> Ollama |
 | Tool calling | OpenAI -> GeminiDirect -> Groq -> VertexLlama -> Ollama |
 | Lite | OpenAI Nano (gpt-4.1-nano) -> GeminiDirectLite -> Groq -> standard |
-| Embeddings | NVIDIA nv-embedqa-e5-v5 -> OpenAI text-embedding-3-large -> HF API -> Local -> Ollama |
+| Embeddings (openai mode) | OpenAI text-embedding-3-large (1536-dim, sole provider) |
+| Embeddings (nvidia mode) | NVIDIA nv-embedqa-e5-v5 -> OpenAI -> HF API -> Local -> Ollama |
 
-OpenAI is position 1 for reliability (500+ RPM, best structured output). GeminiDirect at position 2 uses $300 GCP free credits as fallback. All embeddings are 1024-dim (OpenAI uses `dimensions=1024` param to match NVIDIA).
+OpenAI is position 1 for reliability (500+ RPM, best structured output). GeminiDirect at position 2 uses $300 GCP free credits as fallback. Default embedding mode is `openai` at 1536-dim (set `EMBEDDING_PROVIDER=nvidia` for 1024-dim NVIDIA-first chain).
 
 ### API Endpoints
 
@@ -117,7 +118,7 @@ sales_agent/
 MUST use `stream_mode="updates"` not `"values"`. The `"values"` mode tries to msgpack-serialize `AgentDeps` which contains ChromaDB clients and LLM model objects -- instant crash.
 
 ### Embedding dimension locking
-All embedding providers produce 1024-dim vectors. The `_dim_locked` mechanism in `embeddings.py` rejects any fallback provider that returns different dimensions. If you see "DIMENSION MISMATCH" in logs, a provider fell back to one with incompatible vector size (usually Ollama's 768-dim nomic-embed-text).
+Embedding dimension is locked by the primary provider (1536-dim in openai mode, 1024-dim in nvidia mode). The `_dim_locked` mechanism in `embeddings.py` rejects any fallback provider that returns different dimensions. If you see "DIMENSION MISMATCH" in logs, a provider fell back to one with incompatible vector size (usually Ollama's 768-dim nomic-embed-text).
 
 ### Provider cooldown state is class-level
 `ProviderManager._failed_providers` is a class-level dict shared across all instances. A 429 on GeminiDirect in the analysis step also affects the impact step. This is intentional -- prevents hammering a rate-limited provider.
