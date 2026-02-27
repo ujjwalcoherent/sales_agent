@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from app.api.run_manager import run_manager
 from app.api.schemas import LeadListResponse, LeadResponse, PersonResponse
@@ -311,3 +312,103 @@ async def get_lead_detail(lead_id: int):
         pass
 
     raise HTTPException(404, "Lead not found")
+
+
+# ── Email sending ────────────────────────────────────────────────────
+
+
+class SendEmailRequest(BaseModel):
+    person_index: int = 0  # Which person in the people[] array (0 = primary contact)
+    dry_run: bool = False   # Validate without actually sending
+
+
+class SendEmailResponse(BaseModel):
+    success: bool
+    message_id: str = ""
+    recipient: str = ""
+    subject: str = ""
+    error: str = ""
+    test_mode: bool = False
+    dry_run: bool = False
+    sent_at: str = ""
+
+
+class EmailSettingsResponse(BaseModel):
+    sending_enabled: bool
+    test_mode: bool
+    test_recipient: str
+    brevo_configured: bool
+    sender_email: str
+    sender_name: str
+
+
+@router.get("/email/settings", response_model=EmailSettingsResponse)
+async def get_email_settings():
+    """Get current email sending configuration (safe to expose — no secrets)."""
+    from app.config import get_settings
+    s = get_settings()
+    return EmailSettingsResponse(
+        sending_enabled=s.email_sending_enabled,
+        test_mode=s.email_test_mode,
+        test_recipient=s.email_test_recipient,
+        brevo_configured=bool(s.brevo_api_key),
+        sender_email=s.brevo_sender_email,
+        sender_name=s.brevo_sender_name,
+    )
+
+
+@router.post("/{lead_id}/send-email", response_model=SendEmailResponse)
+async def send_lead_email(lead_id: int, req: SendEmailRequest):
+    """Send outreach email for a specific lead.
+
+    Safety:
+    - EMAIL_SENDING_ENABLED must be True (global kill switch)
+    - EMAIL_TEST_MODE=True redirects to dummy recipient
+    - dry_run=True validates without sending
+    """
+    # Find the lead
+    run = run_manager.get_latest_run()
+    leads = _leads_from_run(run)
+    lead = None
+    if 0 <= lead_id < len(leads):
+        lead = leads[lead_id]
+
+    if lead is None:
+        raise HTTPException(404, "Lead not found")
+
+    # Determine email content — from people[] or primary contact
+    to_email = ""
+    to_name = ""
+    subject = ""
+    body = ""
+
+    if lead.people and 0 <= req.person_index < len(lead.people):
+        person = lead.people[req.person_index]
+        to_email = person.email
+        to_name = person.person_name
+        subject = person.outreach_subject
+        body = person.outreach_body
+    else:
+        # Fallback to primary contact
+        to_email = lead.contact_email
+        to_name = lead.contact_name
+        subject = lead.email_subject
+        body = lead.email_body
+
+    if not to_email:
+        raise HTTPException(400, "No email address available for this contact")
+    if not subject or not body:
+        raise HTTPException(400, "No outreach email generated for this contact")
+
+    # Send via Brevo
+    from app.tools.brevo_tool import BrevoTool
+    brevo = BrevoTool()
+    result = brevo.send_email(
+        to_email=to_email,
+        to_name=to_name,
+        subject=subject,
+        body=body,
+        dry_run=req.dry_run,
+    )
+
+    return SendEmailResponse(**result.to_dict())

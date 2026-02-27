@@ -295,6 +295,17 @@ class Settings(BaseSettings):
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
     show_tooltips: bool = Field(default=True, alias="SHOW_TOOLTIPS")
     
+    # ── Email Sending (Brevo) ──
+    # Global kill switch: set to True to enable email sending
+    email_sending_enabled: bool = Field(default=False, alias="EMAIL_SENDING_ENABLED")
+    # Test mode: when True, ALL emails go to email_test_recipient instead of real contacts
+    email_test_mode: bool = Field(default=True, alias="EMAIL_TEST_MODE")
+    email_test_recipient: str = Field(default="ujjwal@coherentmarketinsights.com", alias="EMAIL_TEST_RECIPIENT")
+    # Brevo (formerly Sendinblue) transactional email API
+    brevo_api_key: str = Field(default="", alias="BREVO_API_KEY")
+    brevo_sender_email: str = Field(default="outreach@coherentmarketinsights.com", alias="BREVO_SENDER_EMAIL")
+    brevo_sender_name: str = Field(default="Coherent Market Insights", alias="BREVO_SENDER_NAME")
+
     # Database
     database_url: str = Field(
         default="sqlite+aiosqlite:///./leads.db",
