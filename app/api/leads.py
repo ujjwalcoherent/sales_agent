@@ -382,12 +382,14 @@ async def send_lead_email(lead_id: int, req: SendEmailRequest):
     subject = ""
     body = ""
 
+    tone = "consultative"
     if lead.people and 0 <= req.person_index < len(lead.people):
         person = lead.people[req.person_index]
         to_email = person.email
         to_name = person.person_name
         subject = person.outreach_subject
         body = person.outreach_body
+        tone = person.outreach_tone or "consultative"
     else:
         # Fallback to primary contact
         to_email = lead.contact_email
@@ -400,7 +402,7 @@ async def send_lead_email(lead_id: int, req: SendEmailRequest):
     if not subject or not body:
         raise HTTPException(400, "No outreach email generated for this contact")
 
-    # Send via Brevo
+    # Send via Brevo with branded template
     from app.tools.brevo_tool import BrevoTool
     brevo = BrevoTool()
     result = brevo.send_email(
@@ -409,6 +411,10 @@ async def send_lead_email(lead_id: int, req: SendEmailRequest):
         subject=subject,
         body=body,
         dry_run=req.dry_run,
+        tone=tone,
+        trend_title=lead.trend_title,
+        company_name=lead.company_name,
+        lead_type=lead.lead_type,
     )
 
     return SendEmailResponse(**result.to_dict())

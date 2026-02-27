@@ -78,6 +78,10 @@ class BrevoTool:
         subject: str,
         body: str,
         dry_run: bool = False,
+        tone: str = "consultative",
+        trend_title: str = "",
+        company_name: str = "",
+        lead_type: str = "",
     ) -> BrevoEmailResult:
         """Send a transactional email via Brevo.
 
@@ -85,8 +89,12 @@ class BrevoTool:
             to_email: Recipient email address
             to_name: Recipient name
             subject: Email subject line
-            body: Email body (plain text, converted to HTML paragraphs)
+            body: Email body (plain text, converted to branded HTML)
             dry_run: If True, validate everything but don't actually send
+            tone: Outreach tone — "executive" | "consultative" | "professional"
+            trend_title: Market trend that triggered this outreach
+            company_name: Recipient's company name
+            lead_type: "pain" | "opportunity" | "risk" | "intelligence"
 
         Returns:
             BrevoEmailResult with success status, message_id, etc.
@@ -109,8 +117,20 @@ class BrevoTool:
                 f"TEST MODE: Redirecting email from {to_email} → {actual_recipient}"
             )
 
-        # Convert plain text body to simple HTML
-        html_body = _text_to_html(body, to_name, subject, test_mode, to_email)
+        # Build branded HTML email
+        html_body = build_branded_email(
+            body=body,
+            to_name=to_name,
+            subject=subject,
+            tone=tone,
+            trend_title=trend_title,
+            company_name=company_name,
+            lead_type=lead_type,
+            sender_name=self.settings.brevo_sender_name,
+            sender_email=self.settings.brevo_sender_email,
+            test_mode=test_mode,
+            original_email=to_email,
+        )
 
         payload = {
             "sender": {
@@ -190,37 +210,159 @@ class BrevoTool:
             )
 
 
-def _text_to_html(
+# ── Branded Email Templates ──────────────────────────────────────────
+#
+# Three templates matching the frontend design language:
+#   executive    — Minimal, warm-toned accent bar. For C-suite.
+#   consultative — Full branded header with trend context. For influencers.
+#   professional — Clean corporate layout. For gatekeepers / formal intros.
+#
+# Color palette (from frontend globals.css light mode):
+#   Accent/Amber: #B07030    Green: #2D6A4F    Blue: #2A5A8A
+#   Red: #A83226             Text: #18170F     Surface: #FFFFFF
+#   Background: #F8F7F2      Border: #E4E2D8
+
+TONE_STYLES = {
+    "executive": {
+        "accent": "#B07030",
+        "accent_light": "#F5EDE4",
+        "accent_mid": "#D4A06A",
+    },
+    "consultative": {
+        "accent": "#2A5A8A",
+        "accent_light": "#E8EFF6",
+        "accent_mid": "#6A9AC8",
+    },
+    "professional": {
+        "accent": "#2D6A4F",
+        "accent_light": "#E6F0EB",
+        "accent_mid": "#5A9A78",
+    },
+}
+
+LEAD_TYPE_COLORS = {
+    "pain": "#A83226",
+    "opportunity": "#2D6A4F",
+    "risk": "#B07030",
+    "intelligence": "#2A5A8A",
+}
+
+
+def build_branded_email(
     body: str,
     to_name: str,
     subject: str,
-    test_mode: bool,
-    original_email: str,
+    tone: str = "consultative",
+    trend_title: str = "",
+    company_name: str = "",
+    lead_type: str = "",
+    sender_name: str = "Coherent Market Insights",
+    sender_email: str = "",
+    test_mode: bool = False,
+    original_email: str = "",
 ) -> str:
-    """Convert plain text email body to simple HTML."""
-    # Escape HTML
+    """Build a branded HTML email matching the CMI frontend design system.
+
+    Card-style layout: rounded container, no top bar, logo-integrated
+    accent color, trend context pill, branded footer with gradient.
+    """
     import html as html_mod
 
+    style = TONE_STYLES.get(tone, TONE_STYLES["consultative"])
+    accent = style["accent"]
+
+    # Escape and format body
     escaped = html_mod.escape(body)
     paragraphs = escaped.split("\n\n")
     html_paragraphs = "".join(
-        f"<p style='margin:0 0 12px 0;line-height:1.5'>{p.replace(chr(10), '<br>')}</p>"
+        f"<p style='margin:0 0 16px 0;line-height:1.75;color:#2C2B23;font-size:14px'>"
+        f"{p.replace(chr(10), '<br>')}</p>"
         for p in paragraphs
         if p.strip()
     )
 
+    # Test mode banner (outside the card, above it)
     test_banner = ""
     if test_mode:
         test_banner = (
-            f"<div style='background:#fff3cd;border:1px solid #ffc107;padding:10px;margin-bottom:16px;"
-            f"border-radius:4px;font-size:12px;color:#856404'>"
-            f"<strong>TEST MODE</strong> — This email was redirected. "
-            f"Original recipient: {html_mod.escape(original_email)}"
-            f"</div>"
+            f"<div style='max-width:560px;margin:0 auto 12px;padding:8px 16px;"
+            f"background:#FFF8E1;border:1px solid #FFD54F;border-radius:8px;"
+            f"font-size:11px;color:#8D6E00;text-align:center'>"
+            f"<strong>TEST MODE</strong> &mdash; Redirected from "
+            f"<span style=\"background:#FFF3CD;padding:1px 6px;border-radius:3px;font-size:10px;"
+            f"font-family:monospace\">{html_mod.escape(original_email)}</span></div>"
         )
 
+    # Recipient context line under the logo
+    context_line = ""
+    if company_name:
+        context_line = (
+            f"<div style='font-size:11px;color:#8A8878;margin-top:10px;letter-spacing:0.01em'>"
+            f"{html_mod.escape(to_name)} &middot; {html_mod.escape(company_name)}</div>"
+        )
+
+    # Logo URL (287x60 horizontal wordmark — scales to 150x31 in header, 110x23 in footer)
+    logo_url = "https://www.coherentmarketinsights.com/images/indexv2/cmi-admin-logo.png"
+
     return f"""<!DOCTYPE html>
-<html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px">
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F0EFE8;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
+
+<!-- Spacer top -->
+<div style="height:28px"></div>
+
 {test_banner}
-{html_paragraphs}
+
+<!-- Card container -->
+<div style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;
+     box-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04)">
+
+  <!-- Header: logo + context -->
+  <div style="padding:28px 36px 22px">
+    <a href="https://www.coherentmarketinsights.com" style="text-decoration:none">
+      <img src="{logo_url}"
+           alt="{html_mod.escape(sender_name)}" width="150" height="31"
+           style="width:150px;height:auto;display:block"
+      />
+    </a>
+    {context_line}
+  </div>
+
+  <!-- Divider -->
+  <div style="margin:0 36px;height:1px;background:#E8E6DC"></div>
+
+  <!-- Body -->
+  <div style="padding:24px 36px 28px">
+    {html_paragraphs}
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:18px 36px;background:#FAFAF6;border-top:1px solid #EDEBE2">
+    <table cellpadding="0" cellspacing="0" border="0" style="width:100%"><tr>
+      <td style="vertical-align:middle">
+        <img src="{logo_url}"
+             alt="CMI" width="110" height="23"
+             style="width:110px;height:auto;display:block;opacity:0.55"
+        />
+      </td>
+      <td style="vertical-align:middle;text-align:right">
+        <a href="https://www.coherentmarketinsights.com"
+           style="display:inline-block;font-size:11px;font-weight:600;color:{accent};
+                  text-decoration:none;padding:6px 14px;border:1px solid {accent}33;
+                  border-radius:6px">
+          Visit Website &rarr;
+        </a>
+      </td>
+    </tr></table>
+  </div>
+
+</div>
+
+<!-- Compliance footer -->
+<div style="max-width:560px;margin:28px auto 28px;padding:0 36px;background:#F0EFE8;text-align:center;font-size:10px;color:#BBB;line-height:1.8">
+  {html_mod.escape(sender_name)} &bull; Market Intelligence &amp; Advisory<br>
+  <a href="mailto:{html_mod.escape(sender_email)}?subject=Unsubscribe" style="color:#BBB;text-decoration:underline">Unsubscribe</a>
+</div>
+
 </body></html>"""

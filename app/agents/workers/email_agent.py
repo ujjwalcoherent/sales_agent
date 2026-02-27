@@ -194,6 +194,41 @@ class EmailGenerator:
         
         return {}
     
+    # ── Role-specific personalization frames ──
+    # Each tier sees a fundamentally different value proposition, not just tone.
+    _ROLE_FRAMES = {
+        "decision_maker": {
+            "lens": "revenue impact, competitive positioning, and strategic risk",
+            "hook": "how this trend directly affects your bottom line and market position",
+            "cta": "a brief 15-minute strategic discussion",
+            "tone": (
+                "TONE: Executive-level. Under 100 words. Lead with business impact "
+                "(revenue, margin, market share). No jargon, no fluff. One clear ask. "
+                "Every sentence must earn its place. Address them as a peer executive."
+            ),
+        },
+        "influencer": {
+            "lens": "operational challenges, technology implications, and team readiness",
+            "hook": "what this means for your team's day-to-day operations and roadmap",
+            "cta": "a 15-minute call to share what we're seeing across similar teams",
+            "tone": (
+                "TONE: Consultative. Under 150 words. Show you understand their specific "
+                "technical/operational challenge. Position as a helpful peer who's seen this "
+                "pattern before. Reference how the trend impacts their function specifically."
+            ),
+        },
+        "gatekeeper": {
+            "lens": "organizational alignment and how this trend affects multiple departments",
+            "hook": "a development that may be relevant to your leadership team",
+            "cta": "a brief introduction — happy to share a one-page summary your team can review",
+            "tone": (
+                "TONE: Professional. Under 120 words. Formal and respectful. Be clear about "
+                "who you are and why this is relevant. Make it easy for them to forward "
+                "internally. Offer something tangible (a summary, a briefing)."
+            ),
+        },
+    }
+
     async def _generate_outreach(
         self,
         contact: ContactData,
@@ -201,22 +236,17 @@ class EmailGenerator:
         trend: Optional[TrendData],
         impact: Optional[Dict]
     ) -> OutreachEmail:
+        """Generate a role-personalized outreach email.
+
+        Personalization axes:
+          1. Seniority tier → different value proposition and CTA
+          2. Role title → LLM frames the trend through their function
+          3. Trend + impact → company-specific context
+          4. Pitch angle → matched services
         """
-        Generate personalized CONSULTING PITCH email for Coherent Market Insights.
-        
-        Args:
-            contact: Contact information
-            company: Company data
-            trend: Associated trend
-            impact: Impact analysis
-            
-        Returns:
-            OutreachEmail with subject and body
-        """
-        # Build context for email
         trend_title = trend.trend_title if trend else "current market developments"
         trend_summary = trend.summary if trend else "significant market changes"
-        
+
         opportunities = []
         relevant_services = []
         pitch_angle = ""
@@ -224,85 +254,71 @@ class EmailGenerator:
             opportunities = getattr(impact, "business_opportunities", [])
             relevant_services = getattr(impact, "relevant_services", [])
             pitch_angle = getattr(impact, "pitch_angle", "")
-        
+
         # Get relevant CMI service details
         service_offerings = []
         for svc_key, svc_data in CMI_SERVICES.items():
-            if any(s.lower() in svc_key.lower() or svc_key.lower() in s.lower() 
+            if any(s.lower() in svc_key.lower() or svc_key.lower() in s.lower()
                    for s in relevant_services):
                 service_offerings.extend(svc_data["offerings"][:2])
-        
         if not service_offerings:
             service_offerings = ["Market sizing and competitive analysis", "Strategic advisory services"]
-        
+
         first_name = contact.person_name.split()[0] if contact.person_name else "there"
 
-        # Determine outreach tone from contact seniority
+        # Determine seniority tier and role-specific frame
         from app.agents.workers.contact_agent import ContactFinder
         tier = ContactFinder.classify_tier(contact.role)
         tone = ContactFinder.get_outreach_tone(tier)
+        frame = self._ROLE_FRAMES.get(tier, self._ROLE_FRAMES["influencer"])
 
-        tone_instructions = {
-            "executive": (
-                "TONE: Executive-level. Brief (under 100 words). Lead with ROI/strategic impact. "
-                "No jargon. One clear ask. Respect their time — every sentence must earn its place."
-            ),
-            "consultative": (
-                "TONE: Consultative. Insight-driven (under 150 words). Show you understand their "
-                "specific challenge. Position as a helpful peer, not a vendor. Reference the trend "
-                "impact on their role specifically."
-            ),
-            "professional": (
-                "TONE: Professional. Formal and respectful (under 120 words). Request a brief "
-                "introduction or meeting. Reference the trend as context. Be clear about who you "
-                "are and why you're reaching out."
-            ),
-        }
-        tone_instruction = tone_instructions.get(tone, tone_instructions["consultative"])
+        prompt = f"""Write a personalized outreach email from Coherent Market Insights.
 
-        prompt = f"""Write a CONSULTING PITCH email from Coherent Market Insights to a potential client.
+SENDER (Coherent Market Insights):
+- Global market research and consulting firm
+- Expertise: market intelligence, competitive analysis, strategic advisory
+- Services: {', '.join(service_offerings[:3])}
 
-ABOUT COHERENT MARKET INSIGHTS:
-- We are a global market research and consulting firm
-- We help mid-size companies with market intelligence, competitive analysis, and strategic advisory
-- Our expertise: Market research, procurement intelligence, industry analysis, technology research
-
-RECIPIENT:
+RECIPIENT PROFILE:
 - Name: {contact.person_name}
 - Role: {contact.role}
+- Seniority: {tier.replace('_', ' ').title()}
 - Company: {company.company_name}
 - Industry: {company.industry}
-- Company Size: Mid-size (50-300 employees)
 
-THE NEWS/TREND THAT TRIGGERED THIS OUTREACH:
-- Headline: {trend_title}
+MARKET CONTEXT (why we're reaching out):
+- Trend: {trend_title}
 - Summary: {trend_summary}
-- Why this matters to {company.company_name}: {company.reason_relevant}
+- Impact on {company.company_name}: {company.reason_relevant}
+{f'- Pitch angle: {pitch_angle}' if pitch_angle else ''}
 
-CONSULTING OPPORTUNITIES WE IDENTIFIED:
+OPPORTUNITIES:
 {chr(10).join(['- ' + opp for opp in opportunities[:3]]) if opportunities else '- Market impact assessment and strategic advisory'}
 
-OUR RELEVANT SERVICES:
-{chr(10).join(['- ' + svc for svc in service_offerings[:3]])}
+PERSONALIZATION INSTRUCTIONS:
+Frame this email through the lens of {frame['lens']}.
+The hook should be about {frame['hook']}.
+The call-to-action should be: {frame['cta']}.
 
-EMAIL REQUIREMENTS:
-1. Subject line: Reference the news/trend + value proposition (max 60 chars)
-2. Opening: Reference the news/trend and connect to {company.company_name}
-3. Show understanding of their challenge based on the trend
-4. Position CMI as the solution
-5. Mention 1-2 specific services
-6. CTA: Offer a 15-minute discovery call
-7. {tone_instruction}
-8. Sign off as: "Best regards, [Coherent Market Insights Team]"
+{frame['tone']}
 
-Respond as JSON with:
-- subject: Email subject line (max 60 chars)
-- body: Email body (use actual newlines, not \\n)"""
+RULES:
+- Address as "{contact.person_name}" (use "Dear" for executives, first name for others)
+- Reference their SPECIFIC ROLE — explain why this trend matters to a {contact.role}
+- Do NOT use generic phrases like "I came across your profile" or "Hope this finds you well"
+- Do NOT mention "pain point", "opportunity", or any sales framework language
+- Sign off as: "Best regards,\\nCoherent Market Insights Team"
 
-        system_prompt = """You are a business development consultant at Coherent Market Insights.
-You write helpful, insight-driven emails that show you understand the prospect's challenges.
-Your emails should feel like a consultant reaching out to help, not a salesperson pitching.
-Always respond with valid JSON only."""
+Respond as JSON:
+- subject: Email subject line (max 60 chars, reference the trend, not the person's name)
+- body: Email body text (use real newlines, not \\n)"""
+
+        system_prompt = (
+            "You are a senior business development consultant at Coherent Market Insights. "
+            "You write concise, insight-driven emails that demonstrate genuine understanding "
+            "of the recipient's role-specific challenges. Your emails read like a knowledgeable "
+            "peer reaching out — never like a cold sales pitch. Always respond with valid JSON only."
+        )
 
         try:
             from app.schemas.llm_outputs import OutreachDraftLLM
@@ -330,17 +346,20 @@ Always respond with valid JSON only."""
 
         except Exception as e:
             logger.warning(f"LLM email generation failed: {e}")
-            # Fallback template
-            subject = f"{first_name}, thoughts on {trend_title[:30]}..."
-            body = f"""Hi {first_name},
+            # Role-aware fallback template
+            greeting = f"Dear {contact.person_name}" if tier == "decision_maker" else f"Hi {first_name}"
+            cta = frame["cta"]
+            subject = f"{trend_title[:45]} — implications for {company.company_name}"[:60]
+            body = f"""{greeting},
 
-I noticed {company.company_name}'s work in {company.industry} and wanted to reach out regarding {trend_title}.
+Recent developments around {trend_title} have significant implications for {company.company_name}, particularly from the perspective of {frame['lens']}.
 
-Given the current market dynamics, I believe there are some strategic opportunities worth exploring together.
+At Coherent Market Insights, we've been tracking this closely and have insights that may be relevant to your work as {contact.role}.
 
-Would you be open to a brief 15-minute call this week to discuss?
+Would you be open to {cta}?
 
-Best regards"""
+Best regards,
+Coherent Market Insights Team"""
 
         email_id = hashlib.md5(
             f"{contact.id}_{datetime.utcnow().isoformat()}".encode()
