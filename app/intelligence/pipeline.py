@@ -209,6 +209,22 @@ async def _update_learning_loops(
             f"nli_mean={nli_mean:.3f}"
         )
 
+        # ── Entity quality cache update (self-improving NER) ─────────────────
+        # Research: NAACL 2024 naacl-short.49 — pseudo-label propagation +7-12% F1
+        # Entities from validated clusters get quality score bumped.
+        # Next run: high-quality entities get lower salience threshold → more groups.
+        try:
+            from app.intelligence.engine.extractor import update_entity_quality
+            for cluster in passed:
+                entity_names = getattr(cluster, "entity_names", []) or []
+                primary = getattr(cluster, "primary_entity", None)
+                if primary and primary not in entity_names:
+                    entity_names = [primary] + list(entity_names)
+                if entity_names:
+                    update_entity_quality(entity_names, cluster.coherence_score)
+        except Exception as eq_exc:
+            logger.debug(f"[pipeline] Entity quality update failed (non-fatal): {eq_exc}")
+
         # ── Wire NLI scores into signal bus ───────────────────────────────────
         # Source bandit reads this via update_from_run() on next cycle.
         try:
