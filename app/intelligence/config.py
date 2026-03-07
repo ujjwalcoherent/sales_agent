@@ -1,0 +1,443 @@
+"""
+Intelligence Engine Configuration.
+
+All parameters here are STARTING PRIORS — the self-learning system adapts them
+over time via:
+  - WeightLearnerAgent: signal weights (EWC + KL guardrail)
+  - ThresholdAdapterAgent: validation thresholds (EMA α=0.1)
+  - SourceBanditAgent: source quality scores (Thompson Sampling)
+  - CompanyBanditAgent: company profile quality (LinTS)
+
+No values are permanently hardcoded — they all live in data/*.json and are
+updated after each run. Constants here are only used when no learned values exist.
+"""
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Set
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# REGION CONFIG
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class RegionConfig:
+    """Dynamic region configuration. No hardcoded countries in pipeline logic."""
+    code: str        # "IN", "US", "EU", "GLOBAL"
+    name: str
+    languages: List[str] = field(default_factory=lambda: ["en"])
+    domestic_domains: List[str] = field(default_factory=list)
+
+    @property
+    def source_ids(self) -> List[str]:
+        from app.config import NEWS_SOURCES
+        if self.code == "GLOBAL":
+            return list(NEWS_SOURCES.keys())
+        return [
+            sid for sid, cfg in NEWS_SOURCES.items()
+            if cfg.get("country", "").upper() == self.code.upper()
+            or cfg.get("country", "").upper() == "GLOBAL"
+            or not cfg.get("country")
+        ]
+
+
+REGIONS: Dict[str, RegionConfig] = {
+    "IN": RegionConfig(
+        code="IN", name="India", languages=["en", "hi"],
+        domestic_domains=[".in", "economictimes.com", "livemint.com", "moneycontrol.com"],
+    ),
+    "US": RegionConfig(
+        code="US", name="United States", languages=["en"],
+        domestic_domains=[".com", "reuters.com", "bloomberg.com", "wsj.com"],
+    ),
+    "EU": RegionConfig(
+        code="EU", name="European Union", languages=["en", "de", "fr"],
+        domestic_domains=[".eu", ".de", ".fr", ".uk"],
+    ),
+    "GLOBAL": RegionConfig(code="GLOBAL", name="Global", languages=["en"]),
+}
+
+
+def get_region(code: str) -> RegionConfig:
+    return REGIONS.get(code.upper(), REGIONS["GLOBAL"])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INDUSTRY TAXONOMY (GICS-inspired, B2B focus)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Structure per industry:
+#   keywords:   search terms to use in Tavily/RSS queries
+#   1st_order:  companies that ARE the industry (direct players)
+#   2nd_order:  companies that SERVE the industry (adjacent players)
+#   exclude:    sectors that are definitely NOT this industry
+#
+# Auto-expansion for unknown industries:
+#   if industry not in INDUSTRY_TAXONOMY → LLM generates structure → cached for session
+
+INDUSTRY_TAXONOMY: Dict[str, Dict] = {
+    "Cybersecurity": {
+        "keywords": ["breach", "ransomware", "threat", "zero-day", "SIEM", "SOC", "endpoint", "CVE"],
+        "1st_order": [
+            "endpoint security", "network security", "identity management",
+            "threat intelligence", "SIEM vendor", "cloud security", "zero trust",
+            "vulnerability management", "security analytics",
+        ],
+        "2nd_order": [
+            "enterprise software", "cloud provider", "managed IT services",
+            "cyber insurance", "compliance software", "GRC platform",
+        ],
+        "exclude": ["gaming", "social media", "food", "retail", "pharma"],
+        "target_roles": ["CISO", "VP Security", "Head of IT Security", "CTO"],
+    },
+    "Fintech": {
+        "keywords": ["payment", "neobank", "digital banking", "insurtech", "wealthtech", "regtech", "UPI", "BNPL"],
+        "1st_order": [
+            "payment processor", "digital wallet", "lending platform",
+            "crypto exchange", "robo-advisor", "insurtech", "neobank",
+            "regtech", "open banking", "BNPL provider",
+        ],
+        "2nd_order": [
+            "cloud infrastructure", "identity verification", "fraud detection",
+            "banking CRM", "financial data provider", "KYC provider",
+            "core banking software",
+        ],
+        "exclude": ["food delivery", "logistics", "real estate", "healthcare", "gaming"],
+        "target_roles": ["CTO", "VP Engineering", "Head of Product", "CDO", "CFO"],
+    },
+    "Healthcare": {
+        "keywords": ["drug", "clinical trial", "FDA", "biotech", "therapeutic", "pipeline", "pharma"],
+        "1st_order": [
+            "pharmaceutical manufacturer", "biotech company",
+            "drug developer", "CRO", "specialty pharma", "medical devices",
+            "diagnostics", "hospital system",
+        ],
+        "2nd_order": [
+            "health IT", "EHR vendor", "lab equipment maker",
+            "cold chain logistics", "clinical data management", "health insurer",
+        ],
+        "exclude": ["consumer goods", "technology", "finance", "retail", "entertainment"],
+        "target_roles": ["Chief Medical Officer", "VP Clinical", "Head of R&D", "CTO"],
+    },
+    "Technology": {
+        "keywords": ["SaaS", "cloud", "AI", "startup", "software", "semiconductor", "tech company", "data center"],
+        "1st_order": [
+            "cloud infrastructure", "enterprise SaaS", "AI/ML platform",
+            "developer tools", "data analytics", "IT services", "semiconductors",
+        ],
+        "2nd_order": [
+            "system integrators", "IT consulting", "resellers", "managed services",
+        ],
+        "exclude": ["pharma", "food", "fashion", "entertainment", "cricket", "sports", "election", "politics", "government formation", "military", "war", "celebrity"],
+        "target_roles": ["CTO", "VP Engineering", "Head of Infrastructure", "CDO"],
+    },
+    "Manufacturing": {
+        "keywords": ["industrial", "automation", "supply chain", "ERP", "factory", "OEM", "precision"],
+        "1st_order": [
+            "industrial automation", "automotive OEM", "aerospace & defense",
+            "chemicals", "precision engineering", "contract manufacturing",
+        ],
+        "2nd_order": [
+            "industrial software", "supply chain software", "quality management",
+            "MES vendor", "predictive maintenance",
+        ],
+        "exclude": ["fintech", "healthcare software", "gaming", "media"],
+        "target_roles": ["COO", "VP Operations", "Head of Manufacturing", "CTO"],
+    },
+    "Energy": {
+        "keywords": ["renewable", "solar", "EV", "battery", "grid", "oil", "gas", "power"],
+        "1st_order": [
+            "oil & gas", "renewables", "solar developer", "wind developer",
+            "EV manufacturer", "battery maker", "power grid operator",
+        ],
+        "2nd_order": [
+            "energy management software", "grid analytics", "energy trading",
+            "SCADA vendor", "smart meter maker",
+        ],
+        "exclude": ["fintech", "pharma", "gaming", "fashion"],
+        "target_roles": ["CEO", "Head of Digital", "CTO", "VP Sustainability"],
+    },
+    "Retail & E-commerce": {
+        "keywords": ["marketplace", "D2C", "quick commerce", "FMCG", "omnichannel", "loyalty"],
+        "1st_order": [
+            "D2C brand", "marketplace", "quick commerce", "grocery chain",
+            "fashion retailer", "luxury brand",
+        ],
+        "2nd_order": [
+            "retail analytics", "loyalty platform", "POS vendor",
+            "inventory management", "e-commerce platform",
+        ],
+        "exclude": ["fintech", "pharma", "defense", "industrial"],
+        "target_roles": ["CMO", "VP Digital", "Head of E-commerce", "CTO"],
+    },
+    "Logistics & Supply Chain": {
+        "keywords": ["freight", "warehouse", "3PL", "last-mile", "supply chain", "logistics"],
+        "1st_order": [
+            "freight broker", "3PL", "last-mile delivery", "warehousing",
+            "ocean freight", "air cargo",
+        ],
+        "2nd_order": [
+            "TMS vendor", "WMS vendor", "supply chain visibility platform",
+            "cold chain software", "customs compliance",
+        ],
+        "exclude": ["healthcare", "fintech", "gaming"],
+        "target_roles": ["COO", "VP Supply Chain", "Head of Logistics", "CTO"],
+    },
+    "Education": {
+        "keywords": ["edtech", "e-learning", "LMS", "upskilling", "corporate training", "MOOCs"],
+        "1st_order": [
+            "edtech platform", "LMS vendor", "online university",
+            "corporate training provider", "coding bootcamp",
+        ],
+        "2nd_order": [
+            "education analytics", "student information systems",
+            "content platform", "assessment software",
+        ],
+        "exclude": ["pharma", "defense", "fintech"],
+        "target_roles": ["CHRO", "VP Learning", "Head of L&D", "CTO"],
+    },
+    "Real Estate": {
+        "keywords": ["proptech", "commercial real estate", "REIT", "co-working", "smart building"],
+        "1st_order": [
+            "commercial real estate", "residential developer",
+            "REIT", "co-working operator", "property management",
+        ],
+        "2nd_order": [
+            "proptech platform", "smart building software", "facility management",
+            "real estate analytics", "construction tech",
+        ],
+        "exclude": ["pharma", "fintech", "gaming"],
+        "target_roles": ["COO", "Head of Technology", "VP Digital", "CTO"],
+    },
+}
+
+# Derived lookups
+_KEYWORD_TO_INDUSTRY: Dict[str, str] = {}
+for _ind, _cfg in INDUSTRY_TAXONOMY.items():
+    for _kw in _cfg.get("keywords", []):
+        _KEYWORD_TO_INDUSTRY[_kw.lower()] = _ind
+
+# L1 → L2 sub-industry list (derived from rich taxonomy)
+_L1_TO_L2: Dict[str, List[str]] = {
+    ind: cfg.get("1st_order", []) for ind, cfg in INDUSTRY_TAXONOMY.items()
+}
+
+# L2 → L1 reverse lookup
+_L2_TO_L1: Dict[str, str] = {}
+for _l1, _l2_list in _L1_TO_L2.items():
+    for _l2 in _l2_list:
+        _L2_TO_L1[_l2.lower()] = _l1
+
+
+def get_industry_keywords(industry: str) -> Set[str]:
+    """Get all search keywords for an industry."""
+    cfg = INDUSTRY_TAXONOMY.get(industry, {})
+    return set(kw.lower() for kw in cfg.get("keywords", [industry.lower()]))
+
+
+def parse_industry(industry_str: str) -> tuple:
+    """Parse 'Healthcare > Pharmaceuticals' → ('Healthcare', 'Pharmaceuticals').
+
+    Also handles single-level: 'Healthcare' → ('Healthcare', '').
+    """
+    if ">" in industry_str:
+        parts = [p.strip() for p in industry_str.split(">", 1)]
+        return parts[0], parts[1] if len(parts) > 1 else ""
+    return industry_str.strip(), ""
+
+
+def get_l2_industries(l1: str) -> List[str]:
+    """Get all L2 sub-industries for an L1 parent."""
+    return list(_L1_TO_L2.get(l1, []))
+
+
+def get_l1_for_l2(l2: str) -> Optional[str]:
+    """Reverse lookup: find L1 parent for an L2 industry."""
+    return _L2_TO_L1.get(l2.lower())
+
+
+def classify_industry_by_keyword(text: str) -> Optional[str]:
+    """Quick keyword-based industry classification (no LLM).
+    Returns None if ambiguous — use LLM for those.
+    """
+    text_lower = text.lower()
+    matches = [ind for kw, ind in _KEYWORD_TO_INDUSTRY.items() if kw in text_lower]
+    if len(set(matches)) == 1:
+        return matches[0]
+    return None
+
+
+def get_target_roles(industry: str) -> List[str]:
+    """Get the target buyer roles for an industry."""
+    return INDUSTRY_TAXONOMY.get(industry, {}).get("target_roles", ["CEO", "CTO", "COO"])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B2B EVENT TYPES
+# ══════════════════════════════════════════════════════════════════════════════
+
+B2B_EVENT_TYPES: Set[str] = {
+    "regulation", "policy", "funding", "market", "acquisition", "merger",
+    "partnership", "expansion", "layoffs", "hiring", "product_launch",
+    "ipo", "bankruptcy", "technology", "supply_chain", "price_change",
+    "earnings", "market_movement", "infrastructure", "geopolitical",
+    "sustainability", "crisis", "leadership_change", "restructuring",
+}
+
+NON_B2B_EVENT_TYPES: Set[str] = {
+    "entertainment", "sports", "celebrity", "lifestyle", "food",
+    "travel", "fashion", "gossip",
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CLUSTERING PARAMETERS (all are starting priors — learned dynamically)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class ClusteringParams:
+    """Algorithm parameters. Adapted by ThresholdAdapterAgent via EMA (α=0.1).
+
+    All threshold fields correspond to entries in data/adaptive_thresholds.json.
+    On startup: load from JSON if exists, else use these defaults.
+    """
+
+    # ── Dedup (math gate 1) ──────────────────────────────────────────────────
+    # Manber & Wu 1994: 0.85 is correct for title-only near-duplicate detection.
+    # Our old value of 0.35 was for semantic similarity, not dedup.
+    dedup_title_threshold: float = 0.85
+    dedup_body_threshold: float = 0.70
+
+    # ── Relevance Filter (math gate 2) ───────────────────────────────────────
+    # NLI zero-shot classification thresholds (replaces Dunietz & Gillick salience)
+    # Research: Yin et al. (2019) arXiv:1909.00161 — NLI for zero-shot text classification
+    # Model: cross-encoder/nli-deberta-v3-small, entailment scores in [0,1]
+    nli_auto_accept: float = 0.55       # entailment >= this → keep (no LLM)
+    nli_auto_reject: float = 0.05       # entailment <= this → drop (no LLM)
+    # 0.05-0.55 → LLM batch classify (ambiguous semantic zone)
+    # Why 0.05 not 0.20: clear noise (cricket=0.006, war=0.002) stays auto-rejected.
+    # Edge-case B2B (product launch=0.058, fintech M&A=0.138) reaches LLM fallback.
+    # Tested on 13-article benchmark: H1 hypothesis + 0.05 threshold = 5/5 noise rejected,
+    # 6/7 B2B passed (Reliance Jio platform goes to LLM which correctly accepts it).
+    filter_gap4_days: int = 5           # Drop company if 0 articles in N days
+    # Legacy salience thresholds (kept for backwards compat with adaptive_thresholds.json)
+    filter_auto_accept: float = 0.30
+    filter_auto_reject: float = 0.05
+
+    # ── NER / Entity extraction (math gate 3) ────────────────────────────────
+    fuzzy_merge_threshold: float = 85.0      # rapidfuzz token_sort_ratio
+    gliner_accept_threshold: float = 0.65
+    gliner_reject_threshold: float = 0.30
+    pos_propn_min_ratio: float = 0.50        # ≥50% tokens must be PROPN
+    containment_overlap_min: float = 0.30    # For single-word suffix containment guard
+
+    # ── Similarity matrix (math gate 4) ──────────────────────────────────────
+    # Starting priors for signal weights — adapted by WeightLearnerAgent
+    sim_weight_semantic: float = 0.35
+    sim_weight_entity: float = 0.25
+    sim_weight_lexical: float = 0.05
+    sim_weight_event: float = 0.10
+    sim_weight_temporal: float = 0.10
+    sim_weight_source: float = 0.15
+    # Temporal decay — dual-sigma Gaussian (max of short + long)
+    temporal_sigma_short: float = 8.0       # σ=8h for breaking news
+    temporal_sigma_long: float = 72.0       # σ=72h for ongoing coverage
+    # Same-source penalty (strong: forces cross-source clustering)
+    same_source_penalty: float = 0.3
+
+    # ── HAC (math gate 5, entity groups ≤ 50 articles) ───────────────────────
+    hac_linkage: str = "average"
+    hac_k_min: int = 5
+    hac_k_max_ratio: float = 0.33          # k_max = n_articles // 3
+    hac_cophenetic_min: float = 0.70
+    hac_outlier_silhouette: float = -0.1
+    hac_max_articles: int = 50
+    hac_min_articles: int = 5
+    hac_min_cluster_size: int = 3
+    # Singleton penalty in silhouette sweep (FANATIC/EMNLP 2021)
+    hac_singleton_penalty_factor: float = 0.5  # (singletons/n) * this
+    # Distance threshold sweep range for dendrogram cut
+    hac_threshold_min: float = 0.30        # Cosine distance min (lower = tighter clusters)
+    hac_threshold_max: float = 0.65        # Cosine distance max (higher = looser clusters)
+    hac_threshold_step: float = 0.05       # Step size for silhouette sweep in small groups
+
+    # ── HDBSCAN soft (math gate 5, entity groups > 50 articles) ─────────────
+    # Campello et al. 2013: soft membership vectors (NOT nearest-centroid)
+    hdbscan_min_cluster_size: int = 5
+    hdbscan_min_samples: int = 3
+    hdbscan_soft_noise_threshold: float = 0.10  # max(soft[i]) < this → true noise
+    hdbscan_use_blended_similarity: bool = True
+
+    # ── Leiden (discovery mode — ungrouped articles) ──────────────────────────
+    leiden_k: int = 20
+    leiden_resolution: float = 1.0
+    leiden_optuna_trials: int = 15
+    leiden_optuna_timeout: int = 30
+
+    # ── Cluster validation (math gate 6) ─────────────────────────────────────
+    val_min_articles: int = 2
+    val_min_sources: int = 2
+    val_coherence_min: float = 0.40         # Mean pairwise cosine
+    val_separation_margin: float = 0.10     # intra > inter + this
+    val_entity_consistency_min: float = 0.60
+    val_temporal_window_hours: float = 720.0  # 30 days max
+    val_duplicate_threshold: float = 0.85
+    val_composite_reject: float = 0.50
+
+    # ── Synthesis (math gate 7) ───────────────────────────────────────────────
+    synthesis_max_retries: int = 3          # Reflexion retry limit
+    synthesis_representative_k: int = 5    # Articles to include in LLM prompt
+    synthesis_label_min_words: int = 3
+    synthesis_label_max_words: int = 8
+
+    # ── Match engine (math gate 8) ────────────────────────────────────────────
+    match_keyword_weight: float = 0.50
+    match_semantic_weight: float = 0.30
+    match_industry_weight: float = 0.20
+
+    # ── Noise reassignment ────────────────────────────────────────────────────
+    noise_reassign_enabled: bool = True
+    noise_reassign_min_similarity: float = 0.45
+
+    # ── Post-clustering source diversity ──────────────────────────────────────
+    enforce_source_diversity: bool = True
+    min_sources_per_cluster: int = 2
+    source_merge_min_similarity: float = 0.4
+
+    # ── Entity weights (for entity signal in similarity matrix) ──────────────
+    entity_weight_org: float = 4.0
+    entity_weight_person: float = 1.3
+    entity_weight_product: float = 2.0
+    entity_weight_gpe: float = 4.0
+
+    # ── AutoResearch: query expansion + critic ─────────────────────────
+    enable_query_expansion: bool = True  # LLM generates extra search queries
+    enable_critic: bool = True           # LLM validates cluster quality
+
+
+DEFAULT_PARAMS = ClusteringParams()
+
+
+def load_adaptive_params() -> ClusteringParams:
+    """Load params from data/adaptive_thresholds.json (EMA-adapted values).
+
+    Falls back to DEFAULT_PARAMS if file doesn't exist.
+    Called at pipeline start — ensures each run uses learned thresholds.
+    """
+    import json
+    import os
+
+    path = os.path.join("data", "adaptive_thresholds.json")
+    if not os.path.exists(path):
+        return DEFAULT_PARAMS
+
+    try:
+        with open(path) as f:
+            stored = json.load(f)
+        params = ClusteringParams()
+        for key, value in stored.items():
+            if hasattr(params, key):
+                setattr(params, key, value)
+        return params
+    except Exception:
+        return DEFAULT_PARAMS
