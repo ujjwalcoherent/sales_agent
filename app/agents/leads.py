@@ -275,15 +275,19 @@ async def _build_companies_from_leads(
 
             domain = await _resolve_domain(name, mock_mode=deps.mock_mode)
             cid = hashlib.md5(name.lower().encode()).hexdigest()[:12]
-            seen[name] = CompanyData(
-                id=cid,
-                company_name=name,
-                industry=lead.event_type or "general",
-                domain=domain,
-                website=f"https://{domain}" if domain else "",
-                reason_relevant=lead.pain_point or lead.trend_title,
-                trend_id=str(lead.trend_title),
-            )
+            try:
+                seen[name] = CompanyData(
+                    id=cid,
+                    company_name=name,
+                    industry=lead.event_type or "general",
+                    domain=domain,
+                    website=f"https://{domain}" if domain else "",
+                    reason_relevant=lead.pain_point or lead.trend_title,
+                    trend_id=str(lead.trend_title),
+                )
+            except Exception as e:
+                logger.debug(f"CompanyData validation failed for '{name}': {e}")
+                return
             if domain:
                 logger.info(f"  Resolved domain: {name} → {domain}")
             else:
@@ -292,11 +296,14 @@ async def _build_companies_from_leads(
     tasks = []
     for lead in lead_sheets:
         name = lead.company_name
-        if name and not name.startswith("[") and name not in seen:
+        # Skip placeholders and segment descriptions (not real company names)
+        if not name or name.startswith("[") or len(name) > 100:
+            continue
+        if name not in seen:
             tasks.append(_build_one(name, lead))
 
     if tasks:
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     companies = list(seen.values())
     to_enrich = [c for c in companies if not c.description and not getattr(c, "wikidata_id", "")]
@@ -328,7 +335,10 @@ async def _build_companies_from_leads(
                     except Exception as e:
                         logger.debug(f"Enrichment failed for {c.company_name}: {e}")
 
-            await asyncio.gather(*[_do_enrich(c) for c in to_enrich], return_exceptions=True)
+            results = await asyncio.gather(*[_do_enrich(c) for c in to_enrich], return_exceptions=True)
+            err_count = sum(1 for r in results if isinstance(r, Exception))
+            if err_count:
+                logger.debug(f"Enrichment: {err_count}/{len(to_enrich)} companies had errors")
             enriched_count = sum(1 for c in to_enrich if c.description)
             logger.info(f"  Enriched {enriched_count}/{len(to_enrich)} companies via company_enricher")
         except Exception as e:
@@ -426,7 +436,7 @@ async def run_lead_gen(deps: AgentDeps) -> tuple:
     try:
         companies = await asyncio.wait_for(
             _build_companies_from_leads(deps, lead_sheets),
-            timeout=120.0,
+            timeout=300.0,
         )
         deps._companies = companies
         with_domain = sum(1 for c in companies if c.domain)
