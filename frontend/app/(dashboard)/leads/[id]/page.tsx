@@ -474,10 +474,10 @@ function BriefingTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: 
         )}
 
         {/* News — fully clickable rows */}
-        {lead.company_news?.length > 0 && (
+        {(lead.company_news?.length ?? 0) > 0 && (
           <Section title="RECENT NEWS" icon={Newspaper} accent="var(--text-muted)">
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {lead.company_news.map((news, i) =>
+              {lead.company_news?.map((news, i) =>
                 news.url ? (
                   <a key={i} href={news.url} target="_blank" rel="noopener noreferrer"
                     style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: 8, textDecoration: "none", background: "var(--bg)", border: "1px solid transparent", transition: "border-color 150ms, background 150ms" }}
@@ -487,7 +487,7 @@ function BriefingTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: 
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent-mid)", flexShrink: 0, marginTop: 5 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{news.title}</div>
-                      {news.date && <div style={{ fontSize: 10, color: "var(--text-xmuted)", marginTop: 3 }}>{news.date}</div>}
+                      {news.published_at && <div style={{ fontSize: 10, color: "var(--text-xmuted)", marginTop: 3 }}>{news.published_at}</div>}
                     </div>
                     <ChevronRight size={12} style={{ color: "var(--text-xmuted)", flexShrink: 0, marginTop: 3 }} />
                   </a>
@@ -496,7 +496,7 @@ function BriefingTab({ lead, matchedTrend }: { lead: LeadRecord; matchedTrend?: 
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--border-strong)", flexShrink: 0, marginTop: 5 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{news.title}</div>
-                      {news.date && <div style={{ fontSize: 10, color: "var(--text-xmuted)", marginTop: 3 }}>{news.date}</div>}
+                      {news.published_at && <div style={{ fontSize: 10, color: "var(--text-xmuted)", marginTop: 3 }}>{news.published_at}</div>}
                     </div>
                   </div>
                 )

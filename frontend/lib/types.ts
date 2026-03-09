@@ -88,9 +88,10 @@ export interface LeadRecord {
   confidence: number;
   oss_score: number;
   data_sources: string[];
-  company_news: { title: string; url: string; date?: string }[];
+  company_news?: Array<{ title: string; summary: string; url: string; source_name: string; published_at: string }>;
   // People extraction (tiered contacts with per-person outreach)
   people?: PersonRecord[];
+  validation?: LeadValidation;
 }
 
 // ── Email sending ────────────────────────────
@@ -497,4 +498,108 @@ export interface CampaignStreamEvent {
   total_contacts?: number;
   total_outreach?: number;
   error?: string;
+}
+
+// ─── User Profiles ──────────────────────────────────────────────────────────
+
+export interface ProductEntry {
+  name: string
+  value_prop: string
+  case_studies: string[]
+  target_roles: string[]
+  relevant_event_types: string[]
+}
+
+export interface IndustryTarget {
+  industry_id: string
+  display_name: string
+  order: "1st" | "2nd" | "both"
+  first_order_description: string
+  second_order_description: string
+  use_builtin: boolean
+}
+
+export interface ContactHierarchyEntry {
+  event_type: string
+  company_size: string
+  role_priority: string[]
+}
+
+export interface EmailConfig {
+  from_name: string
+  from_email: string
+}
+
+export interface UserProfile {
+  profile_id: string
+  user_name: string
+  own_company: string
+  region: string
+  own_products: ProductEntry[]
+  target_industries: IndustryTarget[]
+  account_list: string[]
+  report_title: string
+  report_summary: string
+  contact_hierarchy: ContactHierarchyEntry[]
+  min_lead_score: number
+  email_config: EmailConfig
+  path_preference: "auto" | "industry_first" | "company_first" | "report_driven"
+  total_runs: number
+  total_emails_sent: number
+  total_replies: number
+}
+
+export interface ProfileListResponse {
+  profiles: UserProfile[]
+  total: number
+}
+
+export type CreateProfileRequest = Omit<UserProfile, "profile_id" | "total_runs" | "total_emails_sent" | "total_replies">
+
+// ─── Impact Council ──────────────────────────────────────────────────────────
+
+export interface ServiceRecommendation {
+  service_name: string
+  offering: string
+  justification: string
+  urgency: string
+}
+
+export interface CouncilPerspective {
+  agent_role: string
+  analysis: string
+  key_findings: string[]
+  affected_company_types: string[]
+  recommended_services: string[]
+  confidence: number
+  evidence_citations: string[]
+}
+
+export interface ImpactCouncilResult {
+  perspectives: CouncilPerspective[]
+  consensus_reasoning: string
+  debate_summary: string
+  detailed_reasoning: string
+  pitch_angle: string
+  service_recommendations: ServiceRecommendation[]
+  evidence_citations: string[]
+  overall_confidence: number
+  affected_sectors: string[]
+  affected_company_types: string[]
+  pain_points: string[]
+  business_opportunities: string[]
+  target_roles: string[]
+}
+
+// ─── Lead Validation ─────────────────────────────────────────────────────────
+
+export interface LeadValidation {
+  company_name: string
+  trend_title: string
+  relevance_score: number
+  is_relevant: boolean
+  reasoning: string
+  improved_pitch: string
+  recommended_service: string
+  recommended_offering: string
 }
