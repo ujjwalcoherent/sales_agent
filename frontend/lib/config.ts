@@ -4,6 +4,7 @@ import {
   Users,
   Building2,
   Crosshair,
+  UserCircle,
   Brain,
   History,
 } from "lucide-react";
@@ -17,6 +18,7 @@ export const NAV_ITEMS = [
   { id: "leads",      label: "Leads",      href: "/leads",      icon: Users },
   { id: "companies",  label: "Companies",  href: "/companies",  icon: Building2 },
   { id: "campaigns",  label: "Campaigns",  href: "/campaigns",  icon: Crosshair },
+  { id: "profiles",   label: "Profiles",   href: "/profiles",   icon: UserCircle },
   { id: "learning",   label: "Learning",   href: "/learning",   icon: Brain },
   { id: "history",    label: "History",     href: "/history",    icon: History },
 ] as const;
