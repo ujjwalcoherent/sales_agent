@@ -14,6 +14,7 @@ Tools:
 """
 
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -204,6 +205,12 @@ async def scrape_and_embed_articles(ctx: RunContext[AgentDeps]) -> str:
             max_concurrent=settings.scrape_max_concurrent,
             max_articles=settings.scrape_max_articles,
         )
+        # Backfill empty summaries from scraped content (Yahoo Finance, GDELT have no RSS summaries)
+        for _a in articles:
+            if not _a.summary.strip() or _a.summary == _a.title:
+                if _a.content:
+                    _sentences = re.split(r'(?<=[.!?])\s+', _a.content.strip())
+                    _a.summary = " ".join(_sentences[:3])[:500]
 
     char_limit = settings.summary_max_chars
     texts = []
@@ -352,6 +359,12 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
         if cfg.scrape_enabled:
             from app.tools.web.content_scraper import scrape_articles
             await scrape_articles(articles, max_concurrent=cfg.scrape_max_concurrent, max_articles=cfg.scrape_max_articles)
+            # Backfill empty summaries from scraped content (Yahoo Finance, GDELT have no RSS summaries)
+            for _a in articles:
+                if not _a.summary.strip() or _a.summary == _a.title:
+                    if _a.content:
+                        _sentences = re.split(r'(?<=[.!?])\s+', _a.content.strip())
+                        _a.summary = " ".join(_sentences[:3])[:500]
         texts = [f"{a.title} {a.content or a.summary or ''}"[:cfg.summary_max_chars] for a in articles]
         embeddings = deps.embedding_tool.embed_batch(texts)
         deps._embeddings = embeddings
