@@ -173,6 +173,46 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
             </DetailSection>
           )}
 
+          {/* Lead Validation */}
+          {lead.validation && (
+            <div style={{ padding: "0 16px 0", marginBottom: "0" }}>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "0" }}>
+                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: "0.5rem", paddingTop: "10px" }}>
+                  Lead Validation
+                </div>
+                <div style={{ background: "var(--surface-raised)", borderRadius: 8, padding: "0.75rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                    <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", minWidth: 90 }}>Relevance</span>
+                    <div style={{ flex: 1, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{
+                        width: `${Math.round((lead.validation.relevance_score ?? 0) * 100)}%`,
+                        height: "100%", borderRadius: 3,
+                        background: (lead.validation.relevance_score ?? 0) > 0.7 ? "#22c55e" : (lead.validation.relevance_score ?? 0) > 0.4 ? "#f59e0b" : "#ef4444"
+                      }} />
+                    </div>
+                    <span style={{ fontSize: "0.78rem", color: "var(--text)", fontWeight: 600 }}>
+                      {Math.round((lead.validation.relevance_score ?? 0) * 100)}%
+                    </span>
+                  </div>
+                  {lead.validation.recommended_service && (
+                    <div style={{ marginBottom: "0.4rem", fontSize: "0.8rem" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Recommended: </span>
+                      <span style={{ color: "var(--text)", fontWeight: 500 }}>{lead.validation.recommended_service}</span>
+                      {lead.validation.recommended_offering && (
+                        <span style={{ color: "var(--text-muted)" }}> — {lead.validation.recommended_offering}</span>
+                      )}
+                    </div>
+                  )}
+                  {lead.validation.reasoning && (
+                    <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
+                      {lead.validation.reasoning}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Contact info */}
           {(lead.contact_name || lead.contact_email) && (
             <DetailSection label="CONTACT" icon={User}>
@@ -198,6 +238,46 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
                     <ExternalLink size={10} /> LinkedIn
                   </a>
                 )}
+              </div>
+            </DetailSection>
+          )}
+
+          {/* People (tiered contacts with verified badge + reach score) */}
+          {lead.people && lead.people.length > 0 && (
+            <DetailSection label={`CONTACTS (${lead.people.length})`} icon={User}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {lead.people.map((person, i) => (
+                  <div key={i} style={{ background: "var(--surface-raised)", borderRadius: 7, padding: "8px 10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", marginBottom: 3 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{person.person_name}</span>
+                      {person.verified && (
+                        <span style={{ fontSize: "0.65rem", color: "#22c55e", background: "#22c55e22",
+                          padding: "1px 5px", borderRadius: 3, fontWeight: 600, marginLeft: 6 }}>✓ Verified</span>
+                      )}
+                      {person.reach_score != null && (
+                        <span style={{ color: "var(--text-muted)", fontSize: "0.72rem", marginLeft: 8 }}>
+                          Reach: {"★".repeat(Math.min(Math.round((person.reach_score ?? 0) * 5), 5))}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: person.email ? 4 : 0 }}>{person.role}</div>
+                    {person.email && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <Mail size={11} style={{ color: "var(--text-muted)" }} />
+                        <a href={`mailto:${person.email}`} style={{ fontSize: 12, color: "var(--blue)" }}>{person.email}</a>
+                        {person.email_confidence > 0 && (
+                          <span className="badge badge-muted" style={{ fontSize: 9 }}>{Math.round(person.email_confidence * 100)}%</span>
+                        )}
+                      </div>
+                    )}
+                    {person.linkedin_url && (
+                      <a href={person.linkedin_url} target="_blank" rel="noopener noreferrer"
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--blue)", marginTop: 3 }}>
+                        <ExternalLink size={10} /> LinkedIn
+                      </a>
+                    )}
+                  </div>
+                ))}
               </div>
             </DetailSection>
           )}
@@ -250,6 +330,31 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
 
           {/* Source articles from parent trend */}
           <PanelSourceArticles trendTitle={lead.trend_title} trends={trends} />
+
+          {/* Company News */}
+          {lead.company_news && lead.company_news.length > 0 && (
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+                Company News ({lead.company_news.length})
+              </div>
+              {lead.company_news.slice(0, 4).map((article, i) => (
+                <div key={i} style={{ borderLeft: "2px solid var(--border-strong)", paddingLeft: "0.75rem", marginBottom: "0.6rem" }}>
+                  <a href={article.url} target="_blank" rel="noopener noreferrer"
+                    style={{ color: "var(--text)", fontSize: "0.8rem", textDecoration: "none", fontWeight: 500, display: "block" }}>
+                    {article.title}
+                  </a>
+                  {article.summary && (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", margin: "0.2rem 0 0", lineHeight: 1.4 }}>
+                      {article.summary.slice(0, 150)}…
+                    </p>
+                  )}
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.68rem" }}>
+                    {article.source_name}{article.published_at ? ` · ${new Date(article.published_at).toLocaleDateString()}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Data sources */}
           {lead.data_sources.length > 0 && (
