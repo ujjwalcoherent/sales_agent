@@ -609,35 +609,6 @@ function OverviewEnrichment({ company, inline }: { company: SavedCompany; inline
           ))}
         </div>
 
-        {/* Key People — removed, now rendered as its own full-width section in OverviewTab */}
-        {false && keyPeople.length > 0 && (
-          <div style={{ marginTop: sections.length > 0 || hasFinancials ? 14 : 0 }}>
-            <div style={{ fontSize: 9, color: "var(--text-xmuted)", fontWeight: 600, letterSpacing: "0.04em", marginBottom: 8 }}>KEY PEOPLE</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {keyPeople.map((p, i) => {
-                const name = typeof p === "string" ? p : p.name;
-                const role = typeof p === "string" ? "" : (p.role || p.title || "");
-                const linkedin = typeof p === "string" ? "" : (p.linkedin_url || "");
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: "var(--surface-raised)", borderRadius: 7, border: "1px solid var(--border)" }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent-light)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                      {name[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-                      {role && <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>{role}</div>}
-                    </div>
-                    {linkedin && (
-                      <a href={linkedin} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, color: "var(--blue)", opacity: 0.7 }} title="LinkedIn">
-                        <Linkedin size={13} />
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {company.validation_source && (
           <div style={{ marginTop: 10, fontSize: 9, color: "var(--text-xmuted)" }}>
