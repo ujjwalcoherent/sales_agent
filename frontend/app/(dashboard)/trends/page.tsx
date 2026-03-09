@@ -331,6 +331,75 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
         </TrendSection>
       )}
 
+      {/* ── COUNCIL ANALYSIS ── */}
+      {trend.council_confidence != null && trend.council_confidence > 0 && (
+        <TrendSection label="COUNCIL ANALYSIS">
+          {/* Confidence meter */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", minWidth: 80 }}>Confidence</span>
+            <div style={{ flex: 1, height: 8, background: "var(--surface-raised)", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{
+                width: `${Math.round(trend.council_confidence * 100)}%`,
+                height: "100%", borderRadius: 4,
+                background: trend.council_confidence > 0.7 ? "#22c55e" : trend.council_confidence > 0.4 ? "#f59e0b" : "#ef4444"
+              }} />
+            </div>
+            <span style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.875rem" }}>
+              {Math.round(trend.council_confidence * 100)}%
+            </span>
+          </div>
+          {/* Pain points */}
+          {trend.midsize_pain_points?.length > 0 && (
+            <div style={{ marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.4rem" }}>Pain Points</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                {trend.midsize_pain_points.map((p: string, i: number) => (
+                  <span key={i} style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: 4, background: "#ef444422", color: "#ef4444" }}>{p}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Target roles */}
+          {trend.target_roles?.length > 0 && (
+            <div>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.4rem" }}>Decision-Makers to Target</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                {trend.target_roles.map((r: string, i: number) => (
+                  <span key={i} style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: 4, background: "#3b82f622", color: "#3b82f6" }}>{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </TrendSection>
+      )}
+
+      {/* ── BUYING INTENT SIGNALS ── */}
+      {trend.buying_intent && Object.keys(trend.buying_intent).length > 0 && (
+        <TrendSection label="BUYING INTENT SIGNALS">
+          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "4px 12px" }}>
+            {Object.entries(trend.buying_intent).map(([k, v]) => (
+              <div key={k} style={{ display: "contents" }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "capitalize" }}>{k.replace(/_/g, " ")}</span>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </TrendSection>
+      )}
+
+      {/* ── EVIDENCE CITATIONS ── */}
+      {trend.evidence_citations?.length > 0 && (
+        <TrendSection label={`EVIDENCE (${trend.evidence_citations.length})`} icon={<Quote size={11} style={{ color: "var(--text-xmuted)" }} />}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {trend.evidence_citations.slice(0, 5).map((cite, i) => (
+              <div key={i} style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0.35rem 0", borderBottom: "1px solid var(--border)" }}>
+                • {cite}
+              </div>
+            ))}
+          </div>
+        </TrendSection>
+      )}
+
       {/* ── PAIN POINTS ── */}
       {trend.midsize_pain_points?.length > 0 && (
         <TrendSection label="MID-SIZE COMPANY PAIN POINTS" icon={<AlertTriangle size={11} style={{ color: "var(--amber)" }} />}>
