@@ -108,10 +108,14 @@ async def run_market_impact(deps: AgentDeps) -> tuple:
 
     agent_result = None
     try:
+        from pydantic_ai import UsageLimits
         from app.tools.llm.providers import ProviderManager
         await ProviderManager.acquire_gcp_rate_limit()
         model = deps.get_model()
-        result = await impact_agent.run(prompt, deps=deps, model=model)
+        result = await impact_agent.run(
+            prompt, deps=deps, model=model,
+            usage_limits=UsageLimits(request_limit=15),
+        )
         logger.info(f"Impact: {len(deps._impacts)} impacts analyzed")
         agent_result = result.output
     except Exception as e:

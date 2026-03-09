@@ -194,9 +194,10 @@ Produce a complete CausalChainResult with {max_hops} hops and full reasoning."""
 async def _try_agent_run(agent, prompt, deps, trend_title) -> Optional[CausalChainResult]:
     """Run pydantic-ai agent, returning None on failure."""
     try:
+        from pydantic_ai import UsageLimits
         from app.tools.llm.providers import ProviderManager
         await ProviderManager.acquire_gcp_rate_limit()
-        result = await agent.run(prompt, deps=deps)
+        result = await agent.run(prompt, deps=deps, usage_limits=UsageLimits(request_limit=200))
         chain = result.output
         logger.info(f"Causal council: '{trend_title[:50]}' → {len(chain.hops)} hops")
         return chain

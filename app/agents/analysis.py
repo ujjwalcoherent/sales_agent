@@ -70,6 +70,18 @@ async def run_trend_pipeline(
         coherence_min: Min coherence to keep a cluster (0.35-0.55) — adaptive.
         merge_threshold: Threshold for merging similar clusters — adaptive.
     """
+    # Guard: never re-run the full pipeline in one session — it takes 10-15 minutes.
+    # If already ran this run, return the cached result so the agent can evaluate and
+    # produce its structured output without triggering a second 10-minute execution.
+    existing = getattr(ctx.deps, "_intelligence_result", None)
+    if existing is not None:
+        return (
+            f"Pipeline already ran this session: {existing.total_clusters} clusters, "
+            f"noise={existing.noise_rate:.2f}, "
+            f"coherence={existing.mean_coherence:.2f}. "
+            f"Use evaluate_cluster_quality to review and proceed to output."
+        )
+
     settings = get_settings()
 
     from app.intelligence.pipeline import execute as intelligence_execute

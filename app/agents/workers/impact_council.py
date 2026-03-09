@@ -204,32 +204,38 @@ Analyze all four lenses. Think deeply — FIRST-ORDER then SECOND-ORDER — befo
             prompt=prompt,
             system_prompt=UNIFIED_SYSTEM_PROMPT,
         )
-        if isinstance(raw, dict) and "error" not in raw:
-            # Parse nested service_recommendations from dicts
-            svc_recs_raw = raw.get("service_recommendations", [])
-            if svc_recs_raw and isinstance(svc_recs_raw, list):
-                parsed_recs = []
-                for sr in svc_recs_raw:
-                    if isinstance(sr, dict):
-                        parsed_recs.append(ServiceRecommendationLLM(**{
-                            k: v for k, v in sr.items()
-                            if k in ServiceRecommendationLLM.model_fields
-                        }))
-                raw["service_recommendations"] = parsed_recs
-
-            # Build typed model from raw dict (unknown fields are ignored)
-            result = UnifiedImpactAnalysisLLM(**{
-                k: v for k, v in raw.items()
-                if k in UnifiedImpactAnalysisLLM.model_fields
-            })
-            _log(
-                f"  Council: Unstructured fallback succeeded — "
-                f"{len(result.affected_company_types)} company types, "
-                f"{len(result.pain_points)} pain points"
+        if isinstance(raw, list):
+            # LLM returned a JSON array instead of object — wrong structure entirely
+            raise RuntimeError(
+                f"generate_json returned array ({len(raw)} items) instead of impact object"
             )
-            return _build_council_result(result)
-        else:
-            raise RuntimeError(f"generate_json returned error: {raw.get('error', 'unknown') if isinstance(raw, dict) else raw}")
+        if not isinstance(raw, dict) or "error" in raw:
+            err = raw.get("error", "unknown") if isinstance(raw, dict) else type(raw).__name__
+            raise RuntimeError(f"generate_json returned error: {err}")
+
+        # Parse nested service_recommendations from dicts
+        svc_recs_raw = raw.get("service_recommendations", [])
+        if svc_recs_raw and isinstance(svc_recs_raw, list):
+            parsed_recs = []
+            for sr in svc_recs_raw:
+                if isinstance(sr, dict):
+                    parsed_recs.append(ServiceRecommendationLLM(**{
+                        k: v for k, v in sr.items()
+                        if k in ServiceRecommendationLLM.model_fields
+                    }))
+            raw["service_recommendations"] = parsed_recs
+
+        # Build typed model from raw dict (unknown fields are ignored)
+        result = UnifiedImpactAnalysisLLM(**{
+            k: v for k, v in raw.items()
+            if k in UnifiedImpactAnalysisLLM.model_fields
+        })
+        _log(
+            f"  Council: Unstructured fallback succeeded — "
+            f"{len(result.affected_company_types)} company types, "
+            f"{len(result.pain_points)} pain points"
+        )
+        return _build_council_result(result)
 
     except Exception as e2:
         _log(f"  Council: Both structured and unstructured failed — {e2}", "warning")
