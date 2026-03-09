@@ -437,7 +437,10 @@ export const api = {
 // ─── Profiles ────────────────────────────────────────────────────────────────
 
 export async function listProfiles(): Promise<ProfileListResponse> {
-  return apiFetch("/api/v1/profiles")
+  const data = await apiFetch<UserProfile[] | ProfileListResponse>("/api/v1/profiles")
+  // Backend returns a plain array; normalise to { profiles, total }
+  if (Array.isArray(data)) return { profiles: data, total: data.length }
+  return data as ProfileListResponse
 }
 
 export async function createProfile(data: CreateProfileRequest): Promise<UserProfile> {

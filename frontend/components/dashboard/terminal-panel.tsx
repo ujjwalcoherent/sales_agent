@@ -11,19 +11,10 @@ const MAX_HEIGHT = 480;
 const CLOSE_THRESHOLD = 60; // px below MIN_HEIGHT → snap closed
 
 export function TerminalPanel() {
-  const [open, setOpen] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("harbinger_terminal_open") === "true";
-    }
-    return false;
-  });
-  const [panelHeight, setPanelHeight] = useState(() => {
-    if (typeof window !== "undefined") {
-      const h = parseInt(localStorage.getItem("harbinger_terminal_height") ?? "", 10);
-      return h > 0 ? h : DEFAULT_HEIGHT;
-    }
-    return DEFAULT_HEIGHT;
-  });
+  // Start with defaults — localStorage is read after hydration in useEffect
+  // to avoid SSR/client mismatch that causes React hydration errors.
+  const [open, setOpen] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(DEFAULT_HEIGHT);
   const [willClose, setWillClose] = useState(false);
   const willCloseRef = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
@@ -34,6 +25,13 @@ export function TerminalPanel() {
   const { status, progress, currentStep, messages, result, error, run, reset, forceCancel } = usePipelineContext();
   const [lastMockMode, setLastMockMode] = useState(false);
   const [verbosity, setVerbosity] = useState("standard");
+
+  // Read all persisted preferences after hydration (avoids SSR mismatch)
+  useEffect(() => {
+    const h = parseInt(localStorage.getItem("harbinger_terminal_height") ?? "", 10);
+    if (h > 0) setPanelHeight(h);
+    if (localStorage.getItem("harbinger_terminal_open") === "true") setOpen(true);
+  }, []);
 
   // Read verbosity from localStorage (syncs with Settings page)
   useEffect(() => {

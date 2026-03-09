@@ -307,7 +307,7 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
 
     scope = getattr(deps, "scope", None)
     hours = getattr(scope, "hours", None) or settings.rss_hours_ago
-    region = getattr(scope, "region", None) or settings.region
+    region = getattr(scope, "region", None) or settings.country_code
     companies = getattr(scope, "companies", None) or []
 
     region_desc = f"{region} market" if region else "Indian market"
