@@ -201,6 +201,7 @@ export interface LearningStatus {
   source_bandit: {
     total_arms?: number;
     top_sources?: { source: string; mean: number; pulls: number; alpha?: number; beta?: number }[];
+    arms?: Record<string, { mean?: number; alpha?: number; beta?: number; pulls?: number }>;
   };
   weight_learner: {
     weights?: Record<string, number | Record<string, number>>;
@@ -238,7 +239,7 @@ export interface LearningStatus {
   meta_reasoner?: {
     trace_count?: number;
     hypothesis_count?: number;
-    latest_hypotheses?: string[];
+    latest_hypotheses?: any[];
     last_run?: string;
   };
 }

@@ -252,6 +252,36 @@ function SourceBanditCard({ data }: { data: LearningStatus["source_bandit"] }) {
       ) : (
         <EmptyState>No data yet — run a pipeline first</EmptyState>
       )}
+
+      {/* Source bandit arms — sorted bar chart */}
+      {data.arms && Object.keys(data.arms).length > 0 && (
+        <div style={{ marginTop: "0.75rem" }}>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>
+            Source Quality Ranking (Thompson Sampling posteriors)
+          </div>
+          {(Object.entries(data.arms) as [string, { mean?: number; alpha?: number; beta?: number }][])
+            .sort(([, a], [, b]) => ((b.mean ?? (b.alpha != null ? b.alpha / ((b.alpha || 1) + (b.beta || 1)) : 0)) - (a.mean ?? (a.alpha != null ? a.alpha / ((a.alpha || 1) + (a.beta || 1)) : 0))))
+            .slice(0, 15)
+            .map(([name, arm]) => {
+              const score = arm.mean ?? (arm.alpha != null ? arm.alpha / ((arm.alpha || 1) + (arm.beta || 1)) : 0);
+              return (
+                <div key={name} style={{ marginBottom: "0.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", marginBottom: "0.2rem" }}>
+                    <span style={{ color: "var(--text)", fontFamily: "monospace" }}>{name.replace(/_/g, " ")}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{(score * 100).toFixed(1)}%</span>
+                  </div>
+                  <div style={{ height: 5, background: "var(--surface-raised)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{
+                      width: `${Math.min(score * 100, 100)}%`, height: "100%", borderRadius: 3,
+                      background: score > 0.6 ? "var(--green)" : score > 0.35 ? "var(--accent)" : "var(--red)",
+                      transition: "width 0.3s ease"
+                    }} />
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
     </LoopCard>
   );
 }
@@ -371,6 +401,29 @@ function WeightLearnerCard({ data }: { data: LearningStatus["weight_learner"] })
         </div>
       ) : (
         <EmptyState>No learned weights yet</EmptyState>
+      )}
+
+      {/* Named signal weight bars — 2-column grid */}
+      {data.weights && Object.values(data.weights).some((v) => typeof v === "number") && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.6rem", marginTop: "0.75rem" }}>
+          {Object.entries(data.weights as Record<string, number | Record<string, number>>)
+            .filter(([, w]) => typeof w === "number")
+            .map(([signal, w]) => (
+              <div key={signal} style={{ background: "var(--surface-raised)", borderRadius: 6, padding: "0.5rem 0.75rem" }}>
+                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginBottom: "0.25rem", textTransform: "capitalize" as const }}>
+                  {signal.replace(/_/g, " ")}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <div style={{ flex: 1, height: 4, background: "var(--surface-raised)", borderRadius: 2, overflow: "hidden", border: "1px solid var(--border)" }}>
+                    <div style={{ width: `${Math.min((w as number ?? 0) * 100, 100)}%`, height: "100%", background: "var(--accent)", borderRadius: 2 }} />
+                  </div>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text)", minWidth: 38, textAlign: "right" as const }}>
+                    {(w as number ?? 0).toFixed(3)}
+                  </span>
+                </div>
+              </div>
+            ))}
+        </div>
       )}
     </LoopCard>
   );
@@ -933,6 +986,35 @@ function MetaReasonerCard({ data }: { data: LearningStatus["meta_reasoner"] }) {
                 </div>
               );
             })}
+          </div>
+
+          {/* Collapsible hypothesis traces */}
+          <div style={{ marginTop: "0.75rem" }}>
+            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>
+              Hypothesis History
+            </div>
+            {hypotheses.map((h: any, i: number) => (
+              <details key={i} style={{ marginBottom: "0.4rem", border: "1px solid var(--border)", borderRadius: 6 }}>
+                <summary style={{
+                  padding: "0.45rem 0.75rem", cursor: "pointer", fontSize: "0.78rem",
+                  color: "var(--text)", display: "flex", justifyContent: "space-between",
+                  listStyle: "none", userSelect: "none" as const
+                }}>
+                  <span>v{h.version ?? i + 1} — {h.status ?? "active"}</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>
+                    {h.b2b_mean != null ? `B2B: ${h.b2b_mean.toFixed(3)}` : ""}
+                    {h.noise_mean != null ? ` | Noise: ${h.noise_mean.toFixed(3)}` : ""}
+                  </span>
+                </summary>
+                <div style={{
+                  padding: "0.6rem 0.75rem", borderTop: "1px solid var(--border)",
+                  fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace",
+                  wordBreak: "break-word" as const, lineHeight: 1.5
+                }}>
+                  {typeof h.hypothesis === "string" ? h.hypothesis : JSON.stringify(h, null, 2)}
+                </div>
+              </details>
+            ))}
           </div>
         </div>
       ) : (
