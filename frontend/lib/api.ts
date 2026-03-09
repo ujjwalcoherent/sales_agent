@@ -8,6 +8,18 @@ import type {
   LearningStatus,
   EmailSettings,
   SendEmailResponse,
+  CompanySearchResponse,
+  CompanyNewsResponse,
+  GenerateLeadsResponse,
+  NewsListResponse,
+  FeedbackHistoryResponse,
+  SavedCompany,
+  SavedCompanyListResponse,
+  Campaign,
+  CampaignListResponse,
+  CreateCampaignRequest,
+  CampaignStreamEvent,
+  PersonRecord,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -35,13 +47,20 @@ export const api = {
   },
 
   /** POST /api/v1/pipeline/run — start pipeline, returns run_id */
-  runPipeline(mockMode = false, replayRunId?: string, disabledProviders?: string[]): Promise<RunPipelineResponse> {
+  runPipeline(
+    mockMode = false,
+    replayRunId?: string,
+    disabledProviders?: string[],
+    overrides?: { country?: string; max_trends?: number },
+  ): Promise<RunPipelineResponse> {
     return apiFetch("/api/v1/pipeline/run", {
       method: "POST",
       body: JSON.stringify({
         mock_mode: mockMode,
         ...(replayRunId ? { replay_run_id: replayRunId } : {}),
         ...(disabledProviders?.length ? { disabled_providers: disabledProviders } : {}),
+        ...(overrides?.country ? { country: overrides.country } : {}),
+        ...(overrides?.max_trends ? { max_trends: overrides.max_trends } : {}),
       }),
     });
   },
@@ -92,11 +111,30 @@ export const api = {
     return apiFetch("/api/v1/leads/email/settings");
   },
 
+  /** POST /api/v1/leads/{leadId}/enrich — find contacts + generate outreach */
+  enrichLead(leadId: number): Promise<{
+    success: boolean;
+    contacts_found: number;
+    outreach_generated: number;
+    people: PersonRecord[];
+    error: string;
+  }> {
+    return apiFetch(`/api/v1/leads/${leadId}/enrich`, { method: "POST" });
+  },
+
   /** POST /api/v1/leads/{leadId}/send-email — send outreach email via Brevo */
-  sendEmail(leadId: number, personIndex = 0, dryRun = false): Promise<SendEmailResponse> {
+  sendEmail(leadId: number, personIndex = 0): Promise<SendEmailResponse> {
     return apiFetch(`/api/v1/leads/${leadId}/send-email`, {
       method: "POST",
-      body: JSON.stringify({ person_index: personIndex, dry_run: dryRun }),
+      body: JSON.stringify({ person_index: personIndex }),
+    });
+  },
+
+  /** POST /settings — update runtime settings (all configurable fields) */
+  updateSettings(settings: Record<string, unknown>): Promise<{ updated: Record<string, unknown>; current: Record<string, unknown> }> {
+    return apiFetch("/settings", {
+      method: "POST",
+      body: JSON.stringify(settings),
     });
   },
 
@@ -118,12 +156,96 @@ export const api = {
     });
   },
 
+  /** GET /api/v1/feedback/history — paginated feedback records */
+  getFeedbackHistory(params?: {
+    feedback_type?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<FeedbackHistoryResponse> {
+    const qs = new URLSearchParams();
+    if (params?.feedback_type) qs.set("feedback_type", params.feedback_type);
+    if (params?.page !== undefined) qs.set("page", String(params.page));
+    if (params?.per_page !== undefined) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    return apiFetch(`/api/v1/feedback/history${query ? `?${query}` : ""}`);
+  },
+
+  /** POST /api/v1/pipeline/cancel — force-cancel all active runs */
+  cancelPipeline(): Promise<{ cancelled: number; message: string }> {
+    return apiFetch("/api/v1/pipeline/cancel", { method: "POST" });
+  },
+
+  /** POST /api/v1/companies/search — company or industry search */
+  searchCompanies(query: string): Promise<CompanySearchResponse> {
+    return apiFetch("/api/v1/companies/search", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    });
+  },
+
+  /** POST /api/v1/companies/{companyId}/generate-leads — on-demand lead gen (long-running, 2-3 min) */
+  async generateLeads(companyId: string, companyName: string, domain: string): Promise<GenerateLeadsResponse> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180_000); // 3 min
+    try {
+      return await apiFetch(`/api/v1/companies/${companyId}/generate-leads`, {
+        method: "POST",
+        body: JSON.stringify({ company_name: companyName, domain }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error("Lead generation timed out (3 min). The backend may still be processing — try refreshing in a minute.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
+
+  /** GET /api/v1/companies/saved — all previously searched companies */
+  getSavedCompanies(limit = 50): Promise<SavedCompanyListResponse> {
+    return apiFetch(`/api/v1/companies/saved?limit=${limit}`);
+  },
+
+  /** GET /api/v1/companies/saved/{id} — single saved company with contacts */
+  getSavedCompany(companyId: string): Promise<SavedCompany> {
+    return apiFetch(`/api/v1/companies/saved/${companyId}`);
+  },
+
+  /** GET /api/v1/companies/{id}/news — paginated company news from ChromaDB */
+  getCompanyNews(companyId: string, page = 1, perPage = 20): Promise<CompanyNewsResponse> {
+    return apiFetch(`/api/v1/companies/${companyId}/news?page=${page}&per_page=${perPage}`);
+  },
+
+  /** GET /api/v1/news — paginated news feed from article cache */
+  getNews(params?: {
+    search?: string;
+    source?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<NewsListResponse> {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set("search", params.search);
+    if (params?.source) qs.set("source", params.source);
+    if (params?.page !== undefined) qs.set("page", String(params.page));
+    if (params?.per_page !== undefined) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    return apiFetch(`/api/v1/news${query ? `?${query}` : ""}`);
+  },
+
+  /** GET /api/v1/news/stats — article cache statistics */
+  getNewsStats(): Promise<{ total_articles: number; sources: Record<string, number>; date_range: { earliest: string; latest: string } }> {
+    return apiFetch("/api/v1/news/stats");
+  },
+
   /**
    * GET /api/v1/pipeline/stream/{runId}
-   * Opens an SSE connection. Returns a cleanup function.
+   * Opens an SSE connection with auto-reconnect. Returns a cleanup function.
    *
    * Backend emits: progress | log | complete | error | heartbeat
    * Same SSE format for real pipeline runs and mock replay.
+   * On disconnect, retries up to 3 times with 2s/4s/6s backoff.
    */
   streamPipeline(
     runId: string,
@@ -131,30 +253,180 @@ export const api = {
     onDone: () => void,
     onError: (err: string) => void,
   ): () => void {
-    const es = new EventSource(`${API_BASE}/api/v1/pipeline/stream/${runId}`);
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [2000, 4000, 6000];
+    let currentEs: EventSource | null = null;
+    let closed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    es.onmessage = (e) => {
-      try {
-        const event = JSON.parse(e.data) as PipelineStreamEvent;
-        onEvent(event);
+    function connect() {
+      if (closed) return;
+      const es = new EventSource(`${API_BASE}/api/v1/pipeline/stream/${runId}`);
+      currentEs = es;
 
-        if (event.event === "complete") {
-          es.close();
-          onDone();
-        } else if (event.event === "error") {
-          es.close();
-          onError(event.message ?? "Pipeline failed");
+      es.onmessage = (e) => {
+        try {
+          const event = JSON.parse(e.data) as PipelineStreamEvent;
+          retryCount = 0; // Reset on successful message
+          onEvent(event);
+
+          if (event.event === "complete") {
+            es.close();
+            onDone();
+          } else if (event.event === "error") {
+            es.close();
+            onError(event.message ?? "Pipeline failed");
+          }
+        } catch {
+          // ignore malformed frames
         }
-      } catch {
-        // ignore malformed frames
-      }
-    };
+      };
 
-    es.onerror = () => {
-      es.close();
-      onError("Stream disconnected");
-    };
+      es.onerror = () => {
+        es.close();
+        if (closed) return;
+        if (retryCount < MAX_RETRIES) {
+          const delay = RETRY_DELAYS[retryCount] ?? 6000;
+          retryCount++;
+          retryTimer = setTimeout(connect, delay);
+        } else {
+          onError("Stream disconnected after retries");
+        }
+      };
+    }
 
-    return () => es.close();
+    connect();
+
+    return () => {
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      currentEs?.close();
+    };
+  },
+
+  // ── Campaigns ──────────────────────────────────
+
+  /** POST /api/v1/campaigns — create a new campaign */
+  createCampaign(req: CreateCampaignRequest): Promise<Campaign> {
+    return apiFetch("/api/v1/campaigns/", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  },
+
+  /** GET /api/v1/campaigns — list all campaigns */
+  listCampaigns(limit = 50): Promise<CampaignListResponse> {
+    return apiFetch(`/api/v1/campaigns/?limit=${limit}`);
+  },
+
+  /** GET /api/v1/campaigns/{id} — get campaign details */
+  getCampaign(campaignId: string): Promise<Campaign> {
+    return apiFetch(`/api/v1/campaigns/${campaignId}`);
+  },
+
+  /** POST /api/v1/campaigns/{id}/run — start campaign execution */
+  runCampaign(campaignId: string): Promise<{ status: string; campaign_id: string }> {
+    return apiFetch(`/api/v1/campaigns/${campaignId}/run`, { method: "POST" });
+  },
+
+  /** PATCH /api/v1/campaigns/{id} — update a draft/failed campaign */
+  updateCampaign(campaignId: string, updates: {
+    name?: string;
+    companies?: { company_name: string; domain?: string; industry?: string; context?: string }[];
+    industry?: string;
+    report_text?: string;
+    config?: Partial<{ max_companies: number; max_contacts_per_company: number; generate_outreach: boolean }>;
+  }): Promise<Campaign> {
+    return apiFetch(`/api/v1/campaigns/${campaignId}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /** DELETE /api/v1/campaigns/{id} — delete a campaign */
+  deleteCampaign(campaignId: string): Promise<{ deleted: boolean }> {
+    return apiFetch(`/api/v1/campaigns/${campaignId}`, { method: "DELETE" });
+  },
+
+  /** POST /api/v1/campaigns/{id}/send-email — send outreach email from campaign */
+  sendCampaignEmail(campaignId: string, payload: {
+    company_name: string;
+    recipient_name: string;
+    recipient_email: string;
+    subject: string;
+    body: string;
+  }): Promise<{ success: boolean; message_id: string; recipient: string; error: string; test_mode: boolean }> {
+    return apiFetch(`/api/v1/campaigns/${campaignId}/send-email`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /** GET /api/v1/campaigns/{id}/export/csv — download URL for CSV export */
+  getCampaignExportUrl(campaignId: string): string {
+    return `${API_BASE}/api/v1/campaigns/${campaignId}/export/csv`;
+  },
+
+  /**
+   * GET /api/v1/campaigns/{id}/stream — SSE for campaign progress.
+   * Returns cleanup function. Same pattern as streamPipeline.
+   */
+  streamCampaign(
+    campaignId: string,
+    onEvent: (event: CampaignStreamEvent) => void,
+    onDone: () => void,
+    onError: (err: string) => void,
+  ): () => void {
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [2000, 4000, 6000];
+    let currentEs: EventSource | null = null;
+    let closed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function connect() {
+      if (closed) return;
+      const es = new EventSource(`${API_BASE}/api/v1/campaigns/${campaignId}/stream`);
+      currentEs = es;
+
+      es.onmessage = (e) => {
+        try {
+          const event = JSON.parse(e.data) as CampaignStreamEvent;
+          retryCount = 0;
+          onEvent(event);
+
+          if (event.event === "campaign_done") {
+            es.close();
+            onDone();
+          } else if (event.event === "campaign_error") {
+            es.close();
+            onError(event.error ?? "Campaign failed");
+          }
+        } catch {
+          // ignore malformed frames
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        if (closed) return;
+        if (retryCount < MAX_RETRIES) {
+          const delay = RETRY_DELAYS[retryCount] ?? 6000;
+          retryCount++;
+          retryTimer = setTimeout(connect, delay);
+        } else {
+          onError("Campaign stream disconnected after retries");
+        }
+      };
+    }
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      currentEs?.close();
+    };
   },
 };

@@ -198,7 +198,7 @@ async def scrape_and_embed_articles(ctx: RunContext[AgentDeps]) -> str:
     settings = get_settings()
     enriched_count = 0
     if settings.scrape_enabled:
-        from app.news.scraper import scrape_articles
+        from app.tools.web.content_scraper import scrape_articles
         enriched_count = await scrape_articles(
             articles,
             max_concurrent=settings.scrape_max_concurrent,
@@ -239,7 +239,7 @@ async def classify_article_events(ctx: RunContext[AgentDeps]) -> str:
     if not articles or not embeddings:
         return "No articles/embeddings to classify."
 
-    from app.news.event_classifier import EmbeddingEventClassifier
+    from app.tools.event_classifier_tool import EmbeddingEventClassifier
     classifier = EmbeddingEventClassifier(ctx.deps.embedding_tool)
     event_counts = classifier.classify_batch(articles)
 
@@ -298,9 +298,16 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
         )
         return articles, [], fallback_result
 
+    scope = getattr(deps, "scope", None)
+    hours = getattr(scope, "hours", None) or settings.rss_hours_ago
+    region = getattr(scope, "region", None) or settings.region
+    companies = getattr(scope, "companies", None) or []
+
+    region_desc = f"{region} market" if region else "Indian market"
+    company_focus = f" Focus on: {', '.join(companies)}." if companies else ""
     prompt = (
-        f"Collect Indian market news articles from the last "
-        f"{settings.rss_hours_ago} hours. "
+        f"Collect {region_desc} news articles from the last "
+        f"{hours} hours.{company_focus} "
         f"Fetch up to {settings.rss_max_per_source} articles per source. "
         f"Target: at least 50 quality articles with full content."
     )
@@ -331,8 +338,11 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
     if not articles:
         # Real RSS fetch — the only path when mock_mode=False.
         # Mock injection is handled exclusively by the early-return above (line 272).
+        _scope = getattr(deps, "scope", None)
+        _hours = getattr(_scope, "hours", None) or settings.rss_hours_ago
         articles = await deps.rss_tool.fetch_all_sources(
             max_per_source=settings.rss_max_per_source,
+            hours_ago=_hours,
         )
         deps._articles = articles
 
@@ -340,7 +350,7 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
     if not embeddings or len(embeddings) != len(articles):
         # Only embed if we don't have matching embeddings from the agent's tool calls
         if cfg.scrape_enabled:
-            from app.news.scraper import scrape_articles
+            from app.tools.web.content_scraper import scrape_articles
             await scrape_articles(articles, max_concurrent=cfg.scrape_max_concurrent, max_articles=cfg.scrape_max_articles)
         texts = [f"{a.title} {a.content or a.summary or ''}"[:cfg.summary_max_chars] for a in articles]
         embeddings = deps.embedding_tool.embed_batch(texts)
@@ -355,15 +365,17 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
     return articles, embeddings, fallback_result
 
 
+from app.data.mock_articles import MOCK_ARTICLES_RAW as _MOCK_ARTICLES_RAW
+
+
 def _make_mock_articles() -> List[NewsArticle]:
-    """Build NewsArticle objects from the raw tuples in mock_articles.py."""
+    """Build NewsArticle objects from mock article data."""
     from uuid import uuid4
     from datetime import datetime, timezone
-    from .mock_articles import MOCK_ARTICLES_RAW
 
     now = datetime.now(timezone.utc)
     articles = []
-    for i, (title, content, source, event_type) in enumerate(MOCK_ARTICLES_RAW):
+    for i, (title, content, source, event_type) in enumerate(_MOCK_ARTICLES_RAW):
         slug = source.lower().replace(" ", "-")
         a = NewsArticle(
             id=uuid4(),

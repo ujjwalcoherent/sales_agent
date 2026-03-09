@@ -20,25 +20,99 @@ from typing import Dict, List, Optional, Set
 # REGION CONFIG
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ── Per-region source allowlists ─────────────────────────────────────────────
+# Explicit allowlists prevent the "no-country" footgun:
+# sources without a `country` field in NEWS_SOURCES would otherwise be included
+# in ALL regions via the old `or not cfg.get("country")` fallback.
+# Add new regions here — only sources in this list are fetched for that region.
+# GLOBAL uses DEFAULT_ACTIVE_SOURCES (everything active).
+
+REGION_SOURCES: Dict[str, Optional[List[str]]] = {
+    "IN": [
+        # ── Indian business publications (Tier 1) ────────────────────────────
+        "economic_times", "et_industry", "et_tech", "et_markets", "et_startup",
+        "livemint", "mint_companies", "mint_markets", "mint_economy", "mint_industry",
+        "moneycontrol", "mc_topnews",
+        "cnbctv18", "cnbctv18_market",
+        "hindu_business",
+        "bs_economy", "bs_finance", "bs_tech",
+        "et_bfsi", "et_cio", "et_infra",
+        # ── Indian startup & tech ─────────────────────────────────────────────
+        "yourstory", "inc42",
+        "techcrunch_india",
+        # ── Indian press releases ─────────────────────────────────────────────
+        "prnewswire_india",
+        "indiatoday_business", "ndtv_profit",
+        # ── Indian government & regulatory ────────────────────────────────────
+        "sebi_v2", "rbi_v2", "pib_finance", "pib_commerce",
+        # ── India-focused Google News ─────────────────────────────────────────
+        "google_news_india_startup", "google_news_india_fintech",
+        "google_news_business", "google_news_tech", "google_news_economy",
+        # ── Global B2B/enterprise tech (relevant to India tech sector) ────────
+        "finextra", "techcrunch_fintech", "techcrunch_ai",
+        "venturebeat", "siliconangle",
+        "businesswire_tech", "businesswire_financial",
+        "prnewswire_tech", "prnewswire_finance", "prnewswire_ma", "globe_newswire",
+        # ── Asia-Pacific context ──────────────────────────────────────────────
+        "techinasia", "channel_news_asia",
+    ],
+    "US": [
+        "wsj_business", "wsj_tech", "wsj_markets",
+        "nyt_business", "nyt_technology",
+        "business_insider",
+        "forbes", "fortune", "fast_company", "inc_magazine",
+        "wired_business", "ars_technica",
+        "techcrunch_main", "techcrunch_ai", "techcrunch_fintech",
+        "venturebeat", "siliconangle", "zdnet",
+        "cnbc_world", "cnbc_tech",
+        "yahoo_finance", "marketwatch", "seeking_alpha",
+        "pymnts", "banking_dive", "finextra",
+        "businesswire_tech", "businesswire_financial",
+        "prnewswire_tech", "prnewswire_finance", "prnewswire_ma", "globe_newswire",
+        "google_news_us_business", "google_news_us_tech",
+        "fed_reserve",
+    ],
+    "EU": [
+        "bbc_business", "bbc_technology",
+        "dw_business", "sky_business",
+        "euractiv_economy", "euractiv_digital",
+        "guardian_business",
+        "finextra", "techcrunch_main",
+        "venturebeat", "siliconangle",
+        "businesswire_tech", "businesswire_financial",
+        "google_news_uk_business",
+    ],
+    "SEA": [
+        "channel_news_asia", "straits_times_biz", "asia_times", "techinasia",
+        "finextra", "techcrunch_main",
+        "businesswire_tech", "businesswire_financial", "prnewswire_tech",
+    ],
+    "GLOBAL": None,  # None = use DEFAULT_ACTIVE_SOURCES (all active sources)
+}
+
+
 @dataclass
 class RegionConfig:
     """Dynamic region configuration. No hardcoded countries in pipeline logic."""
-    code: str        # "IN", "US", "EU", "GLOBAL"
+    code: str        # "IN", "US", "EU", "SEA", "GLOBAL"
     name: str
     languages: List[str] = field(default_factory=lambda: ["en"])
     domestic_domains: List[str] = field(default_factory=list)
 
     @property
     def source_ids(self) -> List[str]:
-        from app.config import NEWS_SOURCES
-        if self.code == "GLOBAL":
-            return list(NEWS_SOURCES.keys())
-        return [
-            sid for sid, cfg in NEWS_SOURCES.items()
-            if cfg.get("country", "").upper() == self.code.upper()
-            or cfg.get("country", "").upper() == "GLOBAL"
-            or not cfg.get("country")
-        ]
+        """Return source IDs for this region.
+
+        Uses REGION_SOURCES allowlists — explicit is safer than fallback-based logic.
+        GLOBAL returns DEFAULT_ACTIVE_SOURCES (all active sources).
+        Unknown region codes also fall back to GLOBAL.
+        """
+        from app.config import NEWS_SOURCES, DEFAULT_ACTIVE_SOURCES
+        region_list = REGION_SOURCES.get(self.code)
+        if region_list is None:
+            # GLOBAL or unknown: use full active source list
+            return [sid for sid in DEFAULT_ACTIVE_SOURCES if sid in NEWS_SOURCES]
+        return [sid for sid in region_list if sid in NEWS_SOURCES]
 
 
 REGIONS: Dict[str, RegionConfig] = {
@@ -53,6 +127,10 @@ REGIONS: Dict[str, RegionConfig] = {
     "EU": RegionConfig(
         code="EU", name="European Union", languages=["en", "de", "fr"],
         domestic_domains=[".eu", ".de", ".fr", ".uk"],
+    ),
+    "SEA": RegionConfig(
+        code="SEA", name="Southeast Asia", languages=["en"],
+        domestic_domains=[".sg", ".my", ".th", "channelnewsasia.com"],
     ),
     "GLOBAL": RegionConfig(code="GLOBAL", name="Global", languages=["en"]),
 }
@@ -128,7 +206,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
         "2nd_order": [
             "system integrators", "IT consulting", "resellers", "managed services",
         ],
-        "exclude": ["pharma", "food", "fashion", "entertainment", "cricket", "sports", "election", "politics", "government formation", "military", "war", "celebrity"],
+        "exclude": ["consumer phones", "consumer electronics", "smartphones for consumers", "pharma", "food", "fashion", "entertainment", "cricket", "sports", "election", "politics", "government formation", "military", "war", "celebrity"],
         "target_roles": ["CTO", "VP Engineering", "Head of Infrastructure", "CDO"],
     },
     "Manufacturing": {
@@ -312,13 +390,14 @@ class ClusteringParams:
     # NLI zero-shot classification thresholds (replaces Dunietz & Gillick salience)
     # Research: Yin et al. (2019) arXiv:1909.00161 — NLI for zero-shot text classification
     # Model: cross-encoder/nli-deberta-v3-small, entailment scores in [0,1]
-    nli_auto_accept: float = 0.55       # entailment >= this → keep (no LLM)
-    nli_auto_reject: float = 0.05       # entailment <= this → drop (no LLM)
-    # 0.05-0.55 → LLM batch classify (ambiguous semantic zone)
-    # Why 0.05 not 0.20: clear noise (cricket=0.006, war=0.002) stays auto-rejected.
-    # Edge-case B2B (product launch=0.058, fintech M&A=0.138) reaches LLM fallback.
-    # Tested on 13-article benchmark: H1 hypothesis + 0.05 threshold = 5/5 noise rejected,
-    # 6/7 B2B passed (Reliance Jio platform goes to LLM which correctly accepts it).
+    nli_auto_accept: float = 0.88       # entailment >= this → keep (no LLM)
+    nli_auto_reject: float = 0.10       # entailment <= this → drop (no LLM)
+    # 0.10-0.88 → LLM batch classify (ambiguous zone)
+    # Raised from 0.55→0.75→0.88: real data shows political articles (PM Modi unveils ₹18k cr
+    # Delhi metro, ED bail hearing, Centre-Bengal) score 0.75-0.85 — they bypass LLM at 0.75.
+    # At 0.88, only very-high-confidence B2B articles auto-accept (Infosys deal 0.982, Ola IPO 0.990).
+    # Lowered from 0.15→0.10: captures Sarvam open-source (0.092), Euler Motors PLI (0.076) for LLM.
+    # Cost tradeoff: more LLM calls (~60% of articles), but eliminates government/political FPs.
     filter_gap4_days: int = 5           # Drop company if 0 articles in N days
     # Legacy salience thresholds (kept for backwards compat with adaptive_thresholds.json)
     filter_auto_accept: float = 0.30

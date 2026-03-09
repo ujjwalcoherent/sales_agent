@@ -73,7 +73,8 @@ async def list_news(
     - source/date filters applied post-query
     """
     cache = _get_article_cache()
-    count = cache.collection.count()
+    nc = cache.news_collection
+    count = nc.count()
 
     if count == 0:
         return NewsListResponse(articles=[], total=0, page=page, per_page=per_page, sources=[])
@@ -82,8 +83,8 @@ async def list_news(
     all_sources: set[str] = set()
 
     if search:
-        # Semantic search
-        results = cache.collection.query(
+        # Semantic search against auto-embedded news articles
+        results = nc.query(
             query_texts=[search],
             n_results=min(count, 500),
             include=["metadatas"],
@@ -95,8 +96,8 @@ async def list_news(
                 aid = ids[i] if i < len(ids) else ""
                 articles.append((meta, aid))
     else:
-        # Load all articles
-        results = cache.collection.get(include=["metadatas"], limit=count)
+        # Load all news articles
+        results = nc.get(include=["metadatas"], limit=count)
         if results and results.get("metadatas"):
             ids = results.get("ids", [])
             for i, meta in enumerate(results["metadatas"]):

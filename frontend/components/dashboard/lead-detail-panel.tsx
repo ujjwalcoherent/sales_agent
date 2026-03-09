@@ -3,54 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  X, Building2, ArrowRight, MessageSquare,
+  X, ArrowRight, MessageSquare, Building2,
   Target, Clock, Layers, Sparkles, Mail, User, Globe, ExternalLink, Newspaper,
 } from "lucide-react";
+import { CompanyLogo } from "@/components/ui/company-logo";
 import { usePipelineContext } from "@/contexts/pipeline-context";
+import { confidenceColor, TYPE_CLASSES, cleanTriggerEvent, cleanOpeningLine, extractDomain } from "@/lib/utils";
+import { DetailSection } from "@/components/ui/detail-section";
 import type { LeadRecord } from "@/lib/types";
-
-/** Clean up trigger_event: remove if it's just the trend_title repeated/truncated */
-function cleanTriggerEvent(lead: LeadRecord): string | null {
-  if (!lead.trigger_event) return null;
-  const trigger = lead.trigger_event.trim();
-  const title = lead.trend_title.trim();
-  if (trigger === title) return null;
-  if (trigger.startsWith(title + " — " + title.substring(0, 20))) return null;
-  if (trigger.startsWith(title + " —")) return null;
-  return trigger;
-}
-
-/** Clean up opening_line: fix common template issues */
-function cleanOpeningLine(line: string): string {
-  if (!line) return "";
-  let cleaned = line;
-  cleaned = cleaned.replace(/ for Your /g, " for your ");
-  cleaned = cleaned.replace(/\.\./g, ".");
-  cleaned = cleaned.replace(/^"?The recent (.+?) creates/, (match, title) => {
-    const capitalized = title.charAt(0).toUpperCase() + title.slice(1);
-    return match.replace(title, capitalized);
-  });
-  return cleaned;
-}
-
-function confidenceColor(c: number) {
-  if (c >= 0.75) return "var(--green)";
-  if (c >= 0.50) return "var(--accent)";
-  return "var(--text-muted)";
-}
-
-function confidenceBg(c: number) {
-  if (c >= 0.75) return "var(--green-light)";
-  if (c >= 0.50) return "var(--amber-light)";
-  return "var(--surface-raised)";
-}
-
-const TYPE_CLASSES: Record<string, string> = {
-  pain: "badge-red",
-  opportunity: "badge-green",
-  risk: "badge-amber",
-  intelligence: "badge-blue",
-};
 
 interface LeadDetailPanelProps {
   lead: LeadRecord | null;
@@ -129,20 +89,7 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
             flexShrink: 0,
           }}
         >
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
-              background: "var(--surface-raised)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Building2 size={15} style={{ color: "var(--text-secondary)" }} />
-          </div>
+          <CompanyLogo domain={lead.company_domain} size={34} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {lead.company_name}
@@ -153,8 +100,8 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
           </div>
 
           {/* Confidence */}
-          <div style={{ background: confidenceBg(lead.confidence), borderRadius: 8, padding: "4px 10px", flexShrink: 0 }}>
-            <span className="num" style={{ fontSize: 18, color: confidenceColor(lead.confidence), lineHeight: 1 }}>
+          <div style={{ background: confidenceColor(lead.confidence).bg, borderRadius: 8, padding: "4px 10px", flexShrink: 0 }}>
+            <span className="num" style={{ fontSize: 18, color: confidenceColor(lead.confidence).text, lineHeight: 1 }}>
               {Math.round(lead.confidence * 100)}
             </span>
           </div>
@@ -197,7 +144,7 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
           </div>
 
           {/* Trigger event */}
-          <PanelSection label="TRIGGER EVENT" icon={Sparkles}>
+          <DetailSection label="TRIGGER EVENT" icon={Sparkles}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: triggerEvent ? 6 : 0 }}>
               {lead.trend_title}
             </div>
@@ -206,29 +153,29 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
                 {triggerEvent}
               </p>
             )}
-          </PanelSection>
+          </DetailSection>
 
           {/* Pain point / Opportunity */}
           {lead.pain_point && (
-            <PanelSection label={lead.lead_type === "opportunity" ? "OPPORTUNITY" : lead.lead_type === "risk" ? "RISK FACTOR" : "PAIN POINT"} icon={Target}>
+            <DetailSection label={lead.lead_type === "opportunity" ? "OPPORTUNITY" : lead.lead_type === "risk" ? "RISK FACTOR" : "PAIN POINT"} icon={Target}>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.65, paddingLeft: 10, borderLeft: `2px solid ${lead.lead_type === "opportunity" ? "var(--green)" : lead.lead_type === "risk" ? "var(--amber)" : "var(--red)"}`, background: lead.lead_type === "opportunity" ? "var(--green-light)" : lead.lead_type === "risk" ? "var(--amber-light)" : "var(--red-light)", padding: "8px 10px", borderRadius: "0 7px 7px 0" }}>
                 {lead.pain_point}
               </div>
-            </PanelSection>
+            </DetailSection>
           )}
 
           {/* Service pitch */}
           {lead.service_pitch && (
-            <PanelSection label="SERVICE PITCH" icon={Layers}>
+            <DetailSection label="SERVICE PITCH" icon={Layers}>
               <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.65 }}>
                 {lead.service_pitch}
               </p>
-            </PanelSection>
+            </DetailSection>
           )}
 
           {/* Contact info */}
           {(lead.contact_name || lead.contact_email) && (
-            <PanelSection label="CONTACT" icon={User}>
+            <DetailSection label="CONTACT" icon={User}>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {lead.contact_name && (
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{lead.contact_name}</div>
@@ -252,7 +199,7 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
                   </a>
                 )}
               </div>
-            </PanelSection>
+            </DetailSection>
           )}
 
           {/* Company website */}
@@ -266,16 +213,16 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
 
           {/* Opening line */}
           {openingLine && (
-            <PanelSection label="SUGGESTED OPENING" icon={MessageSquare}>
+            <DetailSection label="SUGGESTED OPENING" icon={MessageSquare}>
               <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.7, fontStyle: "italic", padding: "10px 14px", background: "var(--accent-light)", borderRadius: 8, borderLeft: "2px solid var(--accent)" }}>
                 &ldquo;{openingLine}&rdquo;
               </div>
-            </PanelSection>
+            </DetailSection>
           )}
 
           {/* Email preview */}
           {lead.email_subject && (
-            <PanelSection label="EMAIL PREVIEW" icon={Mail}>
+            <DetailSection label="EMAIL PREVIEW" icon={Mail}>
               <div style={{ background: "var(--surface-raised)", borderRadius: 7, padding: "10px 12px" }}>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
                   <strong>Subject:</strong> <span style={{ color: "var(--text)" }}>{lead.email_subject}</span>
@@ -284,13 +231,13 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
                   {lead.email_body}
                 </div>
               </div>
-            </PanelSection>
+            </DetailSection>
           )}
 
           {/* Scores */}
           <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12 }}>
             {[
-              { label: "Confidence", value: `${Math.round(lead.confidence * 100)}%`, color: confidenceColor(lead.confidence) },
+              { label: "Confidence", value: `${Math.round(lead.confidence * 100)}%`, color: confidenceColor(lead.confidence).text },
               { label: "OSS Score", value: lead.oss_score > 0 ? lead.oss_score.toFixed(2) : "—", color: "var(--blue)" },
               { label: "Urgency", value: `${lead.urgency_weeks}w`, color: "var(--amber)" },
             ].map(({ label, value, color }) => (
@@ -319,11 +266,11 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
 
         {/* Footer — View Full */}
         {showViewFull && (
-          <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+          <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", flexShrink: 0, display: "flex", gap: 8 }}>
             <button
               onClick={viewFull}
               style={{
-                width: "100%",
+                flex: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -341,7 +288,32 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)"; (e.currentTarget as HTMLElement).style.color = "var(--text)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-raised)"; (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)"; }}
             >
-              View Full Call Sheet
+              View Call Sheet
+              <ArrowRight size={13} />
+            </button>
+            <button
+              onClick={() => { router.push(`/companies/${encodeURIComponent(lead.company_name)}`); onClose(); }}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: "9px 16px",
+                borderRadius: 8,
+                border: "none",
+                background: "var(--text)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--bg)",
+                transition: "opacity 150ms",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+            >
+              <Building2 size={12} />
+              Company Page
               <ArrowRight size={13} />
             </button>
           </div>
@@ -351,23 +323,6 @@ export function LeadDetailPanel({ lead, onClose, showViewFull = true }: LeadDeta
   );
 }
 
-function PanelSection({ label, icon: Icon, children }: { label: string; icon: React.ElementType; children: React.ReactNode }) {
-  return (
-    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
-        <Icon size={11} style={{ color: "var(--text-xmuted)" }} />
-        <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.06em" }}>{label}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** Extract domain from URL */
-function extractDomain(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ""); }
-  catch { return url.substring(0, 40); }
-}
 
 /** Compact source articles for the panel drawer — cross-references via trend_title */
 function PanelSourceArticles({ trendTitle, trends }: { trendTitle: string; trends: import("@/lib/types").TrendData[] }) {
@@ -381,7 +336,7 @@ function PanelSourceArticles({ trendTitle, trends }: { trendTitle: string; trend
   const count = Math.max(snippets?.length ?? 0, links?.length ?? 0);
 
   return (
-    <PanelSection label={`SOURCE ARTICLES (${count})`} icon={Newspaper}>
+    <DetailSection label={`SOURCE ARTICLES (${count})`} icon={Newspaper}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {snippets?.map((snippet, i) => {
           const colonIdx = snippet.indexOf(":");
@@ -425,6 +380,6 @@ function PanelSourceArticles({ trendTitle, trends }: { trendTitle: string; trend
           </a>
         ))}
       </div>
-    </PanelSection>
+    </DetailSection>
   );
 }

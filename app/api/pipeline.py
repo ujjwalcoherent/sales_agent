@@ -14,13 +14,14 @@ channel with compressed timing (~45s) instead of running the real pipeline.
 import asyncio
 import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from app.api.run_manager import PipelineRun, run_manager, STEP_PROGRESS
 from app.api.schemas import (
     PipelineRunRequest,
     PipelineRunResponse,
@@ -33,10 +34,223 @@ from app.api.schemas import (
 
 logger = logging.getLogger(__name__)
 
+
+# ── Run Manager (inlined from api/run_manager.py) ────────────────────────────
+
+STEP_PROGRESS: Dict[str, int] = {
+    "init": 0,
+    "source_intel_complete": 15,
+    "analysis_complete": 30,
+    "impact_complete": 45,
+    "quality_complete": 55,
+    "quality_retry_analysis": 50,
+    "causal_council_complete": 70,
+    "lead_crystallize_complete": 80,
+    "lead_gen_complete": 90,
+    "learning_update_complete": 100,
+}
+
+STALE_THRESHOLD_SECONDS = 600
+MAX_COMPLETED_RUNS = 50
+
+
+@dataclass
+class PipelineRun:
+    """State for a single pipeline execution."""
+    run_id: str
+    status: str = "started"
+    current_step: str = "init"
+    progress_pct: int = 0
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: Optional[datetime] = None
+    last_activity_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    result: Optional[Any] = None
+    final_state: Optional[Dict] = None
+    errors: List[str] = field(default_factory=list)
+    event_queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=500))
+    trends_count: int = 0
+    companies_count: int = 0
+    leads_count: int = 0
+
+
+class RunManager:
+    """Singleton that tracks pipeline runs across API requests."""
+
+    def __init__(self):
+        self._runs: Dict[str, PipelineRun] = {}
+        self._start_lock = asyncio.Lock()
+
+    def create_run(self, run_id: str) -> PipelineRun:
+        self._evict_old_runs()
+        run = PipelineRun(run_id=run_id)
+        self._runs[run_id] = run
+        return run
+
+    def get_run(self, run_id: str) -> Optional[PipelineRun]:
+        return self._runs.get(run_id)
+
+    def get_latest_run(self) -> Optional[PipelineRun]:
+        if not self._runs:
+            return None
+        return max(self._runs.values(), key=lambda r: r.started_at)
+
+    def list_runs(self, limit: int = 20) -> List[PipelineRun]:
+        runs = sorted(self._runs.values(), key=lambda r: r.started_at, reverse=True)
+        return runs[:limit]
+
+    @property
+    def is_running(self) -> bool:
+        self._cleanup_stuck_runs()
+        return any(r.status in ("started", "running") for r in self._runs.values())
+
+    def _cleanup_stuck_runs(self):
+        now = datetime.now(timezone.utc)
+        for run in self._runs.values():
+            if run.status not in ("started", "running"):
+                continue
+            idle_seconds = (now - run.last_activity_at).total_seconds()
+            if idle_seconds > STALE_THRESHOLD_SECONDS:
+                run.status = "failed"
+                run.errors.append(
+                    f"Auto-failed: no activity for {int(idle_seconds)}s "
+                    f"(threshold={STALE_THRESHOLD_SECONDS}s)"
+                )
+                run.completed_at = now
+                try:
+                    run.event_queue.put_nowait({
+                        "event": "error",
+                        "message": "Pipeline stalled — auto-cancelled after 10 min of inactivity",
+                    })
+                except (asyncio.QueueFull, Exception):
+                    pass
+
+    def cancel_run(self, run_id: str) -> bool:
+        run = self._runs.get(run_id)
+        if not run or run.status not in ("started", "running"):
+            return False
+        run.status = "failed"
+        run.errors.append("Cancelled by user")
+        run.completed_at = datetime.now(timezone.utc)
+        try:
+            run.event_queue.put_nowait({"event": "error", "message": "Pipeline cancelled by user"})
+        except (asyncio.QueueFull, Exception):
+            pass
+        return True
+
+    def cancel_all(self) -> int:
+        count = 0
+        for run in self._runs.values():
+            if run.status in ("started", "running"):
+                run.status = "failed"
+                run.errors.append("Force-cancelled (cancel_all)")
+                run.completed_at = datetime.now(timezone.utc)
+                try:
+                    run.event_queue.put_nowait({"event": "error", "message": "Pipeline force-cancelled"})
+                except (asyncio.QueueFull, Exception):
+                    pass
+                count += 1
+        return count
+
+    def _evict_old_runs(self):
+        completed = [r for r in self._runs.values() if r.status in ("completed", "failed")]
+        if len(completed) <= MAX_COMPLETED_RUNS:
+            return
+        completed.sort(key=lambda r: r.started_at)
+        for r in completed[: len(completed) - MAX_COMPLETED_RUNS]:
+            del self._runs[r.run_id]
+
+
+run_manager = RunManager()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 router = APIRouter()
 
 # Target duration for mock replay (seconds)
 REPLAY_TARGET_SECONDS = 45
+
+# Expected step durations (seconds) for smooth progress interpolation.
+# When a LangGraph node takes a long time (e.g., analysis ~15min), we smoothly
+# interpolate progress so the UI doesn't appear "stuck" at the previous step %.
+_EXPECTED_DURATIONS = {
+    "source_intel_complete": 90,
+    "analysis_complete": 900,
+    "impact_complete": 120,
+    "quality_complete": 10,
+    "causal_council_complete": 150,
+    "lead_crystallize_complete": 5,
+    "lead_gen_complete": 300,
+    "learning_update_complete": 5,
+}
+
+_STEP_ORDER = list(STEP_PROGRESS.keys())  # init, source_intel_complete, ...
+
+
+async def _progress_interpolator(run: PipelineRun):
+    """Smoothly interpolate progress between LangGraph step boundaries.
+
+    LangGraph only emits updates when a node completes. Long nodes (analysis
+    ~15min, lead_gen ~5min) cause the progress bar to appear frozen. This
+    background task fills the gap by emitting estimated progress every 3s,
+    easing out as it approaches the next step boundary.
+    """
+    last_step = run.current_step
+    step_start = datetime.now(timezone.utc)
+
+    while run.status in ("started", "running"):
+        await asyncio.sleep(3)
+
+        # Reset timer when a real step update arrives
+        if run.current_step != last_step:
+            last_step = run.current_step
+            step_start = datetime.now(timezone.utc)
+            continue
+
+        # Find current and next step percentages
+        current_pct = STEP_PROGRESS.get(run.current_step, 0)
+        try:
+            idx = _STEP_ORDER.index(run.current_step)
+            next_step = _STEP_ORDER[idx + 1] if idx + 1 < len(_STEP_ORDER) else None
+        except ValueError:
+            continue
+        if not next_step:
+            continue
+
+        next_pct = STEP_PROGRESS.get(next_step, current_pct)
+        expected = _EXPECTED_DURATIONS.get(next_step, 60)
+        elapsed = (datetime.now(timezone.utc) - step_start).total_seconds()
+
+        # Ease-out: fast at first, asymptotically approaches 95% of the gap
+        fraction = min(elapsed / expected, 0.95)
+        interpolated = int(current_pct + (next_pct - current_pct) * fraction)
+
+        if interpolated > run.progress_pct:
+            run.progress_pct = interpolated
+            _safe_put(run, {
+                "event": "progress",
+                "step": run.current_step,
+                "progress_pct": run.progress_pct,
+                "trends": run.trends_count,
+                "companies": run.companies_count,
+                "leads": run.leads_count,
+            })
+
+
+def _safe_put(run: PipelineRun, event: dict):
+    """Put an event on the queue, dropping oldest if full. Updates last_activity_at."""
+    run.last_activity_at = datetime.now(timezone.utc)
+    try:
+        run.event_queue.put_nowait(event)
+    except asyncio.QueueFull:
+        try:
+            run.event_queue.get_nowait()
+        except asyncio.QueueEmpty:
+            pass
+        try:
+            run.event_queue.put_nowait(event)
+        except asyncio.QueueFull:
+            pass
 
 
 @router.post("/run", response_model=PipelineRunResponse)
@@ -49,37 +263,56 @@ async def start_pipeline(
     When mock_mode=True and a recording exists, replays that recording with
     compressed timing (~45s) instead of running the real pipeline.
     """
-    if run_manager.is_running:
-        raise HTTPException(409, "Pipeline already running")
+    async with run_manager._start_lock:
+        if run_manager.is_running:
+            raise HTTPException(409, "Pipeline already running")
 
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    run = run_manager.create_run(run_id)
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        run = run_manager.create_run(run_id)
 
-    # Decide: replay a recording or run the real pipeline
-    if body.mock_mode:
-        from app.tools.run_recorder import get_recording, get_latest_recording
-        recording_dir = None
-        if body.replay_run_id:
-            recording_dir = get_recording(body.replay_run_id)
-        if not recording_dir:
-            recording_dir = get_latest_recording()
+        # Decide: replay a recording or run the real pipeline
+        if body.mock_mode:
+            from app.tools.run_recorder import get_recording, get_latest_recording
+            recording_dir = None
+            if body.replay_run_id:
+                recording_dir = get_recording(body.replay_run_id)
+            if not recording_dir:
+                recording_dir = get_latest_recording()
 
-        if recording_dir:
-            background_tasks.add_task(_replay_pipeline, run, recording_dir)
-            return PipelineRunResponse(
-                run_id=run_id,
-                status="started",
-                message=f"Mock replay started (from {recording_dir.name}). "
-                        f"Stream at /api/v1/pipeline/stream/{run_id}",
-            )
+            if recording_dir:
+                background_tasks.add_task(_replay_pipeline, run, recording_dir)
+                return PipelineRunResponse(
+                    run_id=run_id,
+                    status="started",
+                    message=f"Mock replay started (from {recording_dir.name}). "
+                            f"Stream at /api/v1/pipeline/stream/{run_id}",
+                )
 
-    background_tasks.add_task(_execute_pipeline, run, body.mock_mode, body.disabled_providers)
+        background_tasks.add_task(
+            _execute_pipeline, run, body.mock_mode, body.disabled_providers,
+            country=body.country, max_trends=body.max_trends,
+        )
 
-    return PipelineRunResponse(
-        run_id=run_id,
-        status="started",
-        message=f"Pipeline started. Stream progress at /api/v1/pipeline/stream/{run_id}",
-    )
+        return PipelineRunResponse(
+            run_id=run_id,
+            status="started",
+            message=f"Pipeline started. Stream progress at /api/v1/pipeline/stream/{run_id}",
+        )
+
+
+@router.post("/cancel")
+async def cancel_all_runs():
+    """Force-cancel all active pipeline runs."""
+    count = run_manager.cancel_all()
+    return {"cancelled": count, "message": f"Cancelled {count} active run(s)"}
+
+
+@router.post("/cancel/{run_id}")
+async def cancel_run(run_id: str):
+    """Force-cancel a specific pipeline run."""
+    if run_manager.cancel_run(run_id):
+        return {"cancelled": True, "run_id": run_id}
+    raise HTTPException(404, f"No active run with id '{run_id}'")
 
 
 class _SSELogHandler(logging.Handler):
@@ -100,12 +333,12 @@ class _SSELogHandler(logging.Handler):
             if any(skip in msg for skip in ("HTTP Request:", "httpx", "httpcore")):
                 return
             level = record.levelname.lower()
-            self._run.event_queue.put_nowait({
+            _safe_put(self._run, {
                 "event": "log",
                 "message": msg,
                 "level": level,
             })
-        except (asyncio.QueueFull, Exception):
+        except Exception:
             pass
 
 
@@ -127,23 +360,39 @@ _PIPELINE_LOGGERS = [
     "app.trends.synthesis",
     "app.news.scraper",
     "app.tools.llm_service",
-    "app.tools.provider_manager",
+    "app.tools.providers",
 ]
 
 
-async def _execute_pipeline(run: PipelineRun, mock_mode: bool, disabled_providers: list[str] | None = None):
+async def _execute_pipeline(
+    run: PipelineRun,
+    mock_mode: bool,
+    disabled_providers: list[str] | None = None,
+    country: str | None = None,
+    max_trends: int | None = None,
+):
     """Background task: run the LangGraph pipeline and emit SSE events."""
     from app.agents.orchestrator import create_pipeline_graph
     from app.agents.deps import AgentDeps
+    from app.config import get_settings
 
     run.status = "running"
+
+    # Apply per-run settings overrides from frontend
+    settings = get_settings()
+    if country:
+        settings.country = country
+        logger.info(f"Settings override: country={country}")
+    if max_trends is not None:
+        settings.max_trends = max_trends
+        logger.info(f"Settings override: max_trends={max_trends}")
 
     # Reset provider health, cooldowns, and agent cache so stale failures from
     # previous runs don't block this run's LLM calls.
     try:
-        from app.tools.provider_health import provider_health
-        from app.tools.provider_manager import ProviderManager
-        from app.tools.llm_service import LLMService
+        from app.tools.llm.providers import provider_health
+        from app.tools.llm.providers import ProviderManager
+        from app.tools.llm.llm_service import LLMService
         provider_health.reset_for_new_run()
         ProviderManager.reset_cooldowns()
         LLMService.clear_cache()
@@ -163,14 +412,11 @@ async def _execute_pipeline(run: PipelineRun, mock_mode: bool, disabled_provider
 
     def progress_callback(msg, level="info"):
         """Forward pipeline log messages to the SSE queue."""
-        try:
-            run.event_queue.put_nowait({
-                "event": "log",
-                "message": msg,
-                "level": level,
-            })
-        except asyncio.QueueFull:
-            pass
+        _safe_put(run, {
+            "event": "log",
+            "message": msg,
+            "level": level,
+        })
 
     import time as _time
     deps = AgentDeps.create(
@@ -196,6 +442,9 @@ async def _execute_pipeline(run: PipelineRun, mock_mode: bool, disabled_provider
     }
 
     config = {"configurable": {"thread_id": run.run_id}}
+
+    # Start smooth progress interpolator so the UI doesn't freeze on long steps
+    interpolator_task = asyncio.create_task(_progress_interpolator(run))
 
     try:
         graph = create_pipeline_graph()
@@ -227,7 +476,7 @@ async def _execute_pipeline(run: PipelineRun, mock_mode: bool, disabled_provider
                 if d:
                     run.leads_count = len(getattr(d, "_lead_sheets", []))
 
-            await run.event_queue.put({
+            _safe_put(run, {
                 "event": "progress",
                 "step": run.current_step,
                 "progress_pct": run.progress_pct,
@@ -258,7 +507,7 @@ async def _execute_pipeline(run: PipelineRun, mock_mode: bool, disabled_provider
         except Exception:
             pass
 
-        await run.event_queue.put({
+        _safe_put(run, {
             "event": "complete",
             "run_id": run.run_id,
             "summary": {
@@ -288,7 +537,7 @@ async def _execute_pipeline(run: PipelineRun, mock_mode: bool, disabled_provider
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)
             elapsed = (run.completed_at - run.started_at).total_seconds()
-            await run.event_queue.put({
+            _safe_put(run, {
                 "event": "complete",
                 "run_id": run.run_id,
                 "summary": {
@@ -303,12 +552,14 @@ async def _execute_pipeline(run: PipelineRun, mock_mode: bool, disabled_provider
             run.errors.append(str(e))
             run.completed_at = datetime.now(timezone.utc)
             logger.error(f"Pipeline {run.run_id} failed: {e}")
-            await run.event_queue.put({
+            _safe_put(run, {
                 "event": "error",
                 "message": str(e),
             })
 
     finally:
+        # Stop the progress interpolator
+        interpolator_task.cancel()
         # Detach the SSE handler to avoid leaking into future runs
         for lg in attached_loggers:
             lg.removeHandler(sse_handler)
@@ -505,7 +756,7 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
                 run.leads_count = step_data["lead_count"]
 
             # Emit SSE progress event (same format as real pipeline)
-            await run.event_queue.put({
+            _safe_put(run, {
                 "event": "progress",
                 "step": step_name,
                 "progress_pct": run.progress_pct,
@@ -521,14 +772,11 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
             for log_msg in log_msgs:
                 msg_text = log_msg if isinstance(log_msg, str) else log_msg.get("text", str(log_msg))
                 msg_level = "info" if isinstance(log_msg, str) else log_msg.get("level", "info")
-                try:
-                    run.event_queue.put_nowait({
-                        "event": "log",
-                        "message": msg_text,
-                        "level": msg_level,
-                    })
-                except asyncio.QueueFull:
-                    pass
+                _safe_put(run, {
+                    "event": "log",
+                    "message": msg_text,
+                    "level": msg_level,
+                })
                 await asyncio.sleep(0.05)  # drip-feed logs for visual effect
 
         # Build result data from recorded steps for the result endpoint
@@ -576,7 +824,7 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
         run.completed_at = datetime.now(timezone.utc)
         elapsed = (run.completed_at - run.started_at).total_seconds()
 
-        await run.event_queue.put({
+        _safe_put(run, {
             "event": "complete",
             "run_id": run.run_id,
             "summary": {
@@ -600,7 +848,7 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
         run.completed_at = datetime.now(timezone.utc)
         logger.error(f"Replay {run.run_id} failed: {e}")
 
-        await run.event_queue.put({
+        _safe_put(run, {
             "event": "error",
             "message": f"Replay failed: {e}",
         })

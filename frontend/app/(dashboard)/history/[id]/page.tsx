@@ -1,36 +1,39 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { use } from "react";
+import { useEffect, useState, useCallback, useRef, use } from "react";
 import Link from "next/link";
 import {
   ReactFlow, Node, Edge, Background, Controls, MiniMap,
   Handle, Position, useNodesState, useEdgesState,
   MarkerType, BackgroundVariant,
-  type NodeProps,
+  type NodeProps, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import Dagre from "@dagrejs/dagre";
 import {
   ArrowLeft, CheckCircle, XCircle, Loader2, Clock,
   TrendingUp, Users, Building2, AlertCircle, Layers,
-  Zap, X, ChevronRight, ExternalLink, Mail, User,
+  Zap, X, ChevronRight, ChevronDown, ExternalLink, Mail, User, Square,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { CompanyLogo } from "@/components/ui/company-logo";
+import { PanelSection } from "@/components/ui/detail-section";
 import type { PipelineRunResult, TrendData, LeadRecord } from "@/lib/types";
 
 // ── Node data types ────────────────────────────────────────────────────
 
-type RunNodeData   = { label: string; status: string; duration: string; trends: number; leads: number; companies: number };
-type TrendNodeData = { title: string; severity: string; articleCount: number; industries: string[]; oss: number; index: number };
-type LeadNodeData  = { company: string; leadType: string; confidence: number; role: string; leadId?: number; leadIdx: number };
-type PlusNodeData  = { count: number };
+type RunNodeData     = { label: string; status: string; duration: string; trends: number; leads: number; companies: number };
+type TrendNodeData   = { title: string; severity: string; articleCount: number; industries: string[]; oss: number; index: number; isExpanded: boolean; companyCount: number };
+type CompanyNodeData = { companyName: string; domain: string; leadCount: number; trendId: string; isExpanded: boolean };
+type LeadNodeData    = { company: string; contactName: string; leadType: string; confidence: number; role: string; leadId?: number; leadIdx: number };
+type PlusNodeData    = { count: number };
 
 type AppNode =
-  | Node<RunNodeData,   "run">
-  | Node<TrendNodeData, "trend">
-  | Node<LeadNodeData,  "lead">
-  | Node<PlusNodeData,  "plus">;
+  | Node<RunNodeData,     "run">
+  | Node<TrendNodeData,   "trend">
+  | Node<CompanyNodeData, "company">
+  | Node<LeadNodeData,    "lead">
+  | Node<PlusNodeData,    "plus">;
 
 // ── Colour maps ────────────────────────────────────────────────────────
 
@@ -62,13 +65,92 @@ function formatDuration(s: number) {
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 }
 
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function groupLeadsByCompany(leads: LeadRecord[]): Map<string, LeadRecord[]> {
+  const map = new Map<string, LeadRecord[]>();
+  for (const l of leads) {
+    const key = l.company_name || "(unknown)";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(l);
+  }
+  return map;
+}
+
+/**
+ * Build a mapping from each trend index to its associated leads.
+ * Uses multiple strategies because lead.trend_title is often the full event
+ * summary (paragraph), while trend.title is the short headline.
+ *
+ *  1. Exact match:  lead.trend_title === trend.title
+ *  2. Company match: lead.company_name ∈ trend.affected_companies (fuzzy)
+ *  3. Keyword match: significant words from trend.title appear in lead.trend_title
+ */
+function buildTrendLeadMap(trends: TrendData[], leads: LeadRecord[]): Map<number, LeadRecord[]> {
+  const map = new Map<number, LeadRecord[]>();
+  const assigned = new Set<number>(); // lead index → already assigned
+
+  // Pass 1: exact match
+  for (let ti = 0; ti < trends.length; ti++) {
+    const t = trends[ti];
+    const matched: LeadRecord[] = [];
+    leads.forEach((l, li) => {
+      if (!assigned.has(li) && l.trend_title === t.title) {
+        matched.push(l);
+        assigned.add(li);
+      }
+    });
+    if (matched.length > 0) map.set(ti, matched);
+  }
+
+  // Pass 2: affected_companies fuzzy match
+  for (let ti = 0; ti < trends.length; ti++) {
+    const ac = (trends[ti].affected_companies ?? []).map((c) => c.toLowerCase());
+    if (ac.length === 0) continue;
+    leads.forEach((l, li) => {
+      if (assigned.has(li)) return;
+      const cn = l.company_name.toLowerCase();
+      if (ac.some((a) => cn.includes(a) || a.includes(cn))) {
+        if (!map.has(ti)) map.set(ti, []);
+        map.get(ti)!.push(l);
+        assigned.add(li);
+      }
+    });
+  }
+
+  // Pass 3: keyword overlap — extract 3+ char words from trend title, check lead.trend_title
+  for (let ti = 0; ti < trends.length; ti++) {
+    const words = trends[ti].title
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 4);
+    if (words.length === 0) continue;
+    const threshold = Math.max(2, Math.floor(words.length * 0.4));
+    leads.forEach((l, li) => {
+      if (assigned.has(li)) return;
+      const lt = (l.trend_title ?? "").toLowerCase();
+      const hits = words.filter((w) => lt.includes(w)).length;
+      if (hits >= threshold) {
+        if (!map.has(ti)) map.set(ti, []);
+        map.get(ti)!.push(l);
+        assigned.add(li);
+      }
+    });
+  }
+
+  return map;
+}
+
 // ── Node sizes ────────────────────────────────────────────────────────
 
 const NODE_DIM: Record<string, { w: number; h: number }> = {
-  run:   { w: 310, h: 115 },
-  trend: { w: 245, h: 105 },
-  lead:  { w: 205, h: 85  },
-  plus:  { w: 120, h: 44  },
+  run:     { w: 310, h: 115 },
+  trend:   { w: 245, h: 120 },
+  company: { w: 220, h: 75  },
+  lead:    { w: 205, h: 85  },
+  plus:    { w: 120, h: 44  },
 };
 
 // ── Dagre layout ──────────────────────────────────────────────────────
@@ -90,15 +172,21 @@ function applyLayout(nodes: AppNode[], edges: Edge[]): AppNode[] {
   });
 }
 
-// ── Build graph ────────────────────────────────────────────────────────
+// ── Build graph (4-tier collapsible) ──────────────────────────────────
 
-const MAX_LEADS_PER_TREND = 5;
-const MAX_TRENDS          = 18;
+const MAX_LEADS_PER_COMPANY = 5;
+const MAX_TRENDS            = 18;
+const MAX_COMPANIES         = 12;
 
-function buildGraph(result: PipelineRunResult): { nodes: AppNode[]; edges: Edge[] } {
+function buildGraph(
+  result: PipelineRunResult,
+  expandedTrends: Set<string>,
+  expandedCompanies: Set<string>,
+): { nodes: AppNode[]; edges: Edge[] } {
   const nodes: AppNode[] = [];
   const edges: Edge[]    = [];
 
+  // Run node
   nodes.push({
     id: "run", type: "run", position: { x: 0, y: 0 },
     data: {
@@ -111,11 +199,19 @@ function buildGraph(result: PipelineRunResult): { nodes: AppNode[]; edges: Edge[
     },
   });
 
+  // Pre-compute trend→lead mapping using multi-strategy matching
+  const trendLeadMap = buildTrendLeadMap(result.trends, result.leads);
+
   const shownTrends  = result.trends.slice(0, MAX_TRENDS);
   const hiddenTrends = result.trends.length - shownTrends.length;
 
   shownTrends.forEach((t, i) => {
     const tid = `trend-${i}`;
+    const trendLeads  = trendLeadMap.get(i) ?? [];
+    const companyMap  = groupLeadsByCompany(trendLeads);
+    const isTrendExpanded = expandedTrends.has(tid);
+
+    // Trend node
     nodes.push({
       id: tid, type: "trend", position: { x: 0, y: 0 },
       data: {
@@ -125,6 +221,8 @@ function buildGraph(result: PipelineRunResult): { nodes: AppNode[]; edges: Edge[
         industries:   t.industries ?? [],
         oss:          t.oss_score,
         index:        i,
+        isExpanded:   isTrendExpanded,
+        companyCount: companyMap.size,
       },
     });
     edges.push({
@@ -134,40 +232,76 @@ function buildGraph(result: PipelineRunResult): { nodes: AppNode[]; edges: Edge[
       markerEnd: { type: MarkerType.ArrowClosed, color: "var(--border-strong)", width: 12, height: 12 },
     });
 
-    const trendLeads = result.leads.filter((l) => l.trend_title === t.title);
-    const shown      = trendLeads.slice(0, MAX_LEADS_PER_TREND);
-    const overflow   = trendLeads.length - shown.length;
+    // Expanded: show company children
+    if (isTrendExpanded) {
+      const companies = Array.from(companyMap.entries()).slice(0, MAX_COMPANIES);
+      const hiddenCompanies = companyMap.size - companies.length;
 
-    shown.forEach((l, li) => {
-      const lid   = `lead-${tid}-${li}`;
-      const color = TYPE_COLOR[l.lead_type] ?? "var(--text-muted)";
-      nodes.push({
-        id: lid, type: "lead", position: { x: 0, y: 0 },
-        data: {
-          company:    l.company_name,
-          leadType:   l.lead_type,
-          confidence: l.confidence,
-          role:       l.contact_role || "",
-          leadId:     l.id,
-          leadIdx:    result.leads.indexOf(l),
-        },
-      });
-      edges.push({
-        id: `e-${tid}-${lid}`, source: tid, target: lid,
-        type: "smoothstep",
-        style: { stroke: color + "66", strokeWidth: 1.5 },
-        markerEnd: { type: MarkerType.ArrowClosed, color, width: 10, height: 10 },
-      });
-    });
+      for (const [companyName, companyLeads] of companies) {
+        const cid = `company-${tid}-${slugify(companyName)}`;
+        const domain = companyLeads[0]?.company_domain ?? "";
+        const isCompanyExpanded = expandedCompanies.has(cid);
 
-    if (overflow > 0) {
-      const pid = `plus-${tid}`;
-      nodes.push({ id: pid, type: "plus", position: { x: 0, y: 0 }, data: { count: overflow } });
-      edges.push({
-        id: `e-${tid}-${pid}`, source: tid, target: pid,
-        type: "smoothstep",
-        style: { stroke: "var(--border)", strokeWidth: 1, strokeDasharray: "4 2" },
-      });
+        nodes.push({
+          id: cid, type: "company", position: { x: 0, y: 0 },
+          data: { companyName, domain, leadCount: companyLeads.length, trendId: tid, isExpanded: isCompanyExpanded },
+        });
+        edges.push({
+          id: `e-${tid}-${cid}`, source: tid, target: cid,
+          type: "smoothstep",
+          style: { stroke: "var(--accent)", strokeWidth: 1.5, opacity: 0.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--accent)", width: 10, height: 10 },
+        });
+
+        // Expanded company: show lead children
+        if (isCompanyExpanded) {
+          const shown = companyLeads.slice(0, MAX_LEADS_PER_COMPANY);
+          const overflow = companyLeads.length - shown.length;
+
+          shown.forEach((l, li) => {
+            const lid   = `lead-${cid}-${li}`;
+            const color = TYPE_COLOR[l.lead_type] ?? "var(--text-muted)";
+            nodes.push({
+              id: lid, type: "lead", position: { x: 0, y: 0 },
+              data: {
+                company:     l.company_name,
+                contactName: l.contact_name || "",
+                leadType:    l.lead_type,
+                confidence:  l.confidence,
+                role:        l.contact_role || "",
+                leadId:      l.id,
+                leadIdx:     result.leads.indexOf(l),
+              },
+            });
+            edges.push({
+              id: `e-${cid}-${lid}`, source: cid, target: lid,
+              type: "smoothstep",
+              style: { stroke: color, strokeWidth: 1.5, opacity: 0.4 },
+              markerEnd: { type: MarkerType.ArrowClosed, color, width: 10, height: 10 },
+            });
+          });
+
+          if (overflow > 0) {
+            const pid = `plus-${cid}`;
+            nodes.push({ id: pid, type: "plus", position: { x: 0, y: 0 }, data: { count: overflow } });
+            edges.push({
+              id: `e-${cid}-${pid}`, source: cid, target: pid,
+              type: "smoothstep",
+              style: { stroke: "var(--border)", strokeWidth: 1, strokeDasharray: "4 2" },
+            });
+          }
+        }
+      }
+
+      if (hiddenCompanies > 0) {
+        const pid = `plus-companies-${tid}`;
+        nodes.push({ id: pid, type: "plus", position: { x: 0, y: 0 }, data: { count: hiddenCompanies } });
+        edges.push({
+          id: `e-${tid}-${pid}`, source: tid, target: pid,
+          type: "smoothstep",
+          style: { stroke: "var(--border)", strokeWidth: 1, strokeDasharray: "4 2" },
+        });
+      }
     }
   });
 
@@ -272,12 +406,81 @@ function TrendNode({ data, selected }: NodeProps & { data: TrendNodeData }) {
               {ind}
             </span>
           )}
-          {(hov || selected) && (
+        </div>
+        {/* Expand indicator */}
+        {data.companyCount > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)" }}>
+            <span style={{
+              fontSize: 9, display: "flex", alignItems: "center", gap: 3, fontWeight: 600,
+              color: data.isExpanded ? sc : "var(--text-muted)",
+            }}>
+              {data.isExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+              {data.companyCount} compan{data.companyCount === 1 ? "y" : "ies"}
+            </span>
+            {(hov || selected) && (
+              <span style={{ marginLeft: "auto", fontSize: 9, color: sc, display: "flex", alignItems: "center", gap: 2, fontWeight: 600 }}>
+                <ChevronRight size={9} />details
+              </span>
+            )}
+          </div>
+        )}
+        {data.companyCount === 0 && (hov || selected) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)" }}>
             <span style={{ marginLeft: "auto", fontSize: 9, color: sc, display: "flex", alignItems: "center", gap: 2, fontWeight: 600 }}>
               <ChevronRight size={9} />details
             </span>
-          )}
+          </div>
+        )}
+      </div>
+      <Handle type="source" position={Position.Bottom} style={{ background: sc, width: 7, height: 7, border: "2px solid var(--surface)" }} />
+    </div>
+  );
+}
+
+// ── Custom Node: Company ──────────────────────────────────────────────
+
+function CompanyNode({ data, selected }: NodeProps & { data: CompanyNodeData }) {
+  const [hov, setHov] = useState(false);
+  const sc = "var(--accent)";
+  return (
+    <div
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      className="node-enter"
+      style={{
+        width: NODE_DIM.company.w, background: "var(--surface)",
+        border: selected ? `2px solid ${sc}` : `1px solid ${hov ? "var(--border-strong)" : "var(--border)"}`,
+        borderLeft: `3px solid ${sc}`, borderRadius: 10,
+        boxShadow: selected ? `0 0 0 4px ${sc}1A, var(--shadow-md)` : hov ? "var(--shadow-md)" : "var(--shadow-sm)",
+        overflow: "hidden", cursor: "pointer",
+        transform: hov && !selected ? "translateY(-2px)" : "none",
+        transition: "all 180ms ease",
+      }}
+    >
+      <Handle type="target" position={Position.Top} style={{ background: sc, width: 7, height: 7, border: "2px solid var(--surface)" }} />
+      <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 9 }}>
+        <CompanyLogo domain={data.domain} size={28} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 12, fontWeight: 700, color: "var(--text)",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {data.companyName}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <span style={{ fontSize: 9, color: "var(--text-muted)" }}>
+              {data.leadCount} lead{data.leadCount !== 1 ? "s" : ""}
+            </span>
+            {data.domain && (
+              <span style={{ fontSize: 9, color: "var(--text-xmuted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 80 }}>
+                {data.domain}
+              </span>
+            )}
+          </div>
         </div>
+        {data.isExpanded
+          ? <ChevronDown size={12} style={{ color: sc, flexShrink: 0 }} />
+          : <ChevronRight size={12} style={{ color: "var(--text-xmuted)", flexShrink: 0 }} />
+        }
       </div>
       <Handle type="source" position={Position.Bottom} style={{ background: sc, width: 7, height: 7, border: "2px solid var(--surface)" }} />
     </div>
@@ -294,6 +497,7 @@ function LeadNode({ data, selected }: NodeProps & { data: LeadNodeData }) {
   return (
     <div
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      className="node-enter"
       style={{
         width: NODE_DIM.lead.w, background: "var(--surface)",
         border: selected ? `2px solid ${color}` : `1px solid ${hov ? color + "99" : color + "44"}`,
@@ -305,12 +509,16 @@ function LeadNode({ data, selected }: NodeProps & { data: LeadNodeData }) {
       }}
     >
       <Handle type="target" position={Position.Top} style={{ background: color, width: 6, height: 6, border: "2px solid var(--surface)" }} />
-      {/* Confidence fill bar */}
       <div style={{ height: 2, background: `linear-gradient(90deg, ${color}, ${color}44)`, width: `${conf}%` }} />
       <div style={{ padding: "9px 11px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 5 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-            {data.company}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 4 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {data.contactName || data.company}
+            </div>
+            <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {data.contactName ? (data.role || data.company) : data.role}
+            </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <span style={{ fontSize: 14, fontWeight: 800, color, lineHeight: 1 }}>{conf}</span>
@@ -321,11 +529,6 @@ function LeadNode({ data, selected }: NodeProps & { data: LeadNodeData }) {
           <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: bg, color, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>
             {data.leadType}
           </span>
-          {data.role && (
-            <span style={{ fontSize: 9, color: "var(--text-xmuted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {data.role}
-            </span>
-          )}
         </div>
       </div>
     </div>
@@ -348,7 +551,7 @@ function PlusNode({ data }: NodeProps & { data: PlusNodeData }) {
   );
 }
 
-const NODE_TYPES = { run: RunNode, trend: TrendNode, lead: LeadNode, plus: PlusNode } as const;
+const NODE_TYPES = { run: RunNode, trend: TrendNode, company: CompanyNode, lead: LeadNode, plus: PlusNode } as const;
 
 // ── Detail panel shared pieces ─────────────────────────────────────────
 
@@ -367,18 +570,6 @@ function ScoreRow({ label, value, color }: { label: string; value: number | null
   );
 }
 
-function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.09em", color: "var(--text-xmuted)", textTransform: "uppercase", marginBottom: 9, display: "flex", alignItems: "center", gap: 6 }}>
-        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-        {title}
-        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-      </div>
-      {children}
-    </div>
-  );
-}
 
 // ── Trend detail panel ─────────────────────────────────────────────────
 
@@ -393,7 +584,6 @@ function TrendPanel({ trend, allLeads, onClose }: { trend: TrendData; allLeads: 
       boxShadow: "var(--shadow-lg)", zIndex: 20, display: "flex", flexDirection: "column",
       animation: "slide-in-right 220ms ease forwards",
     }}>
-      {/* Sticky header */}
       <div style={{ padding: "15px 18px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           <div style={{ flex: 1 }}>
@@ -411,28 +601,20 @@ function TrendPanel({ trend, allLeads, onClose }: { trend: TrendData; allLeads: 
           </button>
         </div>
       </div>
-
-      {/* Scrollable body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
-
-        {/* Summary */}
         {trend.summary && (
           <PanelSection title="Summary">
             <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.65, margin: 0 }}>{trend.summary}</p>
           </PanelSection>
         )}
-
-        {/* Scores */}
         <PanelSection title="Signal Scores">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <ScoreRow label="OSS Score"         value={trend.oss_score}           color="var(--accent)" />
-            <ScoreRow label="Trend Score"       value={trend.trend_score}         color="var(--blue)"   />
-            <ScoreRow label="Actionability"     value={trend.actionability_score} color="var(--green)"  />
-            <ScoreRow label="Council Confid."   value={trend.council_confidence}  color={sc}            />
+            <ScoreRow label="OSS Score"       value={trend.oss_score}           color="var(--accent)" />
+            <ScoreRow label="Trend Score"     value={trend.trend_score}         color="var(--blue)"   />
+            <ScoreRow label="Actionability"   value={trend.actionability_score} color="var(--green)"  />
+            <ScoreRow label="Council Confid." value={trend.council_confidence}  color={sc}            />
           </div>
         </PanelSection>
-
-        {/* Industries */}
         {trend.industries?.length > 0 && (
           <PanelSection title="Industries">
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
@@ -444,8 +626,6 @@ function TrendPanel({ trend, allLeads, onClose }: { trend: TrendData; allLeads: 
             </div>
           </PanelSection>
         )}
-
-        {/* Causal chain */}
         {trend.causal_chain?.length > 0 && (
           <PanelSection title="Causal Chain">
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -460,8 +640,6 @@ function TrendPanel({ trend, allLeads, onClose }: { trend: TrendData; allLeads: 
             </div>
           </PanelSection>
         )}
-
-        {/* Actionable insight */}
         {trend.actionable_insight && (
           <PanelSection title="Actionable Insight">
             <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0, padding: "10px 13px", background: sc + "0C", borderLeft: `3px solid ${sc}`, borderRadius: "0 7px 7px 0" }}>
@@ -469,8 +647,6 @@ function TrendPanel({ trend, allLeads, onClose }: { trend: TrendData; allLeads: 
             </p>
           </PanelSection>
         )}
-
-        {/* Leads */}
         {trendLeads.length > 0 && (
           <PanelSection title={`Leads from this Trend (${trendLeads.length})`}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -519,7 +695,6 @@ function LeadPanel({ lead, leadIdx, onClose }: { lead: LeadRecord; leadIdx: numb
       boxShadow: "var(--shadow-lg)", zIndex: 20, display: "flex", flexDirection: "column",
       animation: "slide-in-right 220ms ease forwards",
     }}>
-      {/* Sticky header */}
       <div style={{ padding: "15px 18px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           <div style={{ flex: 1 }}>
@@ -541,26 +716,26 @@ function LeadPanel({ lead, leadIdx, onClose }: { lead: LeadRecord; leadIdx: numb
             <X size={13} />
           </button>
         </div>
-        {/* Confidence bar */}
         <div style={{ marginTop: 10, height: 4, borderRadius: 2, background: "var(--surface-raised)", overflow: "hidden" }}>
           <div style={{ width: `${conf}%`, height: "100%", background: color, borderRadius: 2, transition: "width 500ms ease" }} />
         </div>
       </div>
-
-      {/* Scrollable body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
-
-        {/* Contact */}
         {(lead.contact_name || lead.contact_role || lead.contact_email) && (
-          <PanelSection title="Contact">
+          <PanelSection title={lead.contact_name ? "Contact" : "Target Role"}>
             <div style={{ padding: "11px 13px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 9, display: "flex", flexDirection: "column", gap: 7 }}>
-              {lead.contact_name && (
+              {lead.contact_name ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <User size={11} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                   <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{lead.contact_name}</span>
                 </div>
-              )}
-              {lead.contact_role && (
+              ) : lead.contact_role ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <User size={11} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{lead.contact_role}</span>
+                </div>
+              ) : null}
+              {lead.contact_name && lead.contact_role && (
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 19 }}>{lead.contact_role}</div>
               )}
               {lead.contact_email && (
@@ -572,8 +747,6 @@ function LeadPanel({ lead, leadIdx, onClose }: { lead: LeadRecord; leadIdx: numb
             </div>
           </PanelSection>
         )}
-
-        {/* Opening line */}
         {lead.opening_line && (
           <PanelSection title="Opening Line">
             <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.65, margin: 0, padding: "11px 13px", background: color + "0C", borderLeft: `3px solid ${color}`, borderRadius: "0 7px 7px 0", fontStyle: "italic" }}>
@@ -581,15 +754,11 @@ function LeadPanel({ lead, leadIdx, onClose }: { lead: LeadRecord; leadIdx: numb
             </p>
           </PanelSection>
         )}
-
-        {/* Pain point */}
         {lead.pain_point && (
           <PanelSection title="Pain Point">
             <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.65, margin: 0 }}>{lead.pain_point}</p>
           </PanelSection>
         )}
-
-        {/* Trigger event */}
         {lead.trigger_event && (
           <PanelSection title="Trigger Event">
             <div style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 12px", background: "var(--amber-light)", borderRadius: 7, border: "1px solid var(--amber)33" }}>
@@ -598,8 +767,6 @@ function LeadPanel({ lead, leadIdx, onClose }: { lead: LeadRecord; leadIdx: numb
             </div>
           </PanelSection>
         )}
-
-        {/* Email subject preview */}
         {lead.email_subject && (
           <PanelSection title="Email Subject">
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", padding: "9px 12px", background: "var(--bg)", borderRadius: 7, border: "1px solid var(--border)" }}>
@@ -608,12 +775,10 @@ function LeadPanel({ lead, leadIdx, onClose }: { lead: LeadRecord; leadIdx: numb
           </PanelSection>
         )}
       </div>
-
-      {/* CTA footer */}
       <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
         <Link href={href} style={{ textDecoration: "none", display: "block" }}>
           <div
-            style={{ padding: "12px 16px", borderRadius: 9, background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "opacity 150ms" }}
+            style={{ padding: "12px 16px", borderRadius: 9, background: color, color: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "opacity 150ms" }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
@@ -625,28 +790,151 @@ function LeadPanel({ lead, leadIdx, onClose }: { lead: LeadRecord; leadIdx: numb
   );
 }
 
-// ── Legend ────────────────────────────────────────────────────────────
+// ── Company detail panel ─────────────────────────────────────────────
+
+function CompanyPanel({ name, trend, leads, onClose }: {
+  name: string; trend: TrendData | null; leads: LeadRecord[]; onClose: () => void;
+}) {
+  const domain = leads[0]?.company_domain ?? "";
+  const sc = "var(--accent)";
+
+  return (
+    <div style={{
+      position: "absolute", top: 0, right: 0, bottom: 0, width: 390,
+      background: "var(--surface)", borderLeft: "1px solid var(--border)",
+      boxShadow: "var(--shadow-lg)", zIndex: 20, display: "flex", flexDirection: "column",
+      animation: "slide-in-right 220ms ease forwards",
+    }}>
+      <div style={{ padding: "15px 18px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <CompanyLogo domain={domain} size={36} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{name}</div>
+            {domain && (
+              <a href={`https://${domain}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, color: "var(--blue)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                {domain} <ExternalLink size={9} />
+              </a>
+            )}
+          </div>
+          <button onClick={onClose} style={{ padding: "6px 7px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", cursor: "pointer", color: "var(--text-muted)", display: "flex", flexShrink: 0 }}>
+            <X size={13} />
+          </button>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+        {trend && (
+          <PanelSection title="From Trend">
+            <div style={{ padding: "9px 12px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <TrendingUp size={11} style={{ color: SEVERITY_COLOR[trend.severity] ?? sc, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>{trend.title}</div>
+                <span style={{ fontSize: 9, fontWeight: 700, color: SEVERITY_COLOR[trend.severity] ?? "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  {trend.severity}
+                </span>
+              </div>
+            </div>
+          </PanelSection>
+        )}
+        <PanelSection title={`Leads (${leads.length})`}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {leads.map((l, i) => {
+              const c    = TYPE_COLOR[l.lead_type] ?? "var(--text-muted)";
+              const bg   = TYPE_BG[l.lead_type] ?? "var(--surface-raised)";
+              const conf = Math.round(l.confidence * 100);
+              return (
+                <Link key={i} href={`/leads/${l.id ?? i}`} style={{ textDecoration: "none" }}>
+                  <div
+                    style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${c}33`, background: "var(--bg)", transition: "all 140ms", display: "flex", alignItems: "center", gap: 8 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = c + "0D"; e.currentTarget.style.borderColor = c + "77"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg)"; e.currentTarget.style.borderColor = c + "33"; }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: bg, color: c, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          {l.lead_type}
+                        </span>
+                        {l.contact_name && (
+                          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>{l.contact_name}</span>
+                        )}
+                      </div>
+                      {l.contact_role && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{l.contact_role}</div>}
+                      {l.contact_email && (
+                        <div style={{ fontSize: 10, color: "var(--blue)", marginTop: 2 }}>{l.contact_email}</div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: c }}>{conf}</span>
+                      <ChevronRight size={11} style={{ color: "var(--text-xmuted)" }} />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </PanelSection>
+      </div>
+      <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+        <Link href={`/companies?search=${encodeURIComponent(name)}`} style={{ textDecoration: "none", display: "block" }}>
+          <div
+            style={{ padding: "12px 16px", borderRadius: 9, background: sc, color: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "opacity 150ms" }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            <Building2 size={14} /> View Full Company Page
+          </div>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ── Legend (visible on load → fades to resting → full on hover) ──────
+
+const LEGEND_ITEMS = [
+  { color: "var(--red)",    label: "High severity" },
+  { color: "var(--amber)",  label: "Medium severity" },
+  { color: "var(--green)",  label: "Opportunity" },
+  { color: "var(--accent)", label: "Company" },
+  { color: "var(--blue)",   label: "Intelligence" },
+];
 
 function Legend() {
+  const [hov, setHov] = useState(false);
+  const [fresh, setFresh] = useState(true); // fully visible on first render
+
+  // Stay fully visible for 8s, then gently fade to resting state
+  useEffect(() => {
+    const t = setTimeout(() => setFresh(false), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const active = hov || fresh;
+
   return (
-    <div style={{ position: "absolute", bottom: 16, left: 16, zIndex: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px", boxShadow: "var(--shadow-md)" }}>
-      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.07em", marginBottom: 9 }}>LEGEND</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {[
-          { color: "var(--red)",   label: "High severity trend"  },
-          { color: "var(--amber)", label: "Medium severity trend" },
-          { color: "var(--green)", label: "Low / Opportunity"     },
-          { color: "var(--red)",   label: "Pain lead"             },
-          { color: "var(--blue)",  label: "Intelligence lead"     },
-        ].map(({ color, label }) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <div style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0 }} />
-            <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{label}</span>
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        position: "absolute", top: 14, left: 14, zIndex: 10,
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: 9,
+        padding: "10px 12px",
+        boxShadow: active ? "var(--shadow-sm)" : "none",
+        opacity: active ? 0.95 : 0.35,
+        transition: "opacity 500ms ease, box-shadow 300ms ease",
+        cursor: "default",
+        pointerEvents: "auto",
+      }}
+    >
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", alignItems: "center" }}>
+        {LEGEND_ITEMS.map(({ color, label }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 500 }}>{label}</span>
           </div>
         ))}
-      </div>
-      <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)", fontSize: 9, color: "var(--text-xmuted)" }}>
-        Click any node to inspect
       </div>
     </div>
   );
@@ -658,9 +946,9 @@ function StatBar({ result }: { result: PipelineRunResult }) {
   return (
     <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
       {[
-        { icon: TrendingUp, v: result.trends_detected,                   label: "trends",    c: "var(--blue)"      },
-        { icon: Building2,  v: result.companies_found,                   label: "companies", c: "var(--accent)"    },
-        { icon: Users,      v: result.leads_generated,                   label: "leads",     c: "var(--green)"     },
+        { icon: TrendingUp, v: result.trends_detected,                   label: "trends",    c: "var(--blue)"       },
+        { icon: Building2,  v: result.companies_found,                   label: "companies", c: "var(--accent)"     },
+        { icon: Users,      v: result.leads_generated,                   label: "leads",     c: "var(--green)"      },
         { icon: Clock,      v: formatDuration(result.run_time_seconds),  label: "runtime",   c: "var(--text-muted)" },
       ].map(({ icon: Icon, v, label, c }) => (
         <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -685,7 +973,11 @@ const STEP_LABELS: Record<string, string> = {
 
 // ── Main page ─────────────────────────────────────────────────────────
 
-type Selection = { type: "trend"; index: number } | { type: "lead"; index: number } | null;
+type Selection =
+  | { type: "trend"; index: number }
+  | { type: "lead"; index: number }
+  | { type: "company"; companyName: string; trendIndex: number }
+  | null;
 
 export default function PipelineTreePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -694,36 +986,141 @@ export default function PipelineTreePage({ params }: { params: Promise<{ id: str
   const [error, setError]       = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
 
+  // Expand/collapse state
+  const [expandedTrends, setExpandedTrends]       = useState<Set<string>>(new Set());
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+
   const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const rfInstance = useRef<ReactFlowInstance<AppNode, Edge> | null>(null);
+  // "full" = fitView entire graph, "node:xyz" = zoom to subtree, "none" = keep viewport
+  const fitMode = useRef<string>("full");
 
+  // Toggle helpers — accordion: only one trend open, only one company per trend open
+  const toggleTrend = useCallback((trendId: string) => {
+    setExpandedTrends(prev => {
+      if (prev.has(trendId)) {
+        setExpandedCompanies(prevC => {
+          const nextC = new Set(prevC);
+          for (const key of nextC) {
+            if (key.startsWith(`company-${trendId}-`)) nextC.delete(key);
+          }
+          return nextC;
+        });
+        fitMode.current = "full"; // collapsing → show whole tree
+        return new Set<string>();
+      }
+      setExpandedCompanies(new Set<string>());
+      fitMode.current = `node:${trendId}`; // zoom toward expanded trend subtree
+      return new Set([trendId]);
+    });
+  }, []);
+
+  const toggleCompany = useCallback((companyId: string) => {
+    fitMode.current = "none"; // don't move viewport for company toggles
+    setExpandedCompanies(prev => {
+      if (prev.has(companyId)) {
+        const next = new Set(prev);
+        next.delete(companyId);
+        return next;
+      }
+      const trendPrefix = companyId.replace(/^(company-trend-\d+)-.+$/, "$1");
+      const next = new Set<string>();
+      for (const key of prev) {
+        if (!key.startsWith(trendPrefix)) next.add(key);
+      }
+      next.add(companyId);
+      return next;
+    });
+  }, []);
+
+  // Load result + enrich leads with contact names from DB
   useEffect(() => {
-    api.getPipelineResult(id)
-      .then((r) => {
+    (async () => {
+      try {
+        const r = await api.getPipelineResult(id);
+        // Pipeline result leads often lack contact_name. Fetch enriched leads from DB.
+        try {
+          const { leads: dbLeads } = await api.getLeads({ run_id: id, limit: 200 });
+          const byCompany = new Map<string, LeadRecord>();
+          for (const dl of dbLeads) {
+            if (dl.contact_name) byCompany.set(dl.company_name, dl);
+          }
+          // Merge enriched contact info into result leads
+          for (const lead of r.leads) {
+            if (!lead.contact_name) {
+              const enriched = byCompany.get(lead.company_name);
+              if (enriched) {
+                lead.contact_name  = enriched.contact_name;
+                lead.contact_email = enriched.contact_email || lead.contact_email;
+                lead.contact_role  = enriched.contact_role  || lead.contact_role;
+              }
+            }
+          }
+        } catch { /* DB leads not available — use result as-is */ }
         setResult(r);
-        if (r.trends.length > 0 || r.leads.length > 0) {
-          const { nodes: n, edges: e } = buildGraph(r);
-          setNodes(n as AppNode[]);
-          setEdges(e);
-        }
-      })
-      .catch(() => setError("Failed to load pipeline result."))
-      .finally(() => setLoading(false));
-  }, [id, setNodes, setEdges]);
+      } catch {
+        setError("Failed to load pipeline result.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
 
+  // Reactive graph rebuild when result or expanded state changes
+  useEffect(() => {
+    if (!result || (result.trends.length === 0 && result.leads.length === 0)) return;
+    const { nodes: n, edges: e } = buildGraph(result, expandedTrends, expandedCompanies);
+    setNodes(n as AppNode[]);
+    setEdges(e);
+
+    const mode = fitMode.current;
+    fitMode.current = "full"; // reset default
+
+    if (mode === "none") return; // company toggle — keep viewport
+
+    requestAnimationFrame(() => {
+      const rf = rfInstance.current;
+      if (!rf) return;
+
+      if (mode.startsWith("node:")) {
+        // Zoom toward the expanded trend's subtree
+        const targetId = mode.slice(5);
+        const subtreeIds = n.filter((nd) => nd.id === targetId || nd.id.includes(targetId)).map((nd) => nd.id);
+        if (subtreeIds.length > 0) {
+          rf.fitView({ nodes: subtreeIds.map((id) => ({ id })), padding: 0.25, duration: 400, maxZoom: 1 });
+          return;
+        }
+      }
+      rf.fitView({ padding: 0.12, duration: 300, maxZoom: 1.2 });
+    });
+  }, [result, expandedTrends, expandedCompanies, setNodes, setEdges]);
+
+  // Click handler — trend/company toggle + sidebar, lead opens sidebar
   const handleNodeClick = useCallback((_evt: React.MouseEvent, node: Node) => {
     if (node.type === "trend") {
+      toggleTrend(node.id);
       setSelection({ type: "trend", index: (node.data as TrendNodeData).index });
+    } else if (node.type === "company") {
+      toggleCompany(node.id);
+      const d = node.data as CompanyNodeData;
+      const trendIdx = parseInt(d.trendId.replace("trend-", ""), 10);
+      setSelection({ type: "company", companyName: d.companyName, trendIndex: trendIdx });
     } else if (node.type === "lead") {
       setSelection({ type: "lead", index: (node.data as LeadNodeData).leadIdx });
     } else {
       setSelection(null);
     }
-  }, []);
+  }, [toggleTrend, toggleCompany]);
 
   const selectedTrend = selection?.type === "trend" && result ? (result.trends[selection.index] ?? null) : null;
   const selectedLead  = selection?.type === "lead"  && result ? (result.leads[selection.index]  ?? null) : null;
-  const selectedIdx   = selection?.index ?? 0;
+  const selectedIdx   = selection?.type === "lead" ? selection.index : 0;
+  const selectedCompany = selection?.type === "company" && result ? {
+    name: selection.companyName,
+    trend: result.trends[selection.trendIndex] ?? null,
+    leads: result.leads.filter((l) => l.company_name === selection.companyName),
+  } : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
@@ -737,10 +1134,32 @@ export default function PipelineTreePage({ params }: { params: Promise<{ id: str
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", fontFamily: "monospace" }}>{id}</div>
           <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-            Pipeline intelligence tree · {result ? "click any node to inspect" : "loading…"}
+            Pipeline intelligence tree · click trend to expand
           </div>
         </div>
-        {result && <div style={{ marginLeft: "auto" }}><StatBar result={result} /></div>}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+          {result && <StatBar result={result} />}
+          {result?.status === "running" && (
+            <button
+              onClick={async () => {
+                await api.cancelPipeline();
+                setResult(r => r ? { ...r, status: "failed" } : r);
+              }}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 12px", borderRadius: 7,
+                border: "1px solid var(--red)",
+                background: "var(--red-light)",
+                color: "var(--red)",
+                fontSize: 11, fontWeight: 700,
+                cursor: "pointer", flexShrink: 0,
+              }}
+            >
+              <Square size={11} strokeWidth={2.5} />
+              Stop Pipeline
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Step strip */}
@@ -787,6 +1206,7 @@ export default function PipelineTreePage({ params }: { params: Promise<{ id: str
             nodeTypes={NODE_TYPES}
             onNodeClick={handleNodeClick}
             onPaneClick={() => setSelection(null)}
+            onInit={(instance) => { rfInstance.current = instance; }}
             fitView
             fitViewOptions={{ padding: 0.12, maxZoom: 1.2 }}
             minZoom={0.12}
@@ -796,17 +1216,21 @@ export default function PipelineTreePage({ params }: { params: Promise<{ id: str
             nodesDraggable
             elementsSelectable
           >
-            <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--border)" />
-            <Controls style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }} showInteractive={false} />
+            <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--border-strong)" />
+            <Controls
+              style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-xs)" }}
+              showInteractive={false}
+            />
             <MiniMap
-              style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }}
+              style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, opacity: 0.85 }}
               nodeColor={(n) => {
-                if (n.type === "run")   return "var(--accent)";
-                if (n.type === "trend") return SEVERITY_COLOR[(n.data as TrendNodeData).severity] ?? "var(--blue)";
-                if (n.type === "lead")  return TYPE_COLOR[(n.data as LeadNodeData).leadType] ?? "var(--text-muted)";
+                if (n.type === "run")     return "var(--accent)";
+                if (n.type === "trend")   return SEVERITY_COLOR[(n.data as TrendNodeData).severity] ?? "var(--blue)";
+                if (n.type === "company") return "var(--accent)";
+                if (n.type === "lead")    return TYPE_COLOR[(n.data as LeadNodeData).leadType] ?? "var(--text-muted)";
                 return "var(--border)";
               }}
-              maskColor="rgba(248,247,242,0.7)"
+              maskColor="var(--bg)"
             />
             <Legend />
           </ReactFlow>
@@ -824,6 +1248,14 @@ export default function PipelineTreePage({ params }: { params: Promise<{ id: str
           <LeadPanel
             lead={selectedLead}
             leadIdx={selectedIdx}
+            onClose={() => setSelection(null)}
+          />
+        )}
+        {selectedCompany && (
+          <CompanyPanel
+            name={selectedCompany.name}
+            trend={selectedCompany.trend}
+            leads={selectedCompany.leads}
             onClose={() => setSelection(null)}
           />
         )}

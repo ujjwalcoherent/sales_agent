@@ -50,14 +50,6 @@ const PROOF_POINTS = [
   "Pipeline completes in under 60 seconds",
 ];
 
-const SIGNAL_CARDS = [
-  { category: "Regulatory",    title: "RBI Digital Lending Circular Q1-2026",  companies: 12, urgency: "HIGH" as const, color: { bg: "#F5EDD8", text: "#B07030", dot: "#B07030" } },
-  { category: "M&A Activity",  title: "Mid-market Fintech Acquisition Wave",    companies: 8,  urgency: "HIGH" as const, color: { bg: "#E6EEF7", text: "#2A5A8A", dot: "#2A5A8A" } },
-  { category: "ESG Mandate",   title: "SEBI ESG Disclosure Framework v2",       companies: 15, urgency: "MED"  as const, color: { bg: "#EBF5F0", text: "#2D6A4F", dot: "#2D6A4F" } },
-  { category: "Capital Flows", title: "PE Capital Rotation into B2B SaaS",      companies: 6,  urgency: "MED"  as const, color: { bg: "#F0EBF5", text: "#6A3A8A", dot: "#6A3A8A" } },
-  { category: "Policy Shift",  title: "GST Input Credit Rule Amendment 2026",   companies: 21, urgency: "HIGH" as const, color: { bg: "#FAE8E6", text: "#A83226", dot: "#A83226" } },
-  { category: "Tech Shift",    title: "AI Procurement Automation Surge",        companies: 9,  urgency: "LOW"  as const, color: { bg: "#E6F5F3", text: "#1A7A6A", dot: "#1A7A6A" } },
-];
 
 export default function LandingPage() {
   return (
@@ -68,7 +60,7 @@ export default function LandingPage() {
         position: "sticky", top: 0, zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "14px 64px",
-        background: "rgba(248,247,242,0.92)", backdropFilter: "blur(14px)",
+        background: "var(--nav-bg)", backdropFilter: "blur(14px)",
         borderBottom: "1px solid var(--border)",
       }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
@@ -120,7 +112,7 @@ export default function LandingPage() {
 
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/dashboard" className="landing-btn-primary"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 10, background: "var(--accent)", color: "#FFF8EE", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 10, background: "var(--accent)", color: "var(--surface)", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 Open Dashboard <ArrowRight size={14} />
               </Link>
               <a href="#how" className="landing-btn-light"
@@ -136,16 +128,11 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Curved bottom wave — bleeds into ticker */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, lineHeight: 0, pointerEvents: "none" }}>
-          <svg viewBox="0 0 1440 56" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style={{ display: "block", width: "100%", height: 56 }}>
-            <path d="M0,0 Q360,56 720,40 Q1080,24 1440,48 L1440,56 L0,56 Z" fill="var(--surface-raised)" />
-          </svg>
-        </div>
+        <SectionWave fill="var(--surface-raised)" variant="a" />
       </section>
 
       {/* ── Ticker ───────────────────────────────────────── */}
-      <div style={{ background: "var(--surface-raised)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "12px 0", overflow: "hidden" }}>
+      <div style={{ background: "var(--surface-raised)", borderTop: "1px solid var(--border)", padding: "12px 0 52px", overflow: "hidden", position: "relative" }}>
         <div style={{ display: "flex", gap: 0, animation: "ticker 28s linear infinite", width: "max-content" }}>
           {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
             <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: "0 24px", fontSize: 11, color: "var(--text-muted)", fontWeight: 500, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
@@ -155,10 +142,11 @@ export default function LandingPage() {
           ))}
         </div>
         <style>{`@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+        <SectionWave fill="var(--bg)" variant="b" />
       </div>
 
       {/* ── HOW IT WORKS ─────────────────────────────────── */}
-      <section id="how" style={{ padding: "100px 0", background: "var(--bg)" }}>
+      <section id="how" style={{ padding: "100px 0 140px", background: "var(--bg)", position: "relative" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 96px" }}>
           <div style={{ textAlign: "center", marginBottom: 64 }}>
             <div style={{ fontSize: 10, color: "var(--text-xmuted)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 12 }}>HOW IT WORKS</div>
@@ -183,10 +171,11 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
+        <SectionWave fill="var(--surface)" variant="c" />
       </section>
 
       {/* ── Features strip ───────────────────────────────── */}
-      <section id="features" style={{ padding: "80px 0", background: "var(--surface)", borderTop: "1px solid var(--border)" }}>
+      <section id="features" style={{ padding: "80px 0 140px", background: "var(--surface)", position: "relative" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 96px" }}>
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <div style={{ fontSize: 10, color: "var(--text-xmuted)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 12 }}>UNDER THE HOOD</div>
@@ -204,35 +193,36 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
+        <SectionWave fill="var(--bg-dark)" variant="d" />
       </section>
 
       {/* ── CTA ──────────────────────────────────────────── */}
-      <section style={{ background: "#18170F", padding: "88px 0" }}>
+      <section style={{ background: "var(--bg-dark)", padding: "88px 0 140px", position: "relative" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 96px", display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 80 }}>
 
           {/* Left: copy */}
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(176,112,48,0.2)", background: "rgba(176,112,48,0.08)", marginBottom: 24 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#C4892A", display: "inline-block", animation: "pulse-dot 1.5s ease-in-out infinite" }} />
-              <span style={{ fontSize: 10, color: "#C4892A", fontWeight: 600, letterSpacing: "0.1em" }}>LIVE DEMO — NO SETUP</span>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", display: "inline-block", animation: "pulse-dot 1.5s ease-in-out infinite" }} />
+              <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 600, letterSpacing: "0.1em" }}>LIVE DEMO — NO SETUP</span>
             </div>
 
-            <h2 className="font-display" style={{ fontSize: "clamp(36px, 4vw, 56px)", color: "#F5EDD8", letterSpacing: "-0.025em", lineHeight: 1.08, marginBottom: 20 }}>
+            <h2 className="font-display" style={{ fontSize: "clamp(36px, 4vw, 56px)", color: "var(--term-text)", letterSpacing: "-0.025em", lineHeight: 1.08, marginBottom: 20 }}>
               Watch it work.<br />
-              <span style={{ color: "#C4892A" }}>15 steps.</span> 45 seconds.
+              <span style={{ color: "var(--accent)" }}>15 steps.</span> 45 seconds.
             </h2>
 
-            <p style={{ fontSize: 14, color: "#7A6850", lineHeight: 1.75, maxWidth: 420, marginBottom: 36 }}>
-              Hit <span style={{ color: "#C4892A", fontWeight: 600 }}>Demo</span> in the Pipeline bar — the system scans real sources, debates market impact, matches companies, verifies contacts and generates personalised outreach. All in under a minute.
+            <p style={{ fontSize: 14, color: "var(--term-text-muted)", lineHeight: 1.75, maxWidth: 420, marginBottom: 36 }}>
+              Hit <span style={{ color: "var(--accent)", fontWeight: 600 }}>Demo</span> in the Pipeline bar — the system scans real sources, debates market impact, matches companies, verifies contacts and generates personalised outreach. All in under a minute.
             </p>
 
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/dashboard" className="landing-btn-primary"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 10, background: "#C4892A", color: "#0E0D09", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 10, background: "var(--accent)", color: "var(--term-bg)", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 <Zap size={13} /> Open Dashboard
               </Link>
               <Link href="/leads"
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 20px", borderRadius: 10, border: "1px solid #2A2820", color: "#7A7060", fontSize: 13, textDecoration: "none", background: "transparent" }}>
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 20px", borderRadius: 10, border: "1px solid var(--term-border)", color: "var(--term-text-muted)", fontSize: 13, textDecoration: "none", background: "transparent" }}>
                 Browse sample leads <ArrowUpRight size={12} />
               </Link>
             </div>
@@ -251,6 +241,32 @@ export default function LandingPage() {
   );
 }
 
+// ── Section Wave ──────────────────────────────────────────────────────
+
+const WAVE_PATHS = {
+  // gentle S-curve (left-biased)
+  a: "M0,0 Q360,56 720,40 Q1080,24 1440,48 L1440,56 L0,56 Z",
+  // inverse S (right-biased)
+  b: "M0,44 Q400,8 720,36 Q1040,60 1440,12 L1440,56 L0,56 Z",
+  // deep single arc
+  c: "M0,24 Q360,64 720,36 Q1080,8 1440,44 L1440,56 L0,56 Z",
+  // broad shallow roll
+  d: "M0,40 Q480,4 720,28 Q960,52 1440,16 L1440,56 L0,56 Z",
+} as const;
+
+function SectionWave({ fill, variant = "a", height = 56 }: {
+  fill: string; variant?: keyof typeof WAVE_PATHS; height?: number;
+}) {
+  return (
+    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, lineHeight: 0, pointerEvents: "none", zIndex: 2 }}>
+      <svg viewBox={`0 0 1440 ${height}`} xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="none" style={{ display: "block", width: "100%", height }}>
+        <path d={WAVE_PATHS[variant]} fill={fill} />
+      </svg>
+    </div>
+  );
+}
+
 // ── Lead Results Mockup ────────────────────────────────────────────────
 
 function LeadResultsMockup() {
@@ -264,7 +280,7 @@ function LeadResultsMockup() {
     <div style={{
       width: 420,
       background: "#FFFFFF",
-      borderRadius: "16px 16px 0 0",
+      borderRadius: 16,
       boxShadow: "0 -20px 60px rgba(24,23,15,0.10), 0 -4px 20px rgba(24,23,15,0.06), 0 0 0 1px rgba(24,23,15,0.06)",
       overflow: "hidden",
     }}>
@@ -406,10 +422,10 @@ function ScanVisual() {
 
 function AnalyseVisual() {
   const agents = [
-    { name: "Risk Analyst",  color: "#A83226", bg: "#FAE8E6", w: 78 },
-    { name: "Market Expert", color: "#2A5A8A", bg: "#E6EEF7", w: 65 },
-    { name: "Sales Advisor", color: "#2D6A4F", bg: "#EBF5F0", w: 82 },
-    { name: "Moderator",     color: "#B07030", bg: "#F5EDD8", w: 58 },
+    { name: "Risk Analyst",  color: "var(--red)",    bg: "var(--red-light)",    w: 78 },
+    { name: "Market Expert", color: "var(--blue)",   bg: "var(--blue-light)",   w: 65 },
+    { name: "Sales Advisor", color: "var(--green)",  bg: "var(--green-light)",  w: 82 },
+    { name: "Moderator",     color: "var(--accent)", bg: "var(--accent-light)", w: 58 },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 7, padding: "14px 20px", width: "100%" }}>
@@ -458,21 +474,21 @@ function DeliverVisual() {
 function LandingFooter() {
   return (
     <footer>
-      {/* Zone 1: Utility strip */}
+      {/* Zone 1: Utility strip — dark, seamless from CTA */}
       <div style={{
-        background: "var(--surface-raised)",
-        borderTop: "1px solid var(--border)",
+        background: "var(--bg-dark)",
+        borderTop: "1px solid rgba(255,255,255,0.06)",
         padding: "0 64px",
-        height: 44,
+        height: 48,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div style={{ width: 20, height: 20, background: "var(--text)", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Zap size={10} color="var(--bg)" strokeWidth={2.5} />
+          <div style={{ width: 20, height: 20, background: "var(--surface-hover)", border: "1px solid var(--term-border)", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Zap size={10} color="var(--term-accent)" strokeWidth={2.5} />
           </div>
-          <span className="font-display" style={{ fontSize: 13, color: "var(--text-muted)" }}>{APP_NAME}</span>
+          <span className="font-display" style={{ fontSize: 13, color: "var(--term-text-dim)" }}>{APP_NAME}</span>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -482,145 +498,31 @@ function LandingFooter() {
             { label: "Leads",     href: "/leads"     },
           ].map(({ label, href }, i, arr) => (
             <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Link href={href} className="nav-link-landing" style={{ fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}>
+              <Link href={href} style={{ fontSize: 12, color: "var(--term-text-dim)", textDecoration: "none" }}>
                 {label}
               </Link>
               {i < arr.length - 1 && (
-                <span style={{ fontSize: 12, color: "var(--border-strong)" }}>·</span>
+                <span style={{ fontSize: 12, color: "var(--term-text-xdim)" }}>·</span>
               )}
             </span>
           ))}
         </div>
 
-        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>© 2026 Harbinger</span>
+        <span style={{ fontSize: 11, color: "var(--term-text-xdim)" }}>© 2026 Harbinger</span>
       </div>
 
-      {/* Zone 2: Signal band */}
-      <SignalBand />
-
-      {/* Zone 3: Wordmark anchor */}
+      {/* Zone 2: Wordmark anchor */}
       <WordmarkAnchor />
     </footer>
   );
 }
 
-function SignalBand() {
-  return (
-    <div style={{ background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "28px 0" }}>
-      {/* Live indicator */}
-      <div style={{ padding: "0 64px", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "pulse-dot 1.5s ease-in-out infinite", flexShrink: 0 }} />
-        <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.06em" }}>Live signals</span>
-      </div>
-
-      {/* Auto-scrolling card row with fade masks */}
-      <div style={{
-        overflow: "hidden",
-        WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
-        maskImage:        "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
-      }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            width: "max-content",
-            paddingBottom: 4,
-            animation: "signalScroll 32s linear infinite",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.animationPlayState = "paused"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.animationPlayState = "running"; }}
-        >
-          {[...SIGNAL_CARDS, ...SIGNAL_CARDS].map((card, i) => (
-            <SignalCard key={`${card.title}-${i}`} {...card} />
-          ))}
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes signalScroll {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-50%); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-function SignalCard({ category, title, companies, urgency, color }: typeof SIGNAL_CARDS[number]) {
-  const urgencyColors = {
-    HIGH: { bg: "#FAE8E6", text: "#A83226" },
-    MED:  { bg: "#F5EDD8", text: "#B07030" },
-    LOW:  { bg: "#EBF5F0", text: "#2D6A4F" },
-  };
-  const uc = urgencyColors[urgency];
-
-  return (
-    <div
-      style={{
-        width: 200,
-        flexShrink: 0,
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 12,
-        padding: "14px 16px",
-        transition: "transform 200ms ease, box-shadow 200ms ease",
-        cursor: "default",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-md)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
-      }}
-    >
-      {/* Category badge */}
-      <div style={{ display: "inline-block", padding: "2px 8px", borderRadius: 999, background: color.bg, marginBottom: 8 }}>
-        <span style={{ fontSize: 9, fontWeight: 700, color: color.text, letterSpacing: "0.06em" }}>
-          {category.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Title */}
-      <div
-        className="font-display"
-        style={{
-          fontSize: 13,
-          color: "var(--text)",
-          lineHeight: 1.3,
-          marginBottom: 10,
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}
-      >
-        {title}
-      </div>
-
-      {/* Divider */}
-      <div style={{ height: 1, background: "var(--border)", marginBottom: 8 }} />
-
-      {/* Companies matched */}
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--green)", flexShrink: 0 }} />
-        <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{companies} companies matched</span>
-      </div>
-
-      {/* Urgency badge */}
-      <div style={{ display: "inline-block", padding: "2px 8px", borderRadius: 999, background: uc.bg }}>
-        <span style={{ fontSize: 9, fontWeight: 700, color: uc.text, letterSpacing: "0.06em" }}>{urgency} URGENCY</span>
-      </div>
-    </div>
-  );
-}
 
 function WordmarkAnchor() {
   return (
     <div
       style={{
-        background: "#18170F",
+        background: "var(--bg-dark)",
         overflow: "hidden",
         height: 140,
         display: "flex",
@@ -631,7 +533,7 @@ function WordmarkAnchor() {
     >
       <p style={{
         fontSize: 11,
-        color: "#7A6A50",
+        color: "var(--term-text-dim)",
         letterSpacing: "0.06em",
         marginBottom: 6,
         fontWeight: 500,
@@ -642,7 +544,7 @@ function WordmarkAnchor() {
         className="font-display"
         style={{
           fontSize: "clamp(80px, 12vw, 140px)",
-          color: "#B07030",
+          color: "var(--accent)",
           lineHeight: 1,
           letterSpacing: "-0.03em",
           userSelect: "none",

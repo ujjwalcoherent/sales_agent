@@ -150,7 +150,7 @@ async def record_quality_feedback(
         rating: For trends: good_trend/bad_trend/already_knew.
                 For leads: would_email/maybe/bad_lead.
     """
-    from app.tools.feedback import save_feedback
+    from app.tools.feedback_store import save_feedback
     record = save_feedback(
         feedback_type=feedback_type,
         item_id=item_id,

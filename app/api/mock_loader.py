@@ -1,7 +1,7 @@
 """Mock data loader for demo mode.
 
 Live API calls auto-save results to data/mock/*.json.
-When mock_mode=True, endpoints return saved data instead of calling SearXNG/Apollo.
+When mock_mode=True, endpoints return saved data instead of calling external APIs.
 """
 
 import json

@@ -174,7 +174,7 @@ class BuyingUrgency(str, Enum):
 
 class GeoLocation(BaseModel):
     """Geographic location."""
-    country: str = "India"
+    country: str = ""  # Populated from settings.country by caller
     state: str | None = None
     city: str | None = None
 

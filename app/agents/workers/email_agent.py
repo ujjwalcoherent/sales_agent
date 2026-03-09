@@ -3,16 +3,17 @@ Email Finder and Outreach Writer Agent - Coherent Market Insights Edition.
 Finds verified emails and generates personalized consulting pitch emails.
 """
 
+import asyncio
 import logging
 import hashlib
 from datetime import datetime
 from typing import List, Dict, Optional
 
-from ...schemas import ContactData, TrendData, CompanyData, OutreachEmail, AgentState
-from ...tools.apollo_tool import ApolloTool
-from ...tools.hunter_tool import HunterTool
-from ...tools.llm_service import LLMService
-from ...tools.domain_utils import extract_clean_domain
+from ...schemas import ContactData, TrendData, CompanyData, ImpactAnalysis, OutreachEmail, AgentState
+from app.tools.crm.apollo_tool import ApolloTool
+from app.tools.crm.hunter_tool import HunterTool
+from app.tools.llm.llm_service import LLMService
+from app.tools.domain_utils import extract_clean_domain
 from ...config import get_settings, CMI_SERVICES
 
 logger = logging.getLogger(__name__)
@@ -29,10 +30,16 @@ class EmailGenerator:
     Renamed from EmailAgent for honest naming.
     """
     
-    def __init__(self, mock_mode: bool = False, deps=None):
-        """Initialize email agent."""
+    def __init__(self, mock_mode: bool = False, deps=None, campaign_mode: bool = False):
+        """Initialize email agent.
+
+        Args:
+            campaign_mode: When True, uses faster person intel (8s timeout, no deep)
+                          and higher concurrency for campaign throughput.
+        """
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.mock_mode
+        self.campaign_mode = campaign_mode
         if deps:
             self.apollo_tool = deps.apollo_tool
             self.hunter_tool = deps.hunter_tool
@@ -64,7 +71,6 @@ class EmailGenerator:
         impact_map = {i.trend_id: i for i in state.impacts}
         
         # Parallel email lookup + outreach generation (semaphore limits API calls)
-        import asyncio
         semaphore = asyncio.Semaphore(4)
         email_failures = []
 
@@ -89,6 +95,19 @@ class EmailGenerator:
                             contact.email_confidence = email_result.get("confidence", 0)
                             contact.email_source = email_result.get("source", "")
                             contact.verified = email_result.get("verified", False)
+
+                    # Verify email via Hunter if found but not yet verified
+                    if contact.email and not contact.verified and self.hunter_tool:
+                        try:
+                            verification = await self.hunter_tool.verify_email(contact.email)
+                            if verification.get("status") == "valid":
+                                contact.verified = True
+                                contact.email_confidence = max(contact.email_confidence, 85)
+                                logger.debug(f"Hunter verified email for {contact.person_name}")
+                            elif verification.get("result") == "deliverable":
+                                contact.email_confidence = max(contact.email_confidence, 75)
+                        except Exception as e:
+                            logger.debug(f"Hunter verify_email failed for {contact.person_name}: {e}")
 
                     # Generate outreach if we have an email
                     if contact.email:
@@ -229,20 +248,111 @@ class EmailGenerator:
         },
     }
 
+    @staticmethod
+    def _build_person_context_block(person_ctx) -> str:
+        """Build the person-specific section for the LLM prompt.
+
+        Returns an empty string if no meaningful intel was gathered,
+        so the prompt degrades gracefully to role-only personalization.
+
+        Includes deep intel (blog posts, speaking topics, GitHub, career
+        history, content themes) when Stage 2 enrichment has completed.
+        """
+        if not person_ctx.has_context:
+            return ""
+
+        lines = ["\nPERSON INTELLIGENCE (use this to personalize):"]
+        if person_ctx.background_summary:
+            lines.append(f"- Background: {person_ctx.background_summary}")
+        if person_ctx.recent_focus:
+            lines.append(f"- Recent focus: {person_ctx.recent_focus}")
+        if person_ctx.notable_achievements:
+            lines.append(f"- Notable: {', '.join(person_ctx.notable_achievements[:3])}")
+        if person_ctx.linkedin_headline:
+            lines.append(f"- LinkedIn: {person_ctx.linkedin_headline[:150]}")
+        if person_ctx.news_mentions:
+            lines.append(f"- Recent news: {'; '.join(person_ctx.news_mentions[:2])}")
+
+        # Deep intel fields (from Stage 2 background enrichment)
+        if getattr(person_ctx, "recent_posts", None):
+            lines.append(f"\nRECENT CONTENT (blog/articles):")
+            for post in person_ctx.recent_posts[:3]:
+                lines.append(f"  - {post[:150]}")
+        if getattr(person_ctx, "speaking_topics", None):
+            lines.append(f"\nSPEAKING/CONFERENCES:")
+            for topic in person_ctx.speaking_topics[:2]:
+                lines.append(f"  - {topic[:150]}")
+        if getattr(person_ctx, "github_profile", "") and person_ctx.github_profile:
+            lines.append(f"- GitHub: {person_ctx.github_profile[:200]}")
+        if getattr(person_ctx, "career_history", None):
+            lines.append(f"- Career: {'; '.join(person_ctx.career_history[:3])}")
+        if getattr(person_ctx, "content_themes", None):
+            lines.append(f"- Recurring themes: {', '.join(person_ctx.content_themes[:4])}")
+
+        if person_ctx.talking_points:
+            lines.append("\nTALKING POINTS TO REFERENCE:")
+            for tp in person_ctx.talking_points[:3]:
+                lines.append(f"  - {tp}")
+
+        lines.append("")  # trailing newline
+        return "\n".join(lines)
+
+    @staticmethod
+    def _person_context_rules(person_ctx) -> str:
+        """Return extra prompt rules when person intel is available."""
+        rules = []
+        if person_ctx.has_context:
+            rules.append(
+                "- Reference something SPECIFIC about them (their background, "
+                "recent work, or achievement from the PERSON INTELLIGENCE section)"
+            )
+            rules.append(
+                "- Do NOT just restate their job title -- show you know who they are"
+            )
+            # Deep intel-specific rules
+            if getattr(person_ctx, "recent_posts", None):
+                rules.append(
+                    "- Reference a specific recent article or blog post they wrote"
+                )
+            if getattr(person_ctx, "speaking_topics", None):
+                rules.append(
+                    "- Mention a conference talk or podcast they appeared in"
+                )
+            if getattr(person_ctx, "content_themes", None):
+                rules.append(
+                    "- Align the pitch angle with their recurring professional themes"
+                )
+            return "\n".join(rules)
+        return "- Show you understand their role and its typical challenges"
+
+    @staticmethod
+    def _format_evidence(trend: Optional["TrendData"]) -> str:
+        """Format evidence snippets for email prompt (if available)."""
+        if not trend:
+            return ""
+        snippets = getattr(trend, "evidence_snippets", [])
+        if not snippets:
+            return ""
+        lines = ["EVIDENCE (cite these sources in the email):"]
+        for s in snippets[:3]:
+            lines.append(f"  - {s}")
+        return "\n".join(lines)
+
     async def _generate_outreach(
         self,
         contact: ContactData,
         company: CompanyData,
         trend: Optional[TrendData],
-        impact: Optional[Dict]
+        impact: Optional[ImpactAnalysis]
     ) -> OutreachEmail:
-        """Generate a role-personalized outreach email.
+        """Generate a hyper-personalized outreach email.
 
         Personalization axes:
-          1. Seniority tier → different value proposition and CTA
-          2. Role title → LLM frames the trend through their function
-          3. Trend + impact → company-specific context
-          4. Pitch angle → matched services
+          1. Person intel → background, recent work, talking points (NEW)
+          2. Seniority tier → different value proposition and CTA
+          3. Role title → LLM frames the trend through their function
+          4. Trend + impact → company-specific context
+          5. Pitch angle → matched services
         """
         trend_title = trend.trend_title if trend else "current market developments"
         trend_summary = trend.summary if trend else "significant market changes"
@@ -254,6 +364,38 @@ class EmailGenerator:
             opportunities = getattr(impact, "business_opportunities", [])
             relevant_services = getattr(impact, "relevant_services", [])
             pitch_angle = getattr(impact, "pitch_angle", "")
+
+        # ── Gather person intelligence (never crashes) ────────
+        from app.tools.person_intel import gather_person_context, PersonContext
+
+        if self.campaign_mode:
+            # Campaign mode: fast person intel (8s timeout, no deep scraping)
+            try:
+                person_ctx = await asyncio.wait_for(
+                    gather_person_context(
+                        person_name=contact.person_name,
+                        company_name=company.company_name,
+                        role=contact.role,
+                        trend_context=pitch_angle or trend_title,
+                        deep=False,
+                    ),
+                    timeout=10.0,
+                )
+            except (asyncio.TimeoutError, Exception):
+                person_ctx = PersonContext(
+                    person_name=contact.person_name,
+                    company_name=company.company_name,
+                    role=contact.role,
+                )
+        else:
+            person_ctx = await gather_person_context(
+                person_name=contact.person_name,
+                company_name=company.company_name,
+                role=contact.role,
+                trend_context=pitch_angle or trend_title,
+                deep=self.settings.email_personalization_depth == "deep",
+                linkedin_url=getattr(contact, "linkedin_url", ""),
+            )
 
         # Get relevant CMI service details
         service_offerings = []
@@ -272,6 +414,9 @@ class EmailGenerator:
         tone = ContactFinder.get_outreach_tone(tier)
         frame = self._ROLE_FRAMES.get(tier, self._ROLE_FRAMES["influencer"])
 
+        # ── Build person context block for the prompt ─────────
+        person_block = self._build_person_context_block(person_ctx)
+
         prompt = f"""Write a personalized outreach email from Coherent Market Insights.
 
 SENDER (Coherent Market Insights):
@@ -285,12 +430,13 @@ RECIPIENT PROFILE:
 - Seniority: {tier.replace('_', ' ').title()}
 - Company: {company.company_name}
 - Industry: {company.industry}
-
+{person_block}
 MARKET CONTEXT (why we're reaching out):
 - Trend: {trend_title}
 - Summary: {trend_summary}
 - Impact on {company.company_name}: {company.reason_relevant}
 {f'- Pitch angle: {pitch_angle}' if pitch_angle else ''}
+{self._format_evidence(trend)}
 
 OPPORTUNITIES:
 {chr(10).join(['- ' + opp for opp in opportunities[:3]]) if opportunities else '- Market impact assessment and strategic advisory'}
@@ -305,7 +451,9 @@ The call-to-action should be: {frame['cta']}.
 RULES:
 - Address as "{contact.person_name}" (use "Dear" for executives, first name for others)
 - Reference their SPECIFIC ROLE — explain why this trend matters to a {contact.role}
+{self._person_context_rules(person_ctx)}
 - Do NOT use generic phrases like "I came across your profile" or "Hope this finds you well"
+- Do NOT use placeholders like [Your Name], [Your Title], [Your Contact Information] — use real info
 - Do NOT mention "pain point", "opportunity", or any sales framework language
 - Sign off as: "Best regards,\\nCoherent Market Insights Team"
 
@@ -361,6 +509,15 @@ Would you be open to {cta}?
 Best regards,
 Coherent Market Insights Team"""
 
+        # Strip any LLM placeholder artifacts
+        import re as _re
+        _org = "Coherent Market Insights"
+        body = _re.sub(r'\[Your Name\]', "Coherent Market Insights Team", body, flags=_re.IGNORECASE)
+        body = _re.sub(r'\[Your (?:Title|Position|Role)\]', "", body, flags=_re.IGNORECASE)
+        body = _re.sub(r'\[Your (?:Contact Information|Phone|Email|Company)\]', "", body, flags=_re.IGNORECASE)
+        body = _re.sub(r'\[(?:Company Name|Your Company|Our Company)\]', _org, body, flags=_re.IGNORECASE)
+        body = _re.sub(r'\n{3,}', '\n\n', body).strip()
+
         email_id = hashlib.md5(
             f"{contact.id}_{datetime.utcnow().isoformat()}".encode()
         ).hexdigest()[:12]
@@ -382,9 +539,3 @@ Coherent Market Insights Team"""
 
 # Backward compatibility alias
 EmailAgent = EmailGenerator
-
-
-async def run_email_agent(state: AgentState, deps=None) -> AgentState:
-    """Wrapper function for LangGraph."""
-    generator = EmailGenerator(deps=deps) if deps else EmailGenerator()
-    return await generator.process_emails(state)

@@ -1,5 +1,5 @@
 """
-Feedback-driven weight learning -- dual-path adaptation.
+Feedback-driven weight learning -- dual-path adaptation with forgetting prevention.
 
 Priority order:
   1. Human feedback (50+ records) -- highest authority, 3x learning rate
@@ -7,9 +7,14 @@ Priority order:
      as non-circular reward signals (NOT OSS, which is circular)
   3. Default weights -- cold start fallback
 
-Safety: weights clamped to [0.02, 0.40], always normalized to sum 1.0,
-learning rate decays with data, outcome variance check prevents learning
-from undiscriminating scores.
+Safety:
+  - Weights clamped to [0.02, 0.40], always normalized to sum 1.0
+  - Learning rate decays with data
+  - Outcome variance check prevents learning from undiscriminating scores
+  - CATASTROPHIC FORGETTING PREVENTION: dual weight sets (stable + active)
+    with KL-divergence guardrail. If active weights diverge >15% from stable,
+    blend back toward stable. Stable weights update only every 10 runs.
+    REF: Kirkpatrick et al. (2017) "Overcoming catastrophic forgetting"
 """
 
 import json
@@ -17,12 +22,20 @@ import logging
 import math
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 _PERSIST_PATH = Path("./data/learned_weights.json")
+_STABLE_PATH = Path("./data/stable_weights.json")
+_STABLE_META_PATH = Path("./data/stable_weights_meta.json")
+
+# Forgetting prevention constants
+_MAX_DIVERGENCE = 0.15        # KL-divergence threshold before blend-back
+_STABLE_BLEND_ALPHA = 0.30    # Blend ratio toward stable when diverged
+_STABLE_UPDATE_INTERVAL = 10  # Update stable weights every N runs
 
 
 def _load_persisted_weights() -> Dict[str, Dict[str, float]]:
@@ -46,8 +59,135 @@ def _save_persisted_weights(all_weights: Dict[str, Dict[str, float]]) -> None:
         logger.warning(f"Weight learner: failed to persist weights: {e}")
 
 
+def _load_stable_weights() -> Dict[str, Dict[str, float]]:
+    """Load long-term stable weights (the 'anchor' for forgetting prevention)."""
+    if _STABLE_PATH.exists():
+        try:
+            with open(_STABLE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _save_stable_weights(weights: Dict[str, Dict[str, float]]) -> None:
+    """Persist stable weights."""
+    try:
+        _STABLE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_STABLE_PATH, "w", encoding="utf-8") as f:
+            json.dump(weights, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Weight learner: failed to save stable weights: {e}")
+
+
+def _load_stable_meta() -> Dict[str, Any]:
+    """Load stable weights metadata (run counter, last update timestamp)."""
+    if _STABLE_META_PATH.exists():
+        try:
+            with open(_STABLE_META_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"runs_since_stable_update": 0, "total_runs": 0}
+
+
+def _save_stable_meta(meta: Dict[str, Any]) -> None:
+    """Persist stable weights metadata."""
+    try:
+        _STABLE_META_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_STABLE_META_PATH, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Weight learner: failed to save stable meta: {e}")
+
+
+def _kl_divergence(p: Dict[str, float], q: Dict[str, float]) -> float:
+    """Symmetric KL divergence between two weight distributions.
+
+    Uses (KL(p||q) + KL(q||p)) / 2 for symmetry.
+    Both p and q must be normalized probability distributions.
+    """
+    keys = set(p.keys()) | set(q.keys())
+    eps = 1e-10
+    kl_pq = 0.0
+    kl_qp = 0.0
+    for k in keys:
+        pk = max(p.get(k, eps), eps)
+        qk = max(q.get(k, eps), eps)
+        kl_pq += pk * math.log(pk / qk)
+        kl_qp += qk * math.log(qk / pk)
+    return (kl_pq + kl_qp) / 2.0
+
+
+def _apply_forgetting_guard(
+    proposed: Dict[str, float],
+    stable: Dict[str, float],
+    weight_type: str,
+) -> Dict[str, float]:
+    """Guard against catastrophic forgetting via KL-divergence check.
+
+    If proposed weights diverge too far from stable anchor,
+    blend back toward stable to prevent drift catastrophe.
+    """
+    if not stable:
+        return proposed
+
+    divergence = _kl_divergence(proposed, stable)
+
+    if divergence <= _MAX_DIVERGENCE:
+        return proposed
+
+    # Blend back toward stable: result = (1-alpha) * proposed + alpha * stable
+    blended = {}
+    for k in proposed:
+        blended[k] = (1.0 - _STABLE_BLEND_ALPHA) * proposed.get(k, 0.0) + \
+                      _STABLE_BLEND_ALPHA * stable.get(k, proposed.get(k, 0.0))
+
+    # Re-normalize
+    total = sum(blended.values())
+    if total > 0 and _is_finite(total):
+        blended = {k: round(v / total, 4) for k, v in blended.items()}
+
+    logger.warning(
+        f"Weight learner ({weight_type}): FORGETTING GUARD triggered — "
+        f"divergence={divergence:.4f} > {_MAX_DIVERGENCE}. "
+        f"Blended {_STABLE_BLEND_ALPHA:.0%} toward stable weights."
+    )
+    return blended
+
+
+def maybe_update_stable_weights(
+    active_weights: Dict[str, Dict[str, float]],
+) -> bool:
+    """Promote active weights to stable if enough runs have passed.
+
+    Stable weights are the long-term anchor. They only update every
+    _STABLE_UPDATE_INTERVAL runs to provide a stable reference point.
+    Returns True if stable weights were updated.
+    """
+    meta = _load_stable_meta()
+    meta["runs_since_stable_update"] = meta.get("runs_since_stable_update", 0) + 1
+    meta["total_runs"] = meta.get("total_runs", 0) + 1
+
+    updated = False
+    if meta["runs_since_stable_update"] >= _STABLE_UPDATE_INTERVAL:
+        # Promote current active weights to stable
+        _save_stable_weights(active_weights)
+        meta["runs_since_stable_update"] = 0
+        meta["last_stable_update"] = datetime.now(timezone.utc).isoformat()
+        updated = True
+        logger.info(
+            f"Weight learner: STABLE weights updated (every {_STABLE_UPDATE_INTERVAL} runs). "
+            f"Total runs: {meta['total_runs']}"
+        )
+
+    _save_stable_meta(meta)
+    return updated
+
+
 # Warm-start: load previously persisted weights at import time
 _persisted_weights: Dict[str, Dict[str, float]] = _load_persisted_weights()
+_stable_weights: Dict[str, Dict[str, float]] = _load_stable_weights()
 
 
 def _is_finite(x: float) -> bool:
@@ -81,12 +221,16 @@ def compute_learned_weights(
         if cached and (now - cached["ts"]) < _CACHE_TTL:
             return dict(cached["weights"])
 
+    # Get stable anchor for forgetting prevention
+    stable = _stable_weights.get(weight_type, {})
+
     human_weights = _learn_from_human_feedback(
         weight_type, default_weights, min_feedback,
         learning_rate * 3.0,  # 3x LR for human feedback
         weight_floor, weight_ceiling,
     )
     if human_weights is not None:
+        human_weights = _apply_forgetting_guard(human_weights, stable, weight_type)
         _cache_result(weight_type, human_weights)
         return human_weights
 
@@ -95,6 +239,7 @@ def compute_learned_weights(
         learning_rate, weight_floor, weight_ceiling,
     )
     if auto_weights is not None:
+        auto_weights = _apply_forgetting_guard(auto_weights, stable, weight_type)
         _cache_result(weight_type, auto_weights)
         return auto_weights
 
@@ -153,9 +298,21 @@ def _learn_from_human_feedback(
     if not good_signals or not bad_signals:
         return None
 
+    # Load signal bus lr_multiplier for cross-loop modulation
+    bus_lr_mult = 1.0
+    try:
+        from app.learning.signal_bus import LearningSignalBus
+        bus = LearningSignalBus.load_previous()
+        if bus:
+            modulation = bus.get_weight_learner_modulation()
+            bus_lr_mult = modulation.get("lr_multiplier", 1.0)
+    except Exception:
+        pass
+
     weights = _apply_preference_learning(
         default_weights, good_signals, bad_signals,
         len(human_feedback), learning_rate, weight_floor, weight_ceiling,
+        bus_lr_multiplier=bus_lr_mult,
     )
 
     if weight_type not in _logged_types:
@@ -164,7 +321,7 @@ def _learn_from_human_feedback(
         logger.info(
             f"Weight learner ({weight_type}): HUMAN feedback path — "
             f"{len(good_trends)} good / {len(bad_trends)} bad records, "
-            f"drift={drift:.4f}"
+            f"drift={drift:.4f}, bus_lr={bus_lr_mult:.2f}"
         )
 
     return weights
@@ -256,10 +413,23 @@ def _learn_from_outcomes(
         return None
 
     n_runs = len(set(r.get("run_id", "") for r in relevant))
+
+    # Load signal bus lr_multiplier for cross-loop modulation
+    bus_lr_mult = 1.0
+    try:
+        from app.learning.signal_bus import LearningSignalBus
+        bus = LearningSignalBus.load_previous()
+        if bus:
+            modulation = bus.get_weight_learner_modulation()
+            bus_lr_mult = modulation.get("lr_multiplier", 1.0)
+    except Exception:
+        pass
+
     weights = _apply_preference_learning(
         default_weights, high_signals, low_signals,
         n_runs * 10,
         learning_rate, weight_floor, weight_ceiling,
+        bus_lr_multiplier=bus_lr_mult,
     )
 
     if weight_type not in _logged_types:
@@ -273,7 +443,7 @@ def _learn_from_outcomes(
             f"Weight learner ({weight_type}): OUTCOME auto-learning — "
             f"{len(relevant)} clusters from {n_runs} runs, "
             f"median_outcome={median_outcome:.3f}, variance={outcome_variance:.4f}, "
-            f"{adjustments} weights adjusted, drift={drift:.4f}"
+            f"{adjustments} weights adjusted, drift={drift:.4f}, bus_lr={bus_lr_mult:.2f}"
         )
         if adjustments > 0:
             logger.debug(f"  Default: {default_weights}")
@@ -290,13 +460,18 @@ def _apply_preference_learning(
     learning_rate: float,
     weight_floor: float,
     weight_ceiling: float,
+    bus_lr_multiplier: float = 1.0,
 ) -> Dict[str, float]:
     """Nudge weights toward factors that distinguish good from bad outcomes.
 
     Adjusts by lr * delta for factors where |delta| > 0.10.
     Returns adapted weight dict (always sums to 1.0).
+
+    bus_lr_multiplier: Cross-loop modulation from signal bus. When system
+    confidence is low, this drops below 1.0 to slow learning (avoid chasing noise).
     """
     effective_lr = learning_rate * max(0.5, min(1.0, 50.0 / max(data_count, 1)))
+    effective_lr *= bus_lr_multiplier  # Cross-loop modulation
 
     weights = dict(default_weights)
 
@@ -333,7 +508,7 @@ def _load_cached_feedback() -> Optional[list]:
         return _feedback_cache["data"]
 
     try:
-        from app.tools.feedback import load_feedback
+        from app.tools.feedback_store import load_feedback
     except ImportError:
         return None
 

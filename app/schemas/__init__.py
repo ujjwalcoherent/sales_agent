@@ -1,13 +1,13 @@
 """
-Schemas package — all data models for the India Trend Lead Agent.
+Schemas package — all data models for the Sales Agent.
 
 Models are organized by domain in submodules:
   - base.py: Common enums and value objects
   - news.py: NewsArticle, NewsSource, Entity, ArticleCluster
   - trends.py: TrendNode, TrendTree, MajorTrend, SignalStrength, TrendDepth
-  - pipeline.py: Pipeline state models (LangGraph)
-  - sales.py: SectorImpact, CompanyData, ContactData, OutreachEmail, AgentState
-  - validation.py: ValidationResult, ValidationVerdict, FieldGroundedness (V10)
+  - sales.py: CompanyData, ContactData, OutreachEmail, AgentState
+  - llm_outputs.py: Typed LLM response models with field coercers
+  - campaign.py: Campaign configuration and company input models
 """
 
 # base.py — enums and value objects
@@ -27,19 +27,11 @@ from app.schemas.trends import (
     TopicCluster, TrendEdge, TrendGraph, TrendNode, TrendTree, MajorTrend,
 )
 
-# pipeline.py — pipeline state
-from app.schemas.pipeline import NewsIngestionState, ClusteringState, TrendSynthesisState
-
 # sales.py — sales pipeline models
 from app.schemas.sales import (
-    SectorImpact, TrendData, ImpactAnalysis,
-    CompanyData, ContactData, SeniorityTier, PersonProfile, OutreachEmail,
+    TrendData, ImpactAnalysis,
+    CompanyData, ContactData, PersonProfile, OutreachEmail,
     LeadRecord, PipelineResult, EmailFinderResult, AgentState,
-)
-
-# validation.py — validation models
-from app.schemas.validation import (
-    ValidationVerdict, FieldGroundedness, ValidationRound, ValidationResult,
 )
 
 __all__ = [
@@ -53,12 +45,8 @@ __all__ = [
     # trends
     "SignalStrength", "TrendCorrelation", "TrendDepth",
     "TopicCluster", "TrendEdge", "TrendGraph", "TrendNode", "TrendTree", "MajorTrend",
-    # pipeline
-    "NewsIngestionState", "ClusteringState", "TrendSynthesisState",
     # sales
-    "SectorImpact", "TrendData", "ImpactAnalysis",
-    "CompanyData", "ContactData", "SeniorityTier", "PersonProfile", "OutreachEmail",
+    "TrendData", "ImpactAnalysis",
+    "CompanyData", "ContactData", "PersonProfile", "OutreachEmail",
     "LeadRecord", "PipelineResult", "EmailFinderResult", "AgentState",
-    # validation
-    "ValidationVerdict", "FieldGroundedness", "ValidationRound", "ValidationResult",
 ]

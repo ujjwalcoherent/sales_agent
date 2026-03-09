@@ -17,6 +17,7 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "Sales Intelligence",
   description: "AI-powered market signal to lead pipeline",
+  icons: { icon: { url: "/cmi-logo.svg", type: "image/svg+xml" } },
 };
 
 // Inline script that restores dark mode from localStorage BEFORE paint.

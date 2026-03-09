@@ -64,6 +64,8 @@ async def execute(
     os.makedirs(diagnostics_dir, exist_ok=True)
 
     try:
+        _stage_results: list = []
+
         # ── Step 1: Fetch ────────────────────────────────────────────────────
         from app.intelligence.fetch import fetch_articles
         state.raw_articles = await fetch_articles(scope, params)
@@ -80,6 +82,16 @@ async def execute(
                           f"(removed {dedup_result.removed_count})")
         logger.info(f"[dedup] {len(state.articles)} unique articles")
 
+        # ── Validate dedup ──────────────────────────────────────────────────
+        from app.learning.pipeline_validator import validate_dedup, log_pipeline_validation_report
+        _dedup_val = validate_dedup(
+            raw_count=len(state.raw_articles),
+            deduped_count=len(state.articles),
+            dedup_pairs=len(dedup_result.duplicate_pairs) if hasattr(dedup_result, 'duplicate_pairs') else 0,
+        )
+        _stage_results.append(_dedup_val)
+        logger.info(f"[validate:dedup] {_dedup_val.status} {_dedup_val.message}")
+
         # ── Step 3: Filter (NLI zero-shot + Gap 4) ───────────────────────────
         from app.intelligence.filter import filter_articles
         filter_result = await filter_articles(state.articles, scope, params)
@@ -93,6 +105,23 @@ async def execute(
                     f"nli_mean={filter_result.nli_mean_entailment:.3f}, "
                     f"hypothesis={filter_result.hypothesis_version}, "
                     f"Gap4 dropped: {state.gap4_dropped_companies}")
+
+        # ── Validate filter ───────────────────────────────────────────────────
+        from app.learning.pipeline_validator import validate_filter, apply_filter_rollback
+        _filter_val = validate_filter(
+            input_count=len(state.articles),
+            kept_count=len(state.filtered_articles),
+            auto_accepted=getattr(filter_result, 'auto_accepted_count', 0),
+            auto_rejected=getattr(filter_result, 'auto_rejected_count', 0),
+            llm_classified=getattr(filter_result, 'llm_classified_count', 0),
+            nli_mean=filter_result.nli_mean_entailment,
+        )
+        _stage_results.append(_filter_val)
+        # Self-correction: if filter drifted, rollback hypothesis in-run
+        if not _filter_val.is_ok() and _filter_val.corrective_params.get("rollback_hypothesis"):
+            if apply_filter_rollback(_filter_val.corrective_params["rollback_hypothesis"]):
+                logger.warning("[pipeline] In-run NLI hypothesis rollback applied")
+        logger.info(f"[validate:filter] {_filter_val.status} {_filter_val.message}")
 
         if not state.filtered_articles:
             logger.warning("[pipeline] No articles survived filter. Returning empty result.")
@@ -108,6 +137,18 @@ async def execute(
                           f"{len(ungrouped)} ungrouped articles")
         logger.info(f"[extract] {len(state.entity_groups)} entity groups")
 
+        # ── Validate entity extraction ────────────────────────────────────────
+        from app.learning.pipeline_validator import validate_entity_extraction
+        grouped_count = sum(len(g.article_indices) for g in state.entity_groups if hasattr(g, 'article_indices'))
+        _entity_val = validate_entity_extraction(
+            input_count=len(state.filtered_articles),
+            group_count=len(state.entity_groups),
+            grouped_article_count=grouped_count,
+            ungrouped_count=len(ungrouped),
+        )
+        _stage_results.append(_entity_val)
+        logger.info(f"[validate:entity] {_entity_val.status} {_entity_val.message}")
+
         # ── Steps 5-7: Similarity → Cluster → Validate ───────────────────────
         # These use the existing clustering engine until Phase 6 migration
         from app.intelligence.cluster.orchestrator import cluster_and_validate
@@ -119,6 +160,27 @@ async def execute(
         logger.info(f"[cluster] {len(state.passed_cluster_ids)} passed, "
                     f"{len(state.rejected_cluster_ids)} rejected, "
                     f"{len(state.noise_article_indices)} noise")
+
+        # ── Validate clustering ───────────────────────────────────────────────
+        from app.learning.pipeline_validator import validate_clustering, validate_pipeline_consistency
+        passed_clusters = state.passed_clusters()
+        coherences = [c.coherence_score for c in passed_clusters if c.coherence_score > 0]
+        mean_coh = sum(coherences) / max(len(coherences), 1)
+        _cluster_val = validate_clustering(
+            input_count=len(state.filtered_articles),
+            total_clusters=len(state.clusters),
+            passed_count=len(state.passed_cluster_ids),
+            failed_count=len(state.rejected_cluster_ids),
+            noise_count=len(state.noise_article_indices),
+            mean_coherence=mean_coh,
+            coherences=coherences,
+        )
+        _stage_results.append(_cluster_val)
+        logger.info(f"[validate:cluster] {_cluster_val.status} {_cluster_val.message}")
+
+        # Cross-stage consistency check + final report
+        _consistency = validate_pipeline_consistency(_stage_results)
+        log_pipeline_validation_report(_stage_results, _consistency)
 
         # ── Step 8: Synthesis (FIRST LLM CALL) ───────────────────────────────
         from app.intelligence.summarizer import synthesize_clusters

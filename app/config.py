@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     semantic_dedup_threshold: float = Field(default=0.88, alias="SEMANTIC_DEDUP_THRESHOLD")
 
     # Entity extraction: spaCy NER model
-    spacy_model: str = Field(default="en_core_web_sm", alias="SPACY_MODEL")
+    spacy_model: str = Field(default="en_core_web_lg", alias="SPACY_MODEL")
 
     # Engine: Pipeline-level settings
     engine_max_depth: int = Field(default=3, alias="ENGINE_MAX_DEPTH")
@@ -227,6 +227,43 @@ class Settings(BaseSettings):
     # ── RSS Throughput ──
     rss_max_per_source: int = Field(default=25, alias="RSS_MAX_PER_SOURCE")
     rss_hours_ago: int = Field(default=120, alias="RSS_HOURS_AGO")
+    rss_fetch_concurrency: int = Field(default=6, alias="RSS_FETCH_CONCURRENCY")
+    rss_per_source_timeout: float = Field(default=15.0, alias="RSS_PER_SOURCE_TIMEOUT")
+    rss_httpx_timeout: float = Field(default=12.0, alias="RSS_HTTPX_TIMEOUT")
+
+    # ── Dedup Entity Thresholds ──
+    # Entity fingerprint dedup: min shared entities for same-topic match
+    dedup_entity_same_topic_min: int = Field(default=2, alias="DEDUP_ENTITY_SAME_TOPIC_MIN")
+    # Entity fingerprint dedup: min shared entities for cross-topic match
+    dedup_entity_cross_topic_min: int = Field(default=4, alias="DEDUP_ENTITY_CROSS_TOPIC_MIN")
+
+    # ── Hybrid Similarity Weights (engine.py) ──
+    # Weights for blended similarity matrix used in Leiden graph construction
+    hybrid_w_semantic: float = Field(default=0.50, alias="HYBRID_W_SEMANTIC")
+    hybrid_w_lexical: float = Field(default=0.30, alias="HYBRID_W_LEXICAL")
+    hybrid_w_event: float = Field(default=0.15, alias="HYBRID_W_EVENT")
+    hybrid_w_temporal: float = Field(default=0.05, alias="HYBRID_W_TEMPORAL")
+    # Same-source penalty: multiply similarity by this for articles from same RSS feed
+    hybrid_same_source_penalty: float = Field(default=0.70, alias="HYBRID_SAME_SOURCE_PENALTY")
+    # Temporal decay half-life in hours (for exponential decay)
+    hybrid_temporal_decay_hours: float = Field(default=48.0, alias="HYBRID_TEMPORAL_DECAY_HOURS")
+
+    # ── Embedding Augmentation (engine.py) ──
+    # Event-type one-hot augmentation scale
+    event_augment_scale: float = Field(default=0.50, alias="EVENT_AUGMENT_SCALE")
+    # Entity fingerprint augmentation scale
+    entity_fp_scale: float = Field(default=0.30, alias="ENTITY_FP_SCALE")
+    # Entity fingerprint hash buckets
+    entity_fp_buckets: int = Field(default=32, alias="ENTITY_FP_BUCKETS")
+
+    # ── Quality Composite Weights (coherence.py) ──
+    # Weights for computing composite quality grade (must sum to 1.0)
+    quality_w_coherence: float = Field(default=0.15, alias="QUALITY_W_COHERENCE")
+    quality_w_entity: float = Field(default=0.10, alias="QUALITY_W_ENTITY")
+    quality_w_cmi: float = Field(default=0.25, alias="QUALITY_W_CMI")
+    quality_w_specificity: float = Field(default=0.25, alias="QUALITY_W_SPECIFICITY")
+    quality_w_second_order: float = Field(default=0.15, alias="QUALITY_W_SECOND_ORDER")
+    quality_w_source_diversity: float = Field(default=0.10, alias="QUALITY_W_SOURCE_DIVERSITY")
 
     # ── Quality Gates (V9) ──
     min_synthesis_confidence: float = Field(default=0.40, alias="MIN_SYNTHESIS_CONFIDENCE")
@@ -260,13 +297,8 @@ class Settings(BaseSettings):
     # Single key: TAVILY_API_KEYS=tvly-abc123
     # Multiple:   TAVILY_API_KEYS=tvly-abc123,tvly-def456
     # Set TAVILY_ENABLED=false to skip Tavily entirely and use DDG+ScrapeGraphAI
-    tavily_enabled: bool = Field(default=False, alias="TAVILY_ENABLED")
+    tavily_enabled: bool = Field(default=True, alias="TAVILY_ENABLED")
     tavily_api_keys: str = Field(default="", alias="TAVILY_API_KEYS")
-
-    # SearXNG (self-hosted meta-search — free, aggregates Google+Bing+DDG)
-    # Deploy: docker run -d -p 8888:8080 searxng/searxng:latest
-    searxng_url: str = Field(default="http://localhost:8888", alias="SEARXNG_URL")
-    searxng_enabled: bool = Field(default=False, alias="SEARXNG_ENABLED")
 
     # Ollama dual-model: llama3.2:3b = tool calling, phi3.5-custom = generation
     # llama3.2:3b is the ONLY local model with confirmed tool calling (MX550 GPU)
@@ -274,13 +306,6 @@ class Settings(BaseSettings):
     ollama_gen_model: str = Field(default="phi3.5-custom:latest", alias="OLLAMA_GEN_MODEL")
     ollama_tool_model: str = Field(default="llama3.2:3b", alias="OLLAMA_TOOL_MODEL")
 
-    # News & Trend Detection APIs
-    newsapi_org_key: str = Field(default="", alias="NEWSAPI_ORG_KEY")
-    rapidapi_key: str = Field(default="", alias="RAPIDAPI_KEY")
-    gnews_api_key: str = Field(default="", alias="GNEWS_API_KEY")
-    mediastack_api_key: str = Field(default="", alias="MEDIASTACK_API_KEY")
-    thenewsapi_key: str = Field(default="", alias="THENEWSAPI_KEY")
-    
     # Email Finder APIs
     apollo_api_key: str = Field(default="", alias="APOLLO_API_KEY")
     hunter_api_key: str = Field(default="", alias="HUNTER_API_KEY")
@@ -361,6 +386,50 @@ class Settings(BaseSettings):
     coherence_grade_b: float = Field(default=0.55, alias="COHERENCE_GRADE_B")
     coherence_grade_c: float = Field(default=0.40, alias="COHERENCE_GRADE_C")
     coherence_grade_d: float = Field(default=0.25, alias="COHERENCE_GRADE_D")
+
+    # ── Enrichment (ScrapeGraphAI) ──
+    deep_enrichment_enabled: bool = Field(default=True, alias="DEEP_ENRICHMENT_ENABLED")
+    scrapegraph_model: str = Field(default="openai/gpt-4.1-mini", alias="SCRAPEGRAPH_MODEL")
+    scrapegraph_max_results: int = Field(default=3, alias="SCRAPEGRAPH_MAX_RESULTS")
+    scrapegraph_timeout: int = Field(default=90, alias="SCRAPEGRAPH_TIMEOUT")
+    website_scrape_enabled: bool = Field(default=True, alias="WEBSITE_SCRAPE_ENABLED")
+    hiring_signals_enabled: bool = Field(default=True, alias="HIRING_SIGNALS_ENABLED")
+    tech_ip_analysis_enabled: bool = Field(default=True, alias="TECH_IP_ANALYSIS_ENABLED")
+
+    # ── Person Intelligence ──
+    person_deep_intel_enabled: bool = Field(default=True, alias="PERSON_DEEP_INTEL_ENABLED")
+    person_intel_sources: str = Field(
+        default="medium,substack,github,company_bio,conferences",
+        alias="PERSON_INTEL_SOURCES",
+    )
+    person_intel_staleness_days: int = Field(default=7, alias="PERSON_INTEL_STALENESS_DAYS")
+    person_intel_max_urls: int = Field(default=5, alias="PERSON_INTEL_MAX_URLS")
+
+    # ── Contact Discovery ──
+    contact_role_inference: str = Field(default="llm", alias="CONTACT_ROLE_INFERENCE")  # "llm" | "default" | "manual"
+    default_dm_roles: str = Field(
+        default="CEO,CTO,CFO,COO,VP Operations,Founder",
+        alias="DEFAULT_DM_ROLES",
+    )
+    default_influencer_roles: str = Field(
+        default="VP Engineering,VP Product,Head of Strategy,VP Marketing,VP Sales",
+        alias="DEFAULT_INFLUENCER_ROLES",
+    )
+
+    # ── News Collection ──
+    news_lookback_days: int = Field(default=7, alias="NEWS_LOOKBACK_DAYS")
+    news_max_articles: int = Field(default=50, alias="NEWS_MAX_ARTICLES")
+    news_relevance_threshold: float = Field(default=0.5, alias="NEWS_RELEVANCE_THRESHOLD")
+    historical_news_enabled: bool = Field(default=True, alias="HISTORICAL_NEWS_ENABLED")
+    historical_news_months: int = Field(default=5, alias="HISTORICAL_NEWS_MONTHS")
+
+    # ── Company Cache ──
+    company_cache_days: int = Field(default=7, alias="COMPANY_CACHE_DAYS")
+    company_cache_enabled: bool = Field(default=True, alias="COMPANY_CACHE_ENABLED")
+
+    # ── Email Outreach ──
+    email_personalization_depth: str = Field(default="deep", alias="EMAIL_PERSONALIZATION_DEPTH")  # "basic" | "deep"
+    email_max_length: int = Field(default=300, alias="EMAIL_MAX_LENGTH")  # approximate word limit
 
     @property
     def enterprise_blocklist_set(self) -> frozenset:
@@ -456,6 +525,7 @@ RSS_QUERIES = [
 
 # Trend type to target role mapping for consulting services
 TREND_ROLE_MAPPING = {
+    # Core trend categories
     "regulation": ["CEO", "Chief Strategy Officer", "VP Strategy", "Director of Business Development"],
     "policy": ["CEO", "COO", "Chief Strategy Officer", "Director Corporate Strategy"],
     "trade": ["VP Supply Chain", "Procurement Director", "Chief Procurement Officer", "Director Sourcing"],
@@ -466,7 +536,20 @@ TREND_ROLE_MAPPING = {
     "supply_chain": ["COO", "VP Operations", "Chief Procurement Officer", "Director Supply Chain"],
     "funding": ["CEO", "CFO", "Chief Strategy Officer", "VP Corporate Development"],
     "consumer": ["CMO", "VP Marketing", "Chief Customer Officer", "Director Consumer Insights"],
-    "default": ["CEO", "Chief Strategy Officer", "VP Business Development", "Director Strategy"]
+
+    # Extended categories
+    "cybersecurity": ["CISO", "VP Security", "Head of Information Security", "Security Director"],
+    "compliance": ["Chief Compliance Officer", "VP Legal", "Head of Risk", "General Counsel"],
+    "data_privacy": ["DPO", "Chief Privacy Officer", "CISO", "VP Legal"],
+    "digital_transformation": ["CTO", "CDO", "VP Engineering", "Head of Digital"],
+    "ai_adoption": ["CTO", "Chief AI Officer", "VP Engineering", "Head of Data Science"],
+    "cloud_migration": ["CTO", "VP Infrastructure", "Head of Cloud", "IT Director"],
+    "cost_reduction": ["CFO", "COO", "VP Operations", "Head of Procurement"],
+    "market_expansion": ["CEO", "CSO", "VP Business Development", "Head of Strategy"],
+    "sustainability": ["Chief Sustainability Officer", "VP Sustainability", "Head of ESG", "Environmental Director"],
+    "talent": ["CHRO", "VP People", "Head of Talent", "HR Director"],
+
+    "default": ["CEO", "CTO", "CFO", "VP Operations", "Head of Strategy"],
 }
 
 # Coherent Market Insights Service Catalog (Full)
@@ -1058,10 +1141,13 @@ NEWS_SOURCES = {
 
     # ─────────────────────────────────────────────────────────────────────────
     # UNOFFICIAL: Google News RSS (Free, works but unofficial)
+    # NOTE: Topic IDs below are country-specific (India). For other countries,
+    # override NEWS_SOURCES in .env or add equivalent topic IDs.
+    # hl/gl/ceid params should match settings.country but topic ID is fixed.
     # ─────────────────────────────────────────────────────────────────────────
-    "google_news_india_business": {
-        "id": "google_news_india_business",
-        "name": "Google News India Business",
+    "google_news_business": {
+        "id": "google_news_business",
+        "name": "Google News Business",
         "source_type": "rss",
         "tier": "tier_3",
         "credibility_score": 0.80,  # Aggregator, varies
@@ -1072,9 +1158,9 @@ NEWS_SOURCES = {
         "country": "IN",
         "rate_limit_per_day": None
     },
-    "google_news_india_tech": {
-        "id": "google_news_india_tech",
-        "name": "Google News India Technology",
+    "google_news_tech": {
+        "id": "google_news_tech",
+        "name": "Google News Technology",
         "source_type": "rss",
         "tier": "tier_3",
         "credibility_score": 0.80,
@@ -1276,6 +1362,414 @@ NEWS_SOURCES = {
         "rate_limit_per_day": None
     },
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # GLOBAL TIER 1: Major International Business Publications (RSS — verified 2026-03-05)
+    # All tested: HTTP 200, valid RSS, returning 10-50 articles per fetch.
+    # ─────────────────────────────────────────────────────────────────────────
+    "cnbc_world": {
+        "id": "cnbc_world",
+        "name": "CNBC World News",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.94,
+        "url": "https://www.cnbc.com",
+        "rss_url": "https://www.cnbc.com/id/100727362/device/rss/rss.html",
+        "categories": ["business", "global", "markets", "economy"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "cnbc_tech": {
+        "id": "cnbc_tech",
+        "name": "CNBC Technology",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.94,
+        "url": "https://www.cnbc.com",
+        "rss_url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",
+        "categories": ["technology", "AI", "enterprise", "global"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "yahoo_finance": {
+        "id": "yahoo_finance",
+        "name": "Yahoo Finance",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.90,
+        "url": "https://finance.yahoo.com",
+        "rss_url": "https://finance.yahoo.com/news/rssindex",
+        "categories": ["markets", "finance", "earnings", "M&A"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "marketwatch": {
+        "id": "marketwatch",
+        "name": "MarketWatch",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.91,
+        "url": "https://www.marketwatch.com",
+        "rss_url": "https://feeds.marketwatch.com/marketwatch/topstories/",
+        "categories": ["markets", "finance", "economy", "corporate"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # GLOBAL TIER 2: Business & Tech Publications (RSS — verified 2026-03-05)
+    # ─────────────────────────────────────────────────────────────────────────
+    "guardian_business": {
+        "id": "guardian_business",
+        "name": "The Guardian Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.92,
+        "url": "https://www.theguardian.com/uk/business",
+        "rss_url": "https://www.theguardian.com/uk/business/rss",
+        "categories": ["business", "economy", "corporate", "global"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "forbes": {
+        "id": "forbes",
+        "name": "Forbes",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.89,
+        "url": "https://www.forbes.com",
+        "rss_url": "https://www.forbes.com/innovation/feed2/",
+        "categories": ["business", "technology", "innovation", "leadership"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "fortune": {
+        "id": "fortune",
+        "name": "Fortune",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.91,
+        "url": "https://fortune.com",
+        "rss_url": "https://fortune.com/feed/",
+        "categories": ["business", "leadership", "corporate", "Fortune500"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "fast_company": {
+        "id": "fast_company",
+        "name": "Fast Company",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.87,
+        "url": "https://www.fastcompany.com",
+        "rss_url": "https://www.fastcompany.com/latest/rss",
+        "categories": ["business", "innovation", "technology", "leadership"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "inc_magazine": {
+        "id": "inc_magazine",
+        "name": "Inc. Magazine",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.86,
+        "url": "https://www.inc.com",
+        "rss_url": "https://www.inc.com/rss/",
+        "categories": ["startups", "entrepreneurship", "business", "SMB"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "wired_business": {
+        "id": "wired_business",
+        "name": "Wired Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.90,
+        "url": "https://www.wired.com/category/business/",
+        "rss_url": "https://www.wired.com/feed/category/business/latest/rss",
+        "categories": ["technology", "business", "enterprise", "AI"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "ars_technica": {
+        "id": "ars_technica",
+        "name": "Ars Technica",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.91,
+        "url": "https://arstechnica.com",
+        "rss_url": "https://feeds.arstechnica.com/arstechnica/index",
+        "categories": ["technology", "science", "policy", "enterprise"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # GLOBAL: Sector-Specific Feeds (RSS — verified 2026-03-05)
+    # High-value B2B vertical feeds: fintech, AI, enterprise tech
+    # ─────────────────────────────────────────────────────────────────────────
+    "finextra": {
+        "id": "finextra",
+        "name": "Finextra",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.90,
+        "url": "https://www.finextra.com",
+        "rss_url": "https://www.finextra.com/rss/headlines.aspx",
+        "categories": ["fintech", "banking", "payments", "regulation"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "techcrunch_ai": {
+        "id": "techcrunch_ai",
+        "name": "TechCrunch AI",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.90,
+        "url": "https://techcrunch.com/category/artificial-intelligence/",
+        "rss_url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+        "categories": ["AI", "ML", "enterprise_AI", "startups"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "techcrunch_fintech": {
+        "id": "techcrunch_fintech",
+        "name": "TechCrunch Fintech",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.90,
+        "url": "https://techcrunch.com/category/fintech/",
+        "rss_url": "https://techcrunch.com/category/fintech/feed/",
+        "categories": ["fintech", "payments", "banking", "funding"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "siliconangle": {
+        "id": "siliconangle",
+        "name": "SiliconAngle",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.86,
+        "url": "https://siliconangle.com",
+        "rss_url": "https://siliconangle.com/feed/",
+        "categories": ["enterprise", "cloud", "AI", "cybersecurity", "B2B"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "zdnet": {
+        "id": "zdnet",
+        "name": "ZDNet",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.88,
+        "url": "https://www.zdnet.com",
+        "rss_url": "https://www.zdnet.com/news/rss.xml",
+        "categories": ["enterprise", "technology", "security", "cloud"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "pymnts": {
+        "id": "pymnts",
+        "name": "PYMNTS",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.87,
+        "url": "https://www.pymnts.com",
+        "rss_url": "https://www.pymnts.com/feed/",
+        "categories": ["payments", "fintech", "ecommerce", "digital"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "banking_dive": {
+        "id": "banking_dive",
+        "name": "Banking Dive",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.87,
+        "url": "https://www.bankingdive.com",
+        "rss_url": "https://www.bankingdive.com/feeds/news/",
+        "categories": ["banking", "regulation", "fintech", "compliance"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "seeking_alpha": {
+        "id": "seeking_alpha",
+        "name": "Seeking Alpha Market Currents",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.85,
+        "url": "https://seekingalpha.com",
+        "rss_url": "https://seekingalpha.com/market_currents.xml",
+        "categories": ["markets", "earnings", "analysis", "stocks"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # ASIA-PACIFIC: Regional Business Coverage (RSS — verified 2026-03-05)
+    # ─────────────────────────────────────────────────────────────────────────
+    "al_jazeera_economy": {
+        "id": "al_jazeera_economy",
+        "name": "Al Jazeera Economy",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.88,
+        "url": "https://www.aljazeera.com/economy",
+        "rss_url": "https://www.aljazeera.com/xml/rss/all.xml",
+        "categories": ["economy", "global", "geopolitical", "trade"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "asia_times": {
+        "id": "asia_times",
+        "name": "Asia Times",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.85,
+        "url": "https://asiatimes.com",
+        "rss_url": "https://asiatimes.com/feed/",
+        "categories": ["business", "geopolitical", "tech", "APAC"],
+        "language": "en",
+        "country": "APAC",
+        "rate_limit_per_day": None
+    },
+    "channel_news_asia": {
+        "id": "channel_news_asia",
+        "name": "Channel News Asia Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.89,
+        "url": "https://www.channelnewsasia.com",
+        "rss_url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6511",
+        "categories": ["business", "economy", "APAC", "Singapore"],
+        "language": "en",
+        "country": "APAC",
+        "rate_limit_per_day": None
+    },
+    "straits_times_biz": {
+        "id": "straits_times_biz",
+        "name": "Straits Times Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.89,
+        "url": "https://www.straitstimes.com",
+        "rss_url": "https://www.straitstimes.com/news/business/rss.xml",
+        "categories": ["business", "economy", "APAC", "Singapore"],
+        "language": "en",
+        "country": "APAC",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # WIRE SERVICES: Press Release Aggregators (RSS — verified 2026-03-05)
+    # Direct corporate announcements — M&A, earnings, product launches
+    # ─────────────────────────────────────────────────────────────────────────
+    "globe_newswire": {
+        "id": "globe_newswire",
+        "name": "GlobeNewswire",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.84,
+        "url": "https://www.globenewswire.com",
+        "rss_url": "https://www.globenewswire.com/RssFeed/orgclass/1/feedTitle/GlobeNewswire",
+        "categories": ["press_releases", "corporate", "M&A", "earnings"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "prnewswire_tech": {
+        "id": "prnewswire_tech",
+        "name": "PR Newswire Technology",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.84,
+        "url": "https://www.prnewswire.com",
+        "rss_url": "https://www.prnewswire.com/rss/news-releases/technology-latest-news.rss",
+        "categories": ["press_releases", "technology", "enterprise", "product_launch"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "prnewswire_finance": {
+        "id": "prnewswire_finance",
+        "name": "PR Newswire Financial Services",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.84,
+        "url": "https://www.prnewswire.com",
+        "rss_url": "https://www.prnewswire.com/rss/news-releases/financial-services-latest-news.rss",
+        "categories": ["press_releases", "finance", "banking", "insurance"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "prnewswire_ma": {
+        "id": "prnewswire_ma",
+        "name": "PR Newswire M&A",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.84,
+        "url": "https://www.prnewswire.com",
+        "rss_url": "https://www.prnewswire.com/rss/news-releases/mergers-and-acquisitions-latest-news.rss",
+        "categories": ["press_releases", "M&A", "corporate", "deals"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # GOVERNMENT/REGULATORY: US Federal (RSS — verified 2026-03-05)
+    # ─────────────────────────────────────────────────────────────────────────
+    "fed_reserve": {
+        "id": "fed_reserve",
+        "name": "Federal Reserve Press Releases",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.99,
+        "url": "https://www.federalreserve.gov",
+        "rss_url": "https://www.federalreserve.gov/feeds/press_all.xml",
+        "categories": ["monetary_policy", "banking", "regulation", "rates"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # COMMUNITY: High-Quality Tech Discussion (RSS — verified 2026-03-05)
+    # ─────────────────────────────────────────────────────────────────────────
+    "hacker_news": {
+        "id": "hacker_news",
+        "name": "Hacker News (50+ points)",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.82,
+        "url": "https://news.ycombinator.com",
+        "rss_url": "https://hnrss.org/newest?points=50",
+        "categories": ["technology", "startups", "AI", "engineering"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
     # ── GDELT (Global Database of Events, Language, and Tone) ──────────
     # Free API, no key needed. Monitors 100+ languages across 250+ countries.
     # Indexes ~300,000 articles/day. Updates every 15 minutes.
@@ -1306,6 +1800,649 @@ NEWS_SOURCES = {
         "country": "IN",
         "rate_limit_per_day": 500,
     },
+
+    # ── GDELT expansion: global B2B tech + India regulatory + VC funding ──────
+    # Same _fetch_gdelt handler — different query strings baked into source config.
+    # Each query targets a distinct sector so overlap is minimal.
+    "gdelt_global_tech": {
+        "id": "gdelt_global_tech",
+        "name": "GDELT Global Tech",
+        "source_type": "api",
+        "tier": "tier_1",
+        "credibility_score": 0.87,
+        "url": "https://www.gdeltproject.org",
+        "api_endpoint": "https://api.gdeltproject.org/api/v2/doc/doc",
+        "categories": ["technology", "AI", "SaaS", "cloud", "enterprise"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": 500,
+    },
+    "gdelt_india_funding": {
+        "id": "gdelt_india_funding",
+        "name": "GDELT India Funding & VC",
+        "source_type": "api",
+        "tier": "tier_1",
+        "credibility_score": 0.88,
+        "url": "https://www.gdeltproject.org",
+        "api_endpoint": "https://api.gdeltproject.org/api/v2/doc/doc",
+        "categories": ["VC", "funding", "IPO", "M&A", "startup"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": 500,
+    },
+    "gdelt_india_regulation": {
+        "id": "gdelt_india_regulation",
+        "name": "GDELT India Regulation",
+        "source_type": "api",
+        "tier": "tier_1",
+        "credibility_score": 0.88,
+        "url": "https://www.gdeltproject.org",
+        "api_endpoint": "https://api.gdeltproject.org/api/v2/doc/doc",
+        "categories": ["regulation", "policy", "RBI", "SEBI", "government"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": 500,
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 1: Reuters & AP (Global wire services — highly reliable)
+    # ─────────────────────────────────────────────────────────────────────────
+    "reuters_business": {
+        "id": "reuters_business",
+        "name": "Reuters Business",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.97,
+        "url": "https://www.reuters.com",
+        "rss_url": "https://feeds.reuters.com/reuters/businessNews",
+        "categories": ["business", "markets", "global", "corporate"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "reuters_technology": {
+        "id": "reuters_technology",
+        "name": "Reuters Technology",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.97,
+        "url": "https://www.reuters.com",
+        "rss_url": "https://feeds.reuters.com/reuters/technologyNews",
+        "categories": ["technology", "AI", "enterprise", "global"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 2: Business Wire & PR Newswire (Press release aggregators)
+    # Free RSS, no auth needed — direct corporate announcements
+    # ─────────────────────────────────────────────────────────────────────────
+    "businesswire_tech": {
+        "id": "businesswire_tech",
+        "name": "Business Wire Tech",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.85,
+        "url": "https://www.businesswire.com",
+        "rss_url": "https://feed.businesswire.com/rss/home/?rss=G7",
+        "categories": ["press_releases", "technology", "enterprise", "funding"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "businesswire_financial": {
+        "id": "businesswire_financial",
+        "name": "Business Wire Financial",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.85,
+        "url": "https://www.businesswire.com",
+        "rss_url": "https://feed.businesswire.com/rss/home/?rss=G6",
+        "categories": ["press_releases", "finance", "earnings", "M&A"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "prnewswire_india": {
+        "id": "prnewswire_india",
+        "name": "PR Newswire India",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.84,
+        "url": "https://www.prnewswire.com",
+        "rss_url": "https://www.prnewswire.com/rss/news-releases-list.rss",
+        "categories": ["press_releases", "corporate", "announcements"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # US-SPECIFIC: Major US business publications (country="US")
+    # ─────────────────────────────────────────────────────────────────────────
+    "wsj_business": {
+        "id": "wsj_business",
+        "name": "Wall Street Journal Business",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.97,
+        "url": "https://www.wsj.com",
+        "rss_url": "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml",
+        "categories": ["business", "economy", "markets", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+    "wsj_tech": {
+        "id": "wsj_tech",
+        "name": "Wall Street Journal Technology",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.97,
+        "url": "https://www.wsj.com",
+        "rss_url": "https://feeds.a.dj.com/rss/RSSWSJD.xml",
+        "categories": ["technology", "AI", "cybersecurity", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+    "wsj_markets": {
+        "id": "wsj_markets",
+        "name": "Wall Street Journal Markets",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.97,
+        "url": "https://www.wsj.com",
+        "rss_url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+        "categories": ["markets", "stocks", "IPO", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+    "business_insider": {
+        "id": "business_insider",
+        "name": "Business Insider",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.88,
+        "url": "https://www.businessinsider.com",
+        "rss_url": "https://www.businessinsider.com/sai/rss",
+        "categories": ["business", "technology", "finance", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+    "nyt_business": {
+        "id": "nyt_business",
+        "name": "New York Times Business",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.96,
+        "url": "https://www.nytimes.com",
+        "rss_url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",
+        "categories": ["business", "economy", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+    "nyt_technology": {
+        "id": "nyt_technology",
+        "name": "New York Times Technology",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.96,
+        "url": "https://www.nytimes.com",
+        "rss_url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+        "categories": ["technology", "AI", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+    "google_news_us_business": {
+        "id": "google_news_us_business",
+        "name": "Google News US Business",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://news.google.com",
+        "rss_url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",
+        "categories": ["business", "aggregator", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+    "google_news_us_tech": {
+        "id": "google_news_us_tech",
+        "name": "Google News US Technology",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://news.google.com",
+        "rss_url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",
+        "categories": ["technology", "aggregator", "US"],
+        "language": "en",
+        "country": "US",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # EU-SPECIFIC: European business publications (country="EU")
+    # ─────────────────────────────────────────────────────────────────────────
+    "bbc_business": {
+        "id": "bbc_business",
+        "name": "BBC Business",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.96,
+        "url": "https://www.bbc.co.uk/news/business",
+        "rss_url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+        "categories": ["business", "economy", "EU"],
+        "language": "en",
+        "country": "EU",
+        "rate_limit_per_day": None
+    },
+    "bbc_technology": {
+        "id": "bbc_technology",
+        "name": "BBC Technology",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.96,
+        "url": "https://www.bbc.co.uk/news/technology",
+        "rss_url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+        "categories": ["technology", "AI", "EU"],
+        "language": "en",
+        "country": "EU",
+        "rate_limit_per_day": None
+    },
+    "dw_business": {
+        "id": "dw_business",
+        "name": "Deutsche Welle Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.90,
+        "url": "https://www.dw.com",
+        "rss_url": "https://rss.dw.com/xml/rss-en-bus",
+        "categories": ["business", "economy", "EU", "Germany"],
+        "language": "en",
+        "country": "EU",
+        "rate_limit_per_day": None
+    },
+    "sky_business": {
+        "id": "sky_business",
+        "name": "Sky News Business",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.88,
+        "url": "https://news.sky.com",
+        "rss_url": "https://news.sky.com/feeds/rss/business.xml",
+        "categories": ["business", "markets", "EU", "UK"],
+        "language": "en",
+        "country": "EU",
+        "rate_limit_per_day": None
+    },
+    "euractiv_economy": {
+        "id": "euractiv_economy",
+        "name": "EurActiv Economy & Jobs",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.87,
+        "url": "https://www.euractiv.com",
+        "rss_url": "https://www.euractiv.com/sections/economy-jobs/feed/",
+        "categories": ["economy", "policy", "EU", "regulation"],
+        "language": "en",
+        "country": "EU",
+        "rate_limit_per_day": None
+    },
+    "euractiv_digital": {
+        "id": "euractiv_digital",
+        "name": "EurActiv Digital",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.87,
+        "url": "https://www.euractiv.com",
+        "rss_url": "https://www.euractiv.com/sections/digital/feed/",
+        "categories": ["technology", "digital", "EU", "regulation", "AI"],
+        "language": "en",
+        "country": "EU",
+        "rate_limit_per_day": None
+    },
+    "google_news_uk_business": {
+        "id": "google_news_uk_business",
+        "name": "Google News UK Business",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://news.google.com",
+        "rss_url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pIUWlnQVAB?hl=en-GB&gl=GB&ceid=GB:en",
+        "categories": ["business", "aggregator", "UK", "EU"],
+        "language": "en",
+        "country": "EU",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 2: VentureBeat & TechCrunch main (Global tech B2B)
+    # ─────────────────────────────────────────────────────────────────────────
+    "venturebeat": {
+        "id": "venturebeat",
+        "name": "VentureBeat",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.88,
+        "url": "https://venturebeat.com",
+        "rss_url": "https://venturebeat.com/feed/",
+        "categories": ["technology", "AI", "enterprise", "startups", "B2B"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+    "techcrunch_main": {
+        "id": "techcrunch_main",
+        "name": "TechCrunch",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.90,
+        "url": "https://techcrunch.com",
+        "rss_url": "https://techcrunch.com/feed/",
+        "categories": ["technology", "startups", "funding", "AI", "B2B"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 2: Indian sources — alternate/corrected URLs
+    # Business Standard has section-level feeds with fewer bot blocks
+    # ─────────────────────────────────────────────────────────────────────────
+    "bs_economy": {
+        "id": "bs_economy",
+        "name": "Business Standard Economy",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.93,
+        "url": "https://www.business-standard.com/economy",
+        "rss_url": "https://www.business-standard.com/rss/economy-policy-101.rss",
+        "categories": ["economy", "policy", "budget", "macro"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "bs_finance": {
+        "id": "bs_finance",
+        "name": "Business Standard Finance",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.93,
+        "url": "https://www.business-standard.com/finance",
+        "rss_url": "https://www.business-standard.com/rss/finance-102.rss",
+        "categories": ["finance", "banking", "insurance", "RBI"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "bs_tech": {
+        "id": "bs_tech",
+        "name": "Business Standard Technology",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.93,
+        "url": "https://www.business-standard.com/technology",
+        "rss_url": "https://www.business-standard.com/rss/technology-108.rss",
+        "categories": ["technology", "IT", "startups", "AI"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 2: ET specialised feeds (B2B / CFO / BFSI / Infra)
+    # ─────────────────────────────────────────────────────────────────────────
+    "et_markets": {
+        "id": "et_markets",
+        "name": "ET Markets",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.95,
+        "url": "https://economictimes.indiatimes.com/markets",
+        "rss_url": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+        "categories": ["markets", "stocks", "IPO", "NSE", "BSE"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "et_startup": {
+        "id": "et_startup",
+        "name": "ET Startup",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.95,
+        "url": "https://economictimes.indiatimes.com/small-biz/startups",
+        "rss_url": "https://economictimes.indiatimes.com/small-biz/startups/rssfeeds/15117369.cms",
+        "categories": ["startups", "funding", "founders", "unicorn"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "et_bfsi": {
+        "id": "et_bfsi",
+        "name": "ET BFSI",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.95,
+        "url": "https://bfsi.economictimes.indiatimes.com",
+        "rss_url": "https://bfsi.economictimes.indiatimes.com/rss",
+        "categories": ["banking", "fintech", "NBFC", "insurance", "regulation"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "et_cio": {
+        "id": "et_cio",
+        "name": "ET CIO",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.92,
+        "url": "https://cio.economictimes.indiatimes.com",
+        "rss_url": "https://cio.economictimes.indiatimes.com/rss",
+        "categories": ["CIO", "IT", "enterprise", "digital_transformation"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "et_infra": {
+        "id": "et_infra",
+        "name": "ET Infra",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.92,
+        "url": "https://infra.economictimes.indiatimes.com",
+        "rss_url": "https://infra.economictimes.indiatimes.com/rss",
+        "categories": ["infrastructure", "logistics", "energy", "real_estate"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 3: SEBI / RBI corrected URLs + PIB Ministry feeds
+    # SEBI official RSS: /sebirss.xml (confirmed in SEBI docs)
+    # RBI: /scripts/BS_PressReleaseView.aspx (XML variant)
+    # PIB Ministry of Finance and Commerce specific feeds
+    # ─────────────────────────────────────────────────────────────────────────
+    "sebi_v2": {
+        "id": "sebi_v2",
+        "name": "SEBI Announcements",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.99,
+        "url": "https://www.sebi.gov.in",
+        "rss_url": "https://www.sebi.gov.in/sebirss.xml",
+        "categories": ["regulation", "capital_markets", "compliance", "SEBI"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "rbi_v2": {
+        "id": "rbi_v2",
+        "name": "RBI Press Releases",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.99,
+        "url": "https://www.rbi.org.in",
+        "rss_url": "https://www.rbi.org.in/scripts/rss.aspx",
+        "categories": ["banking", "monetary_policy", "regulation", "RBI"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "pib_finance": {
+        "id": "pib_finance",
+        "name": "PIB Ministry of Finance",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.99,
+        "url": "https://pib.gov.in",
+        "rss_url": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
+        "categories": ["government", "policy", "budget", "taxation"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "pib_commerce": {
+        "id": "pib_commerce",
+        "name": "PIB Ministry of Commerce",
+        "source_type": "rss",
+        "tier": "tier_1",
+        "credibility_score": 0.99,
+        "url": "https://pib.gov.in",
+        "rss_url": "https://pib.gov.in/RssMain.aspx?ModId=7&Lang=1&Regid=3",
+        "categories": ["government", "trade", "export", "import", "commerce"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 2: Google News India — additional topic feeds
+    # Topic IDs are stable for major categories
+    # ─────────────────────────────────────────────────────────────────────────
+    "google_news_economy": {
+        "id": "google_news_economy",
+        "name": "Google News Economy",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://news.google.com",
+        "rss_url": "https://news.google.com/rss/headlines/section/topic/ECONOMY?hl=en-IN&gl=IN&ceid=IN:en",
+        "categories": ["economy", "aggregator", "india"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "google_news_india_startup": {
+        "id": "google_news_india_startup",
+        "name": "Google News India Startup",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://news.google.com",
+        "rss_url": "https://news.google.com/rss/search?q=India+startup+funding&hl=en-IN&gl=IN&ceid=IN:en",
+        "categories": ["startups", "funding", "aggregator"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "google_news_india_fintech": {
+        "id": "google_news_india_fintech",
+        "name": "Google News India Fintech",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://news.google.com",
+        "rss_url": "https://news.google.com/rss/search?q=India+fintech+payments&hl=en-IN&gl=IN&ceid=IN:en",
+        "categories": ["fintech", "payments", "aggregator"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 2: The Wire (India) — investigative business/policy
+    # ─────────────────────────────────────────────────────────────────────────
+    "thewire_economy": {
+        "id": "thewire_economy",
+        "name": "The Wire Economy",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.87,
+        "url": "https://thewire.in",
+        "rss_url": "https://thewire.in/economy/feed",
+        "categories": ["economy", "policy", "analysis", "corporate"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 2: TechInAsia (Asia-Pacific startup coverage)
+    # ─────────────────────────────────────────────────────────────────────────
+    "techinasia": {
+        "id": "techinasia",
+        "name": "Tech in Asia",
+        "source_type": "rss",
+        "tier": "tier_2",
+        "credibility_score": 0.86,
+        "url": "https://www.techinasia.com",
+        "rss_url": "https://www.techinasia.com/feed",
+        "categories": ["startups", "tech", "Asia", "funding", "B2B"],
+        "language": "en",
+        "country": "APAC",
+        "rate_limit_per_day": None
+    },
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # NEW TIER 3: Bing News — additional query verticals
+    # ─────────────────────────────────────────────────────────────────────────
+    "bing_india_vc": {
+        "id": "bing_india_vc",
+        "name": "Bing News India VC",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://www.bing.com/news",
+        "rss_url": "https://www.bing.com/news/search?format=RSS&q=India+venture+capital+private+equity",
+        "categories": ["VC", "PE", "funding", "aggregator"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "bing_india_regulation": {
+        "id": "bing_india_regulation",
+        "name": "Bing News India Regulation",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://www.bing.com/news",
+        "rss_url": "https://www.bing.com/news/search?format=RSS&q=India+SEBI+RBI+regulation+policy",
+        "categories": ["regulation", "policy", "aggregator"],
+        "language": "en",
+        "country": "IN",
+        "rate_limit_per_day": None
+    },
+    "bing_global_saas": {
+        "id": "bing_global_saas",
+        "name": "Bing News Global SaaS",
+        "source_type": "rss",
+        "tier": "tier_3",
+        "credibility_score": 0.80,
+        "url": "https://www.bing.com/news",
+        "rss_url": "https://www.bing.com/news/search?format=RSS&q=SaaS+enterprise+software+B2B+funding",
+        "categories": ["SaaS", "enterprise", "B2B", "aggregator"],
+        "language": "en",
+        "country": "GLOBAL",
+        "rate_limit_per_day": None
+    },
 }
 
 # Quick access lists
@@ -1315,47 +2452,144 @@ TIER_1_SOURCES = [src for src in NEWS_SOURCES.values() if src["tier"] == "tier_1
 TIER_2_SOURCES = [src for src in NEWS_SOURCES.values() if src["tier"] == "tier_2"]
 
 # Default sources to use (can be overridden via env)
-# NOTE: Verified 2026-02-06 — tested all RSS feeds individually:
-#   STILL BROKEN (do not re-add):
-#     - financial_express (410 Gone — feed permanently removed)
-#     - rbi_press (418 — anti-bot protection)
-#     - business_today (404 Not Found)
-#     - entrackr (404 Not Found)
-#     - sebi (404 Not Found)
-#     - vccircle (200 but malformed XML — parse error)
-#   RECOVERED (added back):
-#     - business_standard, bs_companies (working again, 10+35 articles)
+# ─────────────────────────────────────────────────────────────────────────────
+# BROKEN (never re-add — permanently dead feeds as of 2026-03-05):
+#   - financial_express      : 410 Gone — feed permanently removed
+#   - rbi_press              : 418 — original URL anti-bot blocked (replaced by rbi_v2)
+#   - business_today         : 404 Not Found — feed URL dead
+#   - entrackr               : 404 Not Found — no public RSS
+#   - sebi                   : 404 Not Found — old URL dead (replaced by sebi_v2)
+#   - vccircle               : 200 but malformed XML — feedparser parse error
+#   - bbc_india              : 403 Forbidden — BBC geo-blocks India RSS
+#   - zeebiz                 : 403 Forbidden — bot-blocked
+#   - theprint               : Intermittent silent failure (kept with low priority)
+#   - pib (original)         : 0 articles — empty response (replaced by pib_finance/pib_commerce)
+#   - business_standard      : 403 Forbidden (top-level feed) — replaced by section feeds
+#   - bs_companies           : 403 Forbidden — replaced by bs_economy/bs_finance/bs_tech
+#   - reuters_business       : 401 Unauthorized — requires auth since 2024 (removed 2026-03-05)
+#   - reuters_technology     : 401 Unauthorized — requires auth since 2024 (removed 2026-03-05)
+#   - thewire_economy        : 0 articles — feed returns empty (removed 2026-03-05)
+# ─────────────────────────────────────────────────────────────────────────────
 DEFAULT_ACTIVE_SOURCES = [
-    # Tier 1: Major Business Publications (RSS - Unlimited, Working)
-    "economic_times", "et_industry", "et_tech",
+    # ── Tier 1: Major Indian Business Publications (RSS — Working) ────────────
+    "economic_times", "et_industry", "et_tech", "et_markets", "et_startup",
     "livemint", "mint_companies", "mint_markets", "mint_economy", "mint_industry",
     "moneycontrol", "mc_topnews",
     "cnbctv18", "cnbctv18_market",
-    # bbc_india: 403 Forbidden
-    # business_standard, bs_companies — 403 Forbidden again as of 2026-02-18
-    # Tier 2: Startup & Tech (RSS - Unlimited)
+    "hindu_business",
+
+    # ── Tier 1: Business Standard section feeds (less bot-blocked than homepage) ─
+    "bs_economy", "bs_finance", "bs_tech",
+
+    # ── Tier 1: ET vertical portals ───────────────────────────────────────────
+    "et_bfsi", "et_cio", "et_infra",
+
+    # ── Tier 1: Global Business Publications (RSS — verified 2026-03-05) ─────
+    "cnbc_world",             # CNBC World News (30 articles/fetch)
+    "cnbc_tech",              # CNBC Technology (30 articles/fetch)
+    "yahoo_finance",          # Yahoo Finance (42 articles/fetch)
+    "marketwatch",            # MarketWatch Top Stories
+
+    # ── Tier 2: Global Business & Tech Publications ──────────────────────────
+    "guardian_business",      # The Guardian Business (39 articles/fetch)
+    "forbes",                 # Forbes Innovation
+    "fortune",                # Fortune (10 articles/fetch)
+    "fast_company",           # Fast Company (20 articles/fetch)
+    "inc_magazine",           # Inc. Magazine (37 articles/fetch)
+    "wired_business",         # Wired Business (20 articles/fetch)
+    "ars_technica",           # Ars Technica (20 articles/fetch)
+
+    # ── Tier 2: Startup & Tech India ─────────────────────────────────────────
     "yourstory", "inc42",
-    # vccircle removed: returns 200 but malformed XML, feedparser fails
-    # Tier 2: Additional Publications (RSS - Unlimited)
-    # zeebiz: 403 Forbidden as of 2026-02-21
-    "indiatoday_business", "theprint", "scrollin",
-    # Government (RSS - often blocked by anti-bot)
-    # pib: empty response as of 2026-02-21
-    # Other Publications (RSS - Unlimited)
-    "hindu_business", "ndtv_profit", "techcrunch_india",
-    # Google News (RSS - Unofficial but works)
-    "google_news_india_business", "google_news_india_tech",
-    # Bing News (RSS - Free, query-based aggregator)
+    "techcrunch_india",       # TechCrunch India tag (working: 20 articles)
+    "techcrunch_main",        # TechCrunch global feed
+    "venturebeat",            # B2B tech + AI + enterprise
+    "techinasia",             # Asia-Pacific startup coverage
+
+    # ── Tier 2: Sector-Specific (Fintech, AI, Enterprise) ───────────────────
+    "finextra",               # Fintech & banking (47 articles/fetch)
+    "techcrunch_ai",          # TechCrunch AI vertical (19 articles/fetch)
+    "techcrunch_fintech",     # TechCrunch Fintech vertical (20 articles/fetch)
+    "siliconangle",           # Enterprise tech (30 articles/fetch)
+    "zdnet",                  # Enterprise IT (20 articles/fetch)
+    "pymnts",                 # Payments & digital commerce (10 articles/fetch)
+    "banking_dive",           # Banking industry (10 articles/fetch)
+    "seeking_alpha",          # Market currents & analysis
+
+    # ── Tier 2: Asia-Pacific ─────────────────────────────────────────────────
+    "al_jazeera_economy",     # Global economy & geopolitics (25 articles/fetch)
+    "asia_times",             # Asia business & tech (20 articles/fetch)
+    "channel_news_asia",      # CNA Business (20 articles/fetch)
+    "straits_times_biz",      # Straits Times Business (28 articles/fetch)
+
+    # ── Tier 2: Additional Indian Publications ────────────────────────────────
+    "indiatoday_business", "scrollin",
+    "ndtv_profit",
+    "theprint",               # Intermittent — kept, gracefully skipped on failure
+
+    # ── Tier 2: Press Release Aggregators (direct corporate news) ────────────
+    "businesswire_tech", "businesswire_financial",
+    "prnewswire_india",
+    "globe_newswire",         # GlobeNewswire (20 articles/fetch)
+    "prnewswire_tech",        # PR Newswire Technology
+    "prnewswire_finance",     # PR Newswire Financial Services
+    "prnewswire_ma",          # PR Newswire M&A
+
+    # ── Tier 1: US-Specific Business Publications ─────────────────────────────
+    "wsj_business",           # Wall Street Journal Business
+    "wsj_tech",               # Wall Street Journal Technology
+    "wsj_markets",            # Wall Street Journal Markets
+    "nyt_business",           # New York Times Business
+    "nyt_technology",         # New York Times Technology
+    "business_insider",       # Business Insider (tech + finance)
+
+    # ── Tier 1-2: EU-Specific Business Publications ─────────────────────────
+    "bbc_business",           # BBC Business (UK/Europe)
+    "bbc_technology",         # BBC Technology (UK/Europe)
+    "dw_business",            # Deutsche Welle Business (Germany/Europe)
+    "sky_business",           # Sky News Business (UK)
+    "euractiv_economy",       # EurActiv Economy & Jobs (EU policy)
+    "euractiv_digital",       # EurActiv Digital (EU tech policy)
+
+    # ── Tier 1: Government & Regulatory ──────────────────────────────────────
+    "sebi_v2",           # SEBI: /sebirss.xml (official URL from SEBI docs)
+    "rbi_v2",            # RBI: /scripts/rss.aspx (alternate — test before enabling)
+    "pib_finance",       # PIB Finance Ministry
+    "pib_commerce",      # PIB Commerce Ministry
+    "fed_reserve",       # US Federal Reserve (monetary policy, rates)
+
+    # ── Tier 3: Google News (unofficial but reliable) ─────────────────────────
+    "google_news_business", "google_news_tech",
+    "google_news_economy",
+    "google_news_india_startup",
+    "google_news_india_fintech",
+    "google_news_us_business",    # US Business Google News
+    "google_news_us_tech",        # US Tech Google News
+    "google_news_uk_business",    # UK Business Google News
+
+    # ── Tier 3: Bing News (free query-based aggregator) ───────────────────────
     "bing_india_business", "bing_india_economy", "bing_india_startup",
-    # APIs (set env vars to activate — gracefully skipped if key missing)
-    "newsapi_org",           # NEWSAPI_ORG_KEY - 100 calls/day (BEST)
-    "rapidapi_realtime_news",         # RAPIDAPI_KEY - 500/day
-    "rapidapi_google_news",           # RAPIDAPI_KEY - Google News
-    "rapidapi_google_trends_news",    # RAPIDAPI_KEY - trending news
-    "gnews",                          # GNEWS_API_KEY - 100/day
-    "mediastack",                     # MEDIASTACK_API_KEY - 500/month
-    "newsdata",                       # NEWSDATA_API_KEY - 500/month
-    "thenewsapi",                     # THENEWSAPI_KEY - 100/day
-    "webz_news",                      # WEBZ_API_KEY - 1000/month
-    # gdelt_india, gdelt_india_business: connection failures removed
+    "bing_india_vc", "bing_india_regulation",
+    "bing_global_saas",
+
+    # ── Tier 3: Community ────────────────────────────────────────────────────
+    "hacker_news",            # HN 50+ points (tech signal)
+
+    # ── Tier 1: GDELT (free API — no key — high volume) ──────────────────────
+    "gdelt_india",               # Broad India: ~236 articles/run
+    "gdelt_india_business",      # India business keywords: ~179 articles/run
+    "gdelt_india_funding",       # India VC/IPO/M&A events
+    "gdelt_india_regulation",    # India RBI/SEBI/policy
+    "gdelt_global_tech",         # Global enterprise SaaS/AI/cybersecurity
+
+    # ── APIs (gracefully skipped if env key missing) ──────────────────────────
+    "newsapi_org",                    # NEWSAPI_ORG_KEY   — 100 calls/day (BEST)
+    "rapidapi_realtime_news",         # RAPIDAPI_KEY      — 500/day
+    "rapidapi_google_news",           # RAPIDAPI_KEY      — Google News
+    "rapidapi_google_trends_news",    # RAPIDAPI_KEY      — trending news
+    "gnews",                          # GNEWS_API_KEY     — 100/day
+    "mediastack",                     # MEDIASTACK_API_KEY — 500/month
+    "newsdata",                       # NEWSDATA_API_KEY  — 500/month
+    "thenewsapi",                     # THENEWSAPI_KEY    — 100/day
+    "webz_news",                      # WEBZ_API_KEY      — 1000/month
 ]

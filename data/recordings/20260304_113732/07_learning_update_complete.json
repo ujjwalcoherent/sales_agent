@@ -1,0 +1,114 @@
+{
+  "signal_count": 3,
+  "avg_oss": 0.74,
+  "avg_kb_hit": 1.0,
+  "signals": [
+    {
+      "trend_title": "Middle East Conflict Disrupts India's Oil and Basmati Trade",
+      "event_type": "geopolitical",
+      "oss_score": 0.76,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Titan and Myntra Drive India's Corporate Rewards and D2C Growth",
+      "event_type": "consumer_shift",
+      "oss_score": 0.64,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "February 2026 Indian Startup Funding Surge Led by Neysa",
+      "event_type": "funding",
+      "oss_score": 0.82,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    }
+  ],
+  "signal_bus": {
+    "system_confidence": 0.7004,
+    "exploration_budget": 0.2996,
+    "learning_path": "outcome",
+    "total_drift": 0.0,
+    "source_degraded": [],
+    "feedback_distribution": {
+      "good_trend": 3,
+      "already_knew": 0,
+      "bad_trend": 0
+    },
+    "reasoning_grade": "B",
+    "reasoning_quality": 0.6,
+    "strategy_adjustments": {
+      "source_intel": {
+        "filtering": "Apply more granular relevance filters per source",
+        "source_expansion": "Include additional niche industry sources",
+        "timeliness": "Focus on more recent articles to increase relevance"
+      },
+      "analysis": {
+        "drop_trends": [
+          "Titan and Myntra Drive India's Corporate Rewards and D2C Growth"
+        ],
+        "boost_trends": [
+          "February 2026 Indian Startup Funding Surge Led by Neysa",
+          "Middle East Conflict Disrupts India's Oil and Basmati Trade"
+        ]
+      },
+      "lead_gen": {
+        "personalization_tips": [
+          "Research and include specific contact names and roles.",
+          "Tailor messages to address known pain points related to the event context."
+        ],
+        "targeting_improvements": [
+          "Focus on companies with available decision-maker contacts.",
+          "Refine criteria to target companies with clear, specific needs aligned with the event themes."
+        ]
+      }
+    }
+  },
+  "retrospective": {
+    "grade": "B",
+    "summary": "This run demonstrated solid overall performance with high KB hit rate and meaningful lead generation, but the quality of leads and trend specificity remain areas for improvement. The system successfully identified multiple trends and maintained a good confidence level, yet the lead quality was notably low, indicating a need for more targeted data enrichment and filtering. The detection of multiple trends suggests effective trend detection, but the relevance and actionability could be enhanced. Overall, the run is promising but requires targeted refinements to optimize lead quality and trend usefulness.",
+    "successes": [
+      "High KB hit rate of 100% indicating effective information retrieval",
+      "Detection of 3 trends demonstrating good trend detection capability",
+      "Generation of 23 leads showing active outreach potential"
+    ],
+    "failures": [
+      "Low lead quality with a score of 0.30 due to lack of contact info and broad targeting, caused by insufficient data enrichment and filtering",
+      "Trend analysis lacked granularity, reducing actionable insights, stemming from generic trend detection and limited source diversity"
+    ],
+    "improvement_plan": [
+      {
+        "target": "lead_gen",
+        "action": "Integrate contact verification and role-specific data sources",
+        "expected_impact": "Increase lead quality and conversion potential",
+        "priority": "high"
+      },
+      {
+        "target": "source_intel",
+        "action": "Implement source-specific relevance scoring and diversify sources",
+        "expected_impact": "Enhance trend specificity and reduce variability in quality",
+        "priority": "high"
+      },
+      {
+        "target": "analysis",
+        "action": "Incorporate granular data such as company news and product launches",
+        "expected_impact": "Generate more actionable, specific trends",
+        "priority": "medium"
+      }
+    ]
+  },
+  "log_messages": []
+}

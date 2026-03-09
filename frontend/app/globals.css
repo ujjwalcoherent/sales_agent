@@ -52,6 +52,24 @@
   --secondary:     var(--surface-raised);
   --secondary-foreground: var(--text-secondary);
 
+  /* Always-dark surface for CTA / footer sections */
+  --bg-dark:          #18170F;
+
+  /* Terminal Panel (always-dark surface — WCAG AA contrast on #131210) */
+  --term-bg:          #131210;
+  --term-border:      #363328;
+  --term-text:        #EDE9D8;
+  --term-text-muted:  #B0A890;
+  --term-text-dim:    #908878;
+  --term-text-xdim:   #6A6555;
+  --term-handle:      #706858;
+  --term-accent:      #C4892A;
+  --term-accent-dark: #8A5520;
+  --term-red:         #E07070;
+  --term-red-dim:     #AA4444;
+  --term-red-bright:  #F09090;
+  --term-green:       #6ACC8A;
+
   /* Shadows */
   --shadow-xs: 0 1px 2px rgba(24,23,15,0.05);
   --shadow-sm: 0 1px 4px rgba(24,23,15,0.07);
@@ -61,10 +79,15 @@
   /* Fonts */
   --font-display: var(--font-display, Georgia, serif);
   --font-sans:    var(--font-sans, system-ui, sans-serif);
+
+  /* Nav backdrop */
+  --nav-bg: rgba(248,247,242,0.92);
 }
 
 /* ─── Dark Mode Tokens ───────────────────────────── */
 .dark {
+  --nav-bg: rgba(24,23,15,0.92);
+
   --bg:            #18170F;
   --surface:       #1F1E15;
   --surface-raised: #26241A;
@@ -132,16 +155,6 @@
     font-family: var(--font-display);
   }
 
-  .text-display {
-    font-family: var(--font-display);
-    letter-spacing: -0.02em;
-  }
-
-  /* Hairline dividers */
-  .hairline {
-    border-top: 1px solid var(--border);
-  }
-
   /* Pill badge */
   .badge {
     display: inline-flex;
@@ -192,10 +205,7 @@
     display: inline-block;
     flex-shrink: 0;
   }
-  .dot-green  { background: var(--green);  }
   .dot-amber  { background: var(--amber);  }
-  .dot-red    { background: var(--red);    }
-  .dot-muted  { background: var(--text-xmuted); }
 
   /* Pulse animation for running state */
   .dot-pulse {
@@ -224,20 +234,6 @@
   .nav-item.active {
     background: var(--surface-hover);
     color: var(--text);
-  }
-
-  /* Score bar */
-  .score-bar {
-    height: 3px;
-    border-radius: 2px;
-    background: var(--surface-raised);
-    overflow: hidden;
-  }
-  .score-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    background: linear-gradient(90deg, var(--accent-mid), var(--amber));
-    transition: width 600ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 }
 
@@ -346,9 +342,9 @@
   transition: background 180ms, color 180ms, border-color 180ms;
 }
 .landing-btn-secondary:hover {
-  background: rgba(255,255,255,0.08) !important;
-  border-color: rgba(255,255,255,0.2) !important;
-  color: #D4C9A0 !important;
+  background: var(--surface-hover) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
 }
 .landing-btn-light {
   transition: background 180ms, border-color 180ms;
@@ -362,6 +358,19 @@
 }
 .nav-link-landing:hover {
   color: var(--text) !important;
+}
+
+/* ── ReactFlow tree node transitions ───────────── */
+.react-flow__node {
+  transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes node-appear {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.node-enter {
+  animation: node-appear 250ms ease forwards;
 }
 
 /* Signal band — hide scrollbar cross-browser */

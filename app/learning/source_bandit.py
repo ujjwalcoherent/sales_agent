@@ -19,6 +19,40 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BANDIT_PATH = Path("./data/source_bandit.json")
 
+# Category tags that indicate B2B-signal-rich or noise-rich sources
+_B2B_SIGNAL_TAGS = frozenset({
+    "funding", "VC", "PE", "M&A", "startup", "fintech", "payments",
+    "press_releases", "B2B", "SaaS", "enterprise", "IPO", "unicorn",
+    "NBFC", "banking", "insurance",
+})
+_NOISE_TAGS = frozenset({
+    "geopolitical", "macro", "trade", "aggregator",
+})
+
+
+def _informed_prior(source_id: str) -> tuple[float, float]:
+    """Return Beta(alpha, beta) informed prior for a source.
+
+    Uses NEWS_SOURCES category metadata to set an informative prior:
+    - B2B signal sources (funding/VC/startup): Beta(3,1) = prior mean 0.75
+    - Noise-prone sources (macro/geo/policy):  Beta(1,3) = prior mean 0.25
+    - Unknown / general sources:               Beta(1,1) = prior mean 0.50
+
+    Research: Russo et al. 2018 "A Tutorial on Thompson Sampling" (arXiv:1707.02038)
+    — informed priors accelerate Thompson Sampling convergence significantly.
+    """
+    try:
+        from app.config import NEWS_SOURCES
+        cats = set(NEWS_SOURCES.get(source_id, {}).get("categories", []))
+    except Exception:
+        return 1.0, 1.0
+
+    if cats & _B2B_SIGNAL_TAGS:
+        return 3.0, 1.0   # prior mean = 0.75
+    if cats & _NOISE_TAGS:
+        return 1.0, 3.0   # prior mean = 0.25
+    return 1.0, 1.0        # uninformed prior mean = 0.50
+
 
 class SourceBandit:
     """Multi-armed bandit for source quality via Thompson Sampling.
@@ -55,7 +89,12 @@ class SourceBandit:
 
     def _ensure_source(self, source_id: str) -> None:
         if source_id not in self._posteriors:
-            self._posteriors[source_id] = {"alpha": 1.0, "beta": 1.0}
+            # Informed prior from source category metadata (not blind 0.5)
+            # B2B-signal sources start at Beta(3,1)=0.75; noise sources at Beta(1,3)=0.25
+            # Research: informed priors in Thompson Sampling → faster convergence
+            # (Russo et al. 2018, "A Tutorial on Thompson Sampling", arXiv:1707.02038)
+            alpha, beta = _informed_prior(source_id)
+            self._posteriors[source_id] = {"alpha": alpha, "beta": beta}
 
     def update_from_run(
         self,
@@ -66,13 +105,20 @@ class SourceBandit:
         entity_richness: Optional[Dict[str, float]] = None,
         content_quality: Optional[Dict[str, float]] = None,
         cluster_oss: Optional[Dict[int, float]] = None,
+        nli_scores_by_source: Optional[Dict[str, float]] = None,
         decay_gamma: float = 0.97,
     ) -> Dict[str, float]:
         """Update posteriors from a pipeline run.
 
         Reward blends pre-clustering signals (uniqueness, entity richness,
-        content quality), post-clustering signals (inclusion rate, cluster
+        content quality, NLI entailment), post-clustering signals (cluster
         quality), and cross-level OSS (synthesis specificity).
+
+        NLI entailment score (arXiv:1909.00161) is the PRIMARY quality signal:
+        - Sources producing business-relevant articles → high NLI entailment → reward
+        - ET Industry (politics) → low entailment → Thompson Sampling deprioritizes
+        - TechCrunch (tech funding) → high entailment → prioritized by TS
+        This is a self-improving loop: filter quality → bandit reward → fetch quality.
 
         Returns {source_id: posterior_mean} after update.
         """
@@ -80,6 +126,7 @@ class SourceBandit:
         entity_richness = entity_richness or {}
         content_quality = content_quality or {}
         cluster_oss = cluster_oss or {}
+        nli_scores_by_source = nli_scores_by_source or {}
 
         # Decay posteriors toward prior (recency bias, floor 1.5 prevents collapse)
         for source_id in self._posteriors:
@@ -98,10 +145,16 @@ class SourceBandit:
             ent_score = min(1.0, raw_richness / 5.0)
             content_score = content_quality.get(source_id, 0.5)
 
+            # NLI relevance score: mean entailment for this source's articles
+            # This is the core self-improving signal: sources that consistently
+            # produce business-relevant articles get higher posterior estimates.
+            # REF: Chapelle & Li (2011) Thompson Sampling — correct mechanism,
+            # updated to use NLI entailment as the reward signal.
+            nli_score = nli_scores_by_source.get(source_id, 0.40)
+            # 0.40 is the neutral/ambiguous fallback (not penalized, not rewarded)
+
             # Post-clustering signals
             labels = [article_labels.get(aid, -1) for aid in article_ids]
-            clustered = sum(1 for l in labels if l >= 0)
-            inclusion_rate = clustered / len(labels)
             cluster_ids = [l for l in labels if l >= 0]
             if cluster_ids:
                 avg_quality = sum(
@@ -123,14 +176,16 @@ class SourceBandit:
             else:
                 avg_oss = 0.0
 
-            # Composite reward: 45% pre-clustering + 35% post-clustering + 20% OSS
+            # Composite reward: NLI is the primary signal (30%), supplemented by
+            # clustering quality (25%), uniqueness (15%), entity richness (10%),
+            # content quality (10%), synthesis specificity (10%).
             reward = (
-                0.20 * uniqueness
-                + 0.15 * ent_score
-                + 0.10 * content_score
-                + 0.20 * inclusion_rate
-                + 0.15 * avg_quality
-                + 0.20 * avg_oss
+                0.30 * nli_score          # PRIMARY: Is this source producing B2B news?
+                + 0.15 * uniqueness       # Deduplication quality
+                + 0.10 * ent_score        # Entity richness
+                + 0.10 * content_score    # Content quality
+                + 0.25 * avg_quality      # Cluster quality (post-NLI signal)
+                + 0.10 * avg_oss          # Synthesis specificity
             )
 
             # Update Beta posterior (capped at 5 pseudo-observations per run)

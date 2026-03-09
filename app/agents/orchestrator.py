@@ -1,5 +1,5 @@
 """
-LangGraph Orchestrator — multi-agent supervisor for sales intelligence pipeline.
+LangGraph Orchestrator  - multi-agent supervisor for sales intelligence pipeline.
 
 Flow: source_intel -> analysis -> impact -> quality_validation -> lead_gen -> END
 Quality gate can retry analysis (max 2x) or skip lead gen if no viable trends.
@@ -29,7 +29,91 @@ from ..database import get_database
 logger = logging.getLogger(__name__)
 
 
-# ── Graph State ──────────────────────────────────────────────────────────────
+# -- IntelligenceResult -> TrendData bridge ------------------------------------
+
+def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
+    """Convert IntelligenceResult.clusters -> List[TrendData] for downstream nodes.
+
+    Maps math-validated cluster fields to TrendData schema.
+    Missing fields (actionable_insight, buying_intent, event_5w1h, causal_chain)
+    are populated with defaults  - downstream impact_node fills them via LLM.
+
+    Severity heuristic:
+      coherence >= 0.70 -> HIGH (tight, focused cluster  - likely significant event)
+      coherence 0.50-0.70 -> MEDIUM
+      coherence < 0.50 -> LOW
+    """
+    from ..schemas.sales import TrendData
+    from ..schemas import Severity
+
+    if intel is None:
+        return []
+
+    clusters = getattr(intel, "clusters", []) or []
+    trends = []
+    for cluster in clusters:
+        label = getattr(cluster, "label", "") or ""
+        summary = getattr(cluster, "summary", "") or ""
+        if not label and not summary:
+            continue  # Skip unlabeled clusters
+
+        coherence = getattr(cluster, "coherence_score", 0.5) or 0.5
+        if coherence >= 0.70:
+            severity = "high"
+        elif coherence >= 0.50:
+            severity = "medium"
+        else:
+            severity = "low"
+
+        industry = getattr(cluster, "industry", None)
+        industries_affected = []
+        if industry:
+            ind_str = getattr(industry, "industry", None) or str(industry)
+            industries_affected = [ind_str]
+
+        entity = getattr(cluster, "primary_entity", None) or ""
+        keywords = list(getattr(cluster, "keywords", []) or [])[:10]
+        article_indices = getattr(cluster, "article_indices", []) or []
+        source_names = list(getattr(cluster, "source_names", []) or [])[:5]
+
+        try:
+            trends.append(TrendData(
+                id=getattr(cluster, "cluster_id", str(len(trends))),
+                trend_title=label or f"Cluster {len(trends) + 1}",
+                summary=summary,
+                severity=severity,
+                industries_affected=industries_affected,
+                source_links=[],
+                keywords=keywords,
+                trend_type="intelligence",
+                actionable_insight="",
+                event_5w1h={},
+                causal_chain=[],
+                buying_intent={},
+                affected_companies=[entity] if entity else [],
+                affected_regions=[],
+                trend_score=coherence,
+                actionability_score=0.0,
+                oss_score=0.0,
+                article_count=len(article_indices),
+                article_snippets=[],
+                evidence_snippets=(
+                    cluster.evidence_chain.key_snippets
+                    if getattr(cluster, "evidence_chain", None) else []
+                ),
+                evidence_companies=(
+                    cluster.evidence_chain.companies_cited
+                    if getattr(cluster, "evidence_chain", None) else []
+                ),
+            ))
+        except Exception as e:
+            logger.debug(f"[orchestrator] Skipping cluster {getattr(cluster, 'cluster_id', '?')}: {e}")
+
+    logger.info(f"[orchestrator] Bridged {len(trends)}/{len(clusters)} intelligence clusters -> TrendData")
+    return trends
+
+
+# -- Graph State --------------------------------------------------------------
 
 class GraphState(TypedDict):
     """LangGraph state shared across all agent nodes."""
@@ -46,7 +130,7 @@ class GraphState(TypedDict):
     agent_reasoning: Dict[str, str]
 
 
-# ── Recording helper ──────────────────────────────────────────────────────────
+# -- Recording helper ----------------------------------------------------------
 
 def _record(deps, step_name: str, data: dict, t0: float):
     """Record step snapshot if recorder is active (real runs only)."""
@@ -58,7 +142,7 @@ def _record(deps, step_name: str, data: dict, t0: float):
             logger.debug(f"Recording step {step_name} failed: {e}")
 
 
-# ── Agent Nodes ──────────────────────────────────────────────────────────────
+# -- Agent Nodes --------------------------------------------------------------
 
 async def source_intel_node(state: GraphState) -> dict:
     """Source Intel Agent -- article collection with bandit-prioritized sources."""
@@ -79,14 +163,40 @@ async def source_intel_node(state: GraphState) -> dict:
             f"{len(embeddings)} embeddings"
         )
 
-        if len(articles) < 3:
-            errors.append(f"Only {len(articles)} articles — need at least 3")
+        if len(articles) == 0:
+            errors.append("0 articles collected  - cannot proceed to analysis")
+            logger.warning("Source Intel: 0 articles  - pipeline will skip to completion")
+        elif len(articles) < 3:
+            errors.append(f"Only {len(articles)} articles  - need at least 3")
 
     except Exception as e:
         logger.error(f"Source Intel node failed: {e}")
         errors.append(f"Source Intel: {e}")
         result = None
 
+    # -- MetaReasoner: reason about source quality ------------------
+    try:
+        reasoner = deps.meta_reasoner
+        reasoner._run_id = state.get("run_id", "")
+        articles_list = getattr(deps, "_articles", [])
+        source_stats = {}
+        for art in articles_list:
+            sid = getattr(art, "source_id", "unknown")
+            if sid not in source_stats:
+                source_stats[sid] = {"articles": 0, "noise_rate": 0.0, "avg_quality": 0.5}
+            source_stats[sid]["articles"] += 1
+        bandit_top = list(deps.source_bandit.get_quality_estimates().keys())[:5]
+        settings = get_settings()
+        await reasoner.reason_about_sources(
+            article_count=len(articles_list),
+            source_stats=source_stats,
+            bandit_top_sources=bandit_top,
+            hours_window=settings.rss_hours_ago,
+        )
+    except Exception as e:
+        logger.debug(f"MetaReasoner source checkpoint skipped: {e}")
+
+    article_count = len(getattr(deps, "_articles", []))
     _record(deps, "source_intel_complete", {
         "articles": [
             {
@@ -98,17 +208,26 @@ async def source_intel_node(state: GraphState) -> dict:
             }
             for a in getattr(deps, "_articles", [])
         ],
-        "article_count": len(getattr(deps, "_articles", [])),
+        "article_count": article_count,
     }, t0)
+
+    step = "source_intel_empty" if article_count == 0 else "source_intel_complete"
 
     return {
         "errors": errors,
-        "current_step": "source_intel_complete",
+        "current_step": step,
         "agent_reasoning": {
             **state.get("agent_reasoning", {}),
             "source_intel": getattr(result, 'reasoning', str(errors)),
         },
     }
+
+
+def source_intel_route(state: GraphState) -> str:
+    """Route after source_intel: skip to learning_update if 0 articles collected."""
+    if state.get("current_step") == "source_intel_empty":
+        return "learning_update"
+    return "analysis"
 
 
 async def analysis_node(state: GraphState) -> dict:
@@ -123,43 +242,10 @@ async def analysis_node(state: GraphState) -> dict:
 
     try:
         from .analysis import run_analysis
-        tree, result = await run_analysis(deps)
+        intel, result = await run_analysis(deps)
 
-        # Convert TrendTree -> List[TrendData] with all synthesis fields
-        trends = []
-        if tree:
-            major_trends = tree.to_major_trends()
-            trends = [
-                TrendData(
-                    id=str(mt.id),
-                    trend_title=mt.trend_title,
-                    summary=mt.trend_summary,
-                    severity=mt.severity if isinstance(mt.severity, str) else mt.severity,
-                    industries_affected=[
-                        s.value if hasattr(s, 'value') else str(s)
-                        for s in mt.primary_sectors
-                    ],
-                    source_links=[],
-                    keywords=mt.key_entities[:10] if mt.key_entities else mt.key_keywords[:10],
-                    trend_type=mt.trend_type.value if hasattr(mt.trend_type, 'value') else str(mt.trend_type),
-                    actionable_insight=mt.actionable_insight or "",
-                    event_5w1h=mt.event_5w1h or {},
-                    causal_chain=mt.causal_chain or [],
-                    buying_intent=mt.buying_intent or {},
-                    affected_companies=mt.affected_companies or [],
-                    affected_regions=[
-                        r.value if hasattr(r, 'value') else str(r)
-                        for r in (mt.affected_regions or [])
-                    ],
-                    trend_score=mt.trend_score,
-                    actionability_score=mt.actionability_score,
-                    oss_score=mt.oss_score,
-                    article_count=mt.article_count,
-                    article_snippets=mt.article_snippets or [],
-                )
-                for mt in major_trends
-            ]
-
+        # Bridge: IntelligenceResult.clusters -> List[TrendData]
+        trends = _intelligence_clusters_to_trends(intel) if intel else []
         deps._trend_data = trends
 
         logger.info(f"Analysis: {len(trends)} trends detected")
@@ -169,6 +255,30 @@ async def analysis_node(state: GraphState) -> dict:
         errors.append(f"Analysis: {e}")
         trends = []
         result = None
+
+    # -- MetaReasoner: reason about trend quality -------------------
+    try:
+        reasoner = deps.meta_reasoner
+        pipeline = getattr(deps, "_pipeline", None)
+        noise_rate = 0.0
+        mean_coherence = 0.0
+        cluster_count = 0
+        if pipeline:
+            noise_rate = getattr(pipeline, "_noise_rate", 0.0)
+            cluster_count = getattr(pipeline, "_n_clusters", len(trends))
+            coherences = getattr(pipeline, "_coherence_scores", {})
+            if coherences:
+                mean_coherence = sum(coherences.values()) / max(len(coherences), 1)
+        mean_oss = sum(getattr(t, "oss_score", 0) for t in trends) / max(len(trends), 1)
+        await reasoner.reason_about_trends(
+            trends=trends,
+            cluster_count=cluster_count,
+            noise_rate=noise_rate,
+            mean_oss=mean_oss,
+            mean_coherence=mean_coherence,
+        )
+    except Exception as e:
+        logger.debug(f"MetaReasoner trend checkpoint skipped: {e}")
 
     _record(deps, "analysis_complete", {
         "trends": [t.model_dump() if hasattr(t, "model_dump") else {} for t in trends],
@@ -270,16 +380,47 @@ async def quality_validation_node(state: GraphState) -> dict:
         trend_verdict = None
         impact_verdict = None
 
-    viable = getattr(impact_verdict, 'items_passed', 0) if impact_verdict else 0
+    viable_count = getattr(impact_verdict, 'items_passed', 0) if impact_verdict else 0
     _record(deps, "quality_complete", {
         "trend_quality": getattr(trend_verdict, 'quality_score', 0.0) if trend_verdict else 0.0,
-        "impact_items_passed": viable,
-        "viable_count": viable,
+        "impact_items_passed": viable_count,
+        "viable_count": viable_count,
     }, t0)
+
+    # Filter impacts by confidence  - do it here, not in routing function
+    settings = get_settings()
+    mock_mode = getattr(deps, "mock_mode", False)
+    threshold = 0.0 if mock_mode else settings.min_trend_confidence_for_agents
+    impacts = state.get("impacts", [])
+    viable = [imp for imp in impacts if imp.council_confidence >= threshold]
+    dropped = len(impacts) - len(viable)
+
+    if dropped:
+        logger.info(
+            f"Quality gate: {dropped}/{len(impacts)} trends below confidence {threshold}"
+        )
+
+    if not viable:
+        viable = sorted(impacts, key=lambda i: i.council_confidence, reverse=True)[:3]
+        if viable:
+            logger.warning(
+                f"Quality gate: No impacts above {threshold}, "
+                f"using top {len(viable)} as fail-open fallback "
+                f"(best confidence: {viable[0].council_confidence:.2f})"
+            )
+        else:
+            logger.warning(
+                "Quality gate: 0 impacts available  - lead gen will attempt "
+                "with empty impacts (source intel may have returned 0 articles)"
+            )
+
+    if deps:
+        deps._viable_impacts = viable
 
     return {
         "errors": errors,
         "current_step": "quality_complete",
+        "impacts": viable,
         "agent_reasoning": {
             **state.get("agent_reasoning", {}),
             "quality_trends": getattr(trend_verdict, 'reasoning', ''),
@@ -289,48 +430,13 @@ async def quality_validation_node(state: GraphState) -> dict:
 
 
 def quality_route(state: GraphState) -> str:
-    """Route: "analysis" (retry), "lead_gen" (viable impacts), or "end"."""
+    """Route: "analysis" (retry) or "lead_gen" (proceed).
+
+    Impact filtering is handled in quality_validation_node  - this function
+    is kept pure (no state mutation).
+    """
     if state.get("current_step") == "quality_retry_analysis":
         return "analysis"
-
-    settings = get_settings()
-    deps = state.get("deps")
-    mock_mode = getattr(deps, "mock_mode", False) if deps else False
-    # In mock mode, mock LLM produces 0-confidence impacts — pass everything
-    threshold = 0.0 if mock_mode else settings.min_trend_confidence_for_agents
-    impacts = state.get("impacts", [])
-
-    viable = [imp for imp in impacts if imp.council_confidence >= threshold]
-    dropped = len(impacts) - len(viable)
-
-    if dropped:
-        logger.info(
-            f"Quality route: {dropped}/{len(impacts)} trends below "
-            f"confidence {threshold}"
-        )
-
-    if not viable:
-        # Fail-open: always try lead gen with best available impacts.
-        # The pipeline's VALUE is in lead generation — better to attempt it with
-        # lower-confidence impacts than to produce 0 leads every run.
-        viable = sorted(impacts, key=lambda i: i.council_confidence, reverse=True)[:3]
-        if viable:
-            logger.warning(
-                f"Quality route: No impacts above {threshold}, "
-                f"using top {len(viable)} as fail-open fallback "
-                f"(best confidence: {viable[0].council_confidence:.2f})"
-            )
-        else:
-            logger.warning(
-                "Quality route: 0 impacts available — pipeline will attempt "
-                "lead gen with empty impacts (source intel may have returned 0 articles)"
-            )
-
-    state["impacts"] = viable
-    deps = state.get("deps")
-    if deps:
-        deps._viable_impacts = viable
-
     return "lead_gen"
 
 
@@ -347,7 +453,7 @@ async def lead_gen_node(state: GraphState) -> dict:
     timeout = get_settings().lead_gen_timeout
 
     try:
-        from .lead_gen import run_lead_gen
+        from .leads import run_lead_gen
         companies, contacts, outreach, result = await asyncio.wait_for(
             run_lead_gen(deps), timeout=timeout
         )
@@ -358,7 +464,7 @@ async def lead_gen_node(state: GraphState) -> dict:
         )
 
     except asyncio.TimeoutError:
-        logger.warning(f"Lead Gen timed out after {timeout:.0f}s — using crystallizer results only")
+        logger.warning(f"Lead Gen timed out after {timeout:.0f}s  - using crystallizer results only")
         errors.append(f"Lead Gen: timed out after {timeout:.0f}s")
         companies, contacts, outreach = [], [], []
         result = None
@@ -368,6 +474,28 @@ async def lead_gen_node(state: GraphState) -> dict:
         errors.append(f"Lead Gen: {e}")
         companies, contacts, outreach = [], [], []
         result = None
+
+    # -- MetaReasoner: reason about lead quality --------------------
+    try:
+        reasoner = deps.meta_reasoner
+        lead_sheets = getattr(deps, "_lead_sheets", [])
+        lead_summaries = []
+        for ls in lead_sheets[:10]:
+            lead_summaries.append({
+                "company": getattr(ls, "company_name", "?"),
+                "contacts": getattr(ls, "contact_count", 0),
+                "confidence": getattr(ls, "confidence", 0.0),
+                "event_type": getattr(ls, "event_type", "?"),
+            })
+        await reasoner.reason_about_leads(
+            lead_count=len(lead_sheets),
+            company_count=len(companies or []),
+            contact_count=len(contacts or []),
+            email_count=len(outreach or []),
+            lead_summaries=lead_summaries,
+        )
+    except Exception as e:
+        logger.debug(f"MetaReasoner lead checkpoint skipped: {e}")
 
     people = getattr(deps, "_person_profiles", [])
     _record(deps, "lead_gen_complete", {
@@ -393,13 +521,13 @@ async def lead_gen_node(state: GraphState) -> dict:
     }
 
 
-# ── Causal Council + Lead Crystallizer Nodes ─────────────────────────────────
+# -- Causal Council + Lead Crystallizer Nodes ---------------------------------
 
 async def causal_council_node(state: GraphState) -> dict:
-    """Causal Council — multi-hop business impact chain tracer.
+    """Causal Council  - multi-hop business impact chain tracer.
 
-    Traces: event → directly affected companies (hop1) → their buyers/suppliers (hop2)
-            → downstream of hop2 (hop3). Uses real pydantic-ai tool calling.
+    Traces: event -> directly affected companies (hop1) -> their buyers/suppliers (hop2)
+            -> downstream of hop2 (hop3). Uses real pydantic-ai tool calling.
     Self-learning: stores LearningSignal for source bandit + weight learner.
     """
     t0 = _time.time()
@@ -413,7 +541,7 @@ async def causal_council_node(state: GraphState) -> dict:
 
     impacts = state.get("impacts", [])
     if not impacts:
-        logger.warning("Causal council: no impacts — skipping")
+        logger.warning("Causal council: no impacts  - skipping")
         return {
             "errors": [],
             "current_step": "causal_council_complete",
@@ -422,8 +550,8 @@ async def causal_council_node(state: GraphState) -> dict:
 
     try:
         from app.agents.causal_council import run_causal_council
-        from app.agents.signals import LearningSignal, HopSignal
-        from app.tools.provider_manager import ProviderManager
+        from app.agents.deps import LearningSignal, HopSignal
+        from app.tools.llm.providers import ProviderManager
 
         pm = ProviderManager()
 
@@ -436,21 +564,21 @@ async def causal_council_node(state: GraphState) -> dict:
             # Calling _is_cooling_down triggers lazy cleanup of expired entries
             pm._is_cooling_down(pname, _now)
 
-        # Build lookup: trend_id → TrendData (for event_type, keywords, actionability_score)
+        # Build lookup: trend_id -> TrendData (for event_type, keywords, actionability_score)
         trends = state.get("trends", [])
         trend_by_id = {td.id: td for td in trends}
 
         # Build BM25 index from articles fetched this run
         articles = getattr(deps, "_articles", [])
         if articles and deps.search_manager:
-            from app.search.bm25_search import BM25Search
+            from app.tools.search import BM25Search
             bm25 = BM25Search(articles)
             deps.search_manager.set_bm25_index(bm25)
             logger.info(f"BM25: indexed {len(articles)} articles for causal council")
 
         settings = get_settings()
         _max_impacts = getattr(settings, 'per_trend_max_impacts', 5)
-        geo_label = getattr(settings, "country", "India")
+        geo_label = settings.country
 
         for impact in impacts[:_max_impacts]:
             trend_title = impact.trend_title or ""
@@ -477,7 +605,7 @@ async def causal_council_node(state: GraphState) -> dict:
             causal_results.append(chain)
 
             # Record per-trend quality metrics for the autonomous learning loop.
-            # kb_hit_rate = fraction of hops where the KB returned real company names —
+            # kb_hit_rate = fraction of hops where the KB returned real company names  -
             # a direct measure of how targetable this trend segment is.
             hops_with_companies = sum(1 for h in chain.hops if h.companies_found)
             hop_sigs = [
@@ -505,7 +633,7 @@ async def causal_council_node(state: GraphState) -> dict:
             deps._signals.append(sig)
 
             logger.info(
-                f"  '{trend_title[:50]}' → {len(chain.hops)} hops "
+                f"  '{trend_title[:50]}' -> {len(chain.hops)} hops "
                 f"(kb_hit_rate={sig.kb_hit_rate:.0%}, oss={oss_score:.2f})"
             )
 
@@ -516,7 +644,7 @@ async def causal_council_node(state: GraphState) -> dict:
         # impact analysis data. This ensures lead_crystallize_node always has
         # something to work with.
         if total_hops == 0 and impacts:
-            logger.warning("Causal council: 0 hops from all trends — building synthetic hops from impact data")
+            logger.warning("Causal council: 0 hops from all trends  - building synthetic hops from impact data")
             from app.agents.causal_council import CausalChainResult, CausalHop, _build_synthetic_hops
 
             trends = state.get("trends", [])
@@ -538,7 +666,7 @@ async def causal_council_node(state: GraphState) -> dict:
 
             deps._causal_results = causal_results
             total_hops = sum(len(r.hops) for r in causal_results)
-            logger.info(f"Causal council: after synthetic fallback → {total_hops} total hops")
+            logger.info(f"Causal council: after synthetic fallback -> {total_hops} total hops")
 
         logger.info(f"Causal council: {len(causal_results)} chains, {total_hops} total hops")
 
@@ -582,10 +710,10 @@ async def causal_council_node(state: GraphState) -> dict:
 
 
 async def _resolve_companies_for_hops(deps, causal_results):
-    """Resolve segment descriptions to real company names via SearXNG + LLM.
+    """Resolve segment descriptions to real company names via web search + LLM.
 
     For each causal hop that has an empty companies_found list:
-    1. Search SearXNG for real companies matching the segment
+    1. Search the web for real companies matching the segment
     2. Feed search results to LLM for structured extraction
     This grounds output in real web data instead of LLM hallucination.
     """
@@ -603,14 +731,17 @@ async def _resolve_companies_for_hops(deps, causal_results):
     if not segments_to_resolve:
         return  # All hops already have companies
 
-    # Step 1: Search SearXNG for each segment concurrently
+    # Step 1: Search for each segment concurrently
+    settings = get_settings()
+    country = settings.country
+    current_year = datetime.now().year
     search_results = {}  # idx -> list of search results
     sem = asyncio.Semaphore(5)
 
     async def _search_segment(idx: int, segment: str):
         async with sem:
             try:
-                query = f"{segment} company India 2026"
+                query = f"{segment} company {country} {current_year}"
                 data = await search_mgr.web_search(query, max_results=5)
                 search_results[idx] = data.get("results", [])
             except Exception as e:
@@ -634,7 +765,7 @@ async def _resolve_companies_for_hops(deps, causal_results):
         else:
             segment_blocks.append(f"{i+1}. Segment: {seg}\n   Search results: (none found)")
 
-    prompt = f"""For each business segment below, extract 2-3 REAL, specific Indian companies from the search results.
+    prompt = f"""For each business segment below, extract 2-3 REAL, specific {country} companies from the search results.
 Only name companies that appear in the search results or that you are highly confident actually exist.
 Include the company's city/state if mentioned in the results.
 
@@ -657,7 +788,7 @@ Respond with the JSON array only."""
                           "from search results. Never invent companies not found in the data.",
         )
 
-        # Parse result — could be a list or {"results": [...]}
+        # Parse result  - could be a list or {"results": [...]}
         items = result if isinstance(result, list) else result.get("results", result.get("segments", []))
         if not isinstance(items, list):
             items = []
@@ -700,7 +831,7 @@ Respond with the JSON array only."""
 
 
 async def lead_crystallize_node(state: GraphState) -> dict:
-    """Lead Crystallizer — converts causal chains into concrete call sheets.
+    """Lead Crystallizer  - converts causal chains into concrete call sheets.
 
     Each LeadSheet has: company name (real from KB), contact role, trigger event,
     pain point, service pitch, and opening line ready to use on a call.
@@ -718,20 +849,20 @@ async def lead_crystallize_node(state: GraphState) -> dict:
     impacts = state.get("impacts", [])
 
     if not causal_results:
-        logger.warning("Lead crystallizer: no causal results — skipping")
+        logger.warning("Lead crystallizer: no causal results  - skipping")
         return {
             "errors": [],
             "current_step": "lead_crystallize_complete",
             "agent_reasoning": {**state.get("agent_reasoning", {}), "lead_crystallizer": "no causal results"},
         }
 
-    # ── Resolve segment descriptions to real company names ──
+    # -- Resolve segment descriptions to real company names --
     try:
         await _resolve_companies_for_hops(deps, causal_results)
     except Exception as e:
         logger.warning(f"Company resolution step failed (non-fatal): {e}")
 
-    # ── Fetch company-specific news for resolved companies ──
+    # -- Fetch company-specific news for resolved companies --
     company_news: dict[str, list] = {}
     try:
         unique_companies: set[str] = set()
@@ -759,7 +890,7 @@ async def lead_crystallize_node(state: GraphState) -> dict:
         logger.debug(f"Company news fetch failed (non-fatal): {e}")
 
     try:
-        from app.agents.lead_crystallizer import crystallize_leads
+        from app.agents.leads import crystallize_leads
 
         # Index trends and impacts by their natural keys so we can join them
         # without relying on fragile positional alignment between two lists.
@@ -821,7 +952,7 @@ async def lead_crystallize_node(state: GraphState) -> dict:
                 f"  [Hop{sheet.hop}][{sheet.lead_type.upper()}] "
                 f"{sheet.company_name} | {sheet.contact_role}"
             )
-            logger.info(f"    → {sheet.opening_line[:100]}")
+            logger.info(f"    -> {sheet.opening_line[:100]}")
 
     except Exception as e:
         logger.error(f"Lead crystallizer node failed: {e}", exc_info=True)
@@ -837,27 +968,28 @@ async def lead_crystallize_node(state: GraphState) -> dict:
         "current_step": "lead_crystallize_complete",
         "agent_reasoning": {
             **state.get("agent_reasoning", {}),
-            "lead_crystallizer": f"{len(all_leads)} call sheets — "
+            "lead_crystallizer": f"{len(all_leads)} call sheets  - "
                                  f"{sum(1 for l in all_leads if l.company_cin)} with CIN from KB",
         },
     }
 
 
-# ── Learning Update Node ─────────────────────────────────────────────────────
+# -- Learning Update Node -----------------------------------------------------
 
 async def learning_update_node(state: GraphState) -> dict:
-    """Post-run autonomous learning — runs unconditionally at graph end.
+    """Post-run autonomous learning with cross-loop signal exchange.
 
-    Consumes deps._signals (LearningSignal list) to update:
-    1. Source bandit: which RSS sources produced high-OSS clusters
-    2. Trend memory: update OSS scores for stored centroids
-    3. Weight learner: persist OSS auto-learning updates
-    4. Pipeline metrics: log run summary for cross-run comparison
-    5. Learning signals JSONL: append per-run record for audit trail
+    Three-phase protocol prevents circular reads between loops:
+      Phase 1  - Each loop updates using THIS run's data, publishes to signal bus
+      Phase 2  - Bus computes cross-loop derived signals (system_confidence, exploration_budget)
+      Phase 3  - Each loop applies small cross-loop adjustments
+
+    The signal bus is the 'brain'  - it connects all 6 loops so they inform each other
+    instead of operating in isolation.
     """
     t0 = _time.time()
     logger.info("=" * 50)
-    logger.info("STEP 5: AUTONOMOUS LEARNING UPDATE")
+    logger.info("STEP 5: AUTONOMOUS LEARNING UPDATE (with cross-loop signal bus)")
     logger.info("=" * 50)
 
     deps = state["deps"]
@@ -865,14 +997,46 @@ async def learning_update_node(state: GraphState) -> dict:
     articles = getattr(deps, "_articles", [])
     pipeline = getattr(deps, "_pipeline", None)
 
-    # ── 1. Source Bandit Update ──────────────────────────────────────────
+    # -- Initialize Signal Bus --------------------------------------------
+    from app.learning.signal_bus import LearningSignalBus
+    bus = LearningSignalBus()
+    previous_bus = LearningSignalBus.load_previous()
+    bus.run_id = state.get("run_id", "")
+    bus.run_count = (previous_bus.run_count + 1) if previous_bus else 1
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 0: Snapshot learning state (AutoResearch pattern)       ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+    from app.learning.experiment_tracker import (
+        ExperimentTracker, ExperimentRecord, Hypothesis,
+        snapshot_learning_state, restore_learning_state, cleanup_snapshot,
+        pick_next_hypothesis, mark_hypothesis_tested,
+    )
+    tracker = ExperimentTracker()
+    snapshot_learning_state()
+
+    # Check if any learning loop should be dampened based on history
+    loop_dampen = {}
+    for loop_name in ["weight_learner", "threshold_adapter", "source_bandit", "company_bandit"]:
+        loop_dampen[loop_name] = tracker.should_dampen(loop_name)
+        if loop_dampen[loop_name]:
+            logger.info(f"Loop health: {loop_name} dampened (consistently hurting quality)")
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 1: Each loop updates + publishes to bus                 ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    learning_updates: dict = {}
+
+    # -- 1. Source Bandit Update ------------------------------------------
     try:
         if articles and signals:
-            from app.learning.source_bandit import SourceBandit
-
             bandit = deps.source_bandit
 
-            # Group article IDs by source_id (not objects — they aren't hashable)
+            # Capture pre-update posteriors (for bus degradation detection)
+            pre_update_means = bandit.get_quality_estimates()
+
+            # Group article IDs by source_id
             source_articles: dict = {}
             for art in articles:
                 src_id = getattr(art, "source_id", None) or getattr(art, "source", "unknown")
@@ -881,7 +1045,7 @@ async def learning_update_node(state: GraphState) -> dict:
                 art_id = str(getattr(art, "id", id(art)))
                 source_articles[src_id].append(art_id)
 
-            # Build article → cluster label map (from pipeline if available)
+            # Build article -> cluster label map
             article_labels: dict = {}
             cluster_quality: dict = {}
             cluster_oss: dict = {}
@@ -891,12 +1055,9 @@ async def learning_update_node(state: GraphState) -> dict:
                 cluster_quality = pipeline._cluster_quality or {}
 
             # Build cluster_oss from LearningSignals using actual cluster IDs
-            # (not enumerate index — that's wrong when clusters have non-sequential IDs)
             if pipeline and hasattr(pipeline, "_article_cluster_map"):
-                # Build trend_title → cluster_id reverse map
                 _title_to_cluster: dict = {}
                 for _art_id, _clust_id in article_labels.items():
-                    # cluster_summaries keyed by cluster_id have trend_title
                     if hasattr(pipeline, "_cluster_summaries"):
                         _summ = (pipeline._cluster_summaries or {}).get(_clust_id, {})
                         _t = _summ.get("trend_title", "")
@@ -908,10 +1069,8 @@ async def learning_update_node(state: GraphState) -> dict:
                     if _cid is not None:
                         cluster_oss[_cid] = sig.oss_score
                     else:
-                        # Fallback: use hash of title as approximate key
                         cluster_oss[hash(sig.trend_title) % 10000] = sig.oss_score
             else:
-                # No pipeline data — fall back to positional (better than nothing)
                 for idx, sig in enumerate(signals):
                     cluster_oss[idx] = sig.oss_score
 
@@ -925,34 +1084,81 @@ async def learning_update_node(state: GraphState) -> dict:
                 top_sources = sorted(updated.items(), key=lambda x: -x[1])[:3]
                 top_str = ", ".join(f"{k}={v:.3f}" for k, v in top_sources)
                 logger.info(f"Source bandit updated: {len(updated)} sources | top: {top_str}")
+
+                # PUBLISH to bus
+                bus.publish_source_bandit(updated, previous_means=pre_update_means)
     except Exception as e:
         logger.warning(f"Source bandit update failed: {e}")
 
-    # ── 2. Trend Memory OSS Update ───────────────────────────────────────
+    # -- 1b. Record cluster signals for weight auto-learning -----------
     try:
-        if pipeline and hasattr(pipeline, "_trend_memory") and signals:
-            tm = pipeline._trend_memory
-            if tm and hasattr(pipeline, "_cluster_centroids"):
-                centroids = pipeline._cluster_centroids or {}
-                oss_map = {idx: sig.oss_score for idx, sig in enumerate(signals) if sig.oss_score > 0}
-                if centroids and oss_map:
-                    updated_count = tm.update_oss_scores(centroids, oss_map)
-                    logger.info(f"Trend memory: OSS updated for {updated_count} centroids")
-            # Prune stale centroids that haven't been seen in N runs
-            try:
-                pruned = tm.prune_stale()
-                if pruned:
-                    logger.info(f"Trend memory: pruned {pruned} stale centroids")
-            except Exception as e:
-                logger.debug(f"Trend memory prune skipped: {e}")
+        if cluster_quality and cluster_oss:
+            from app.learning.pipeline_metrics import record_cluster_signals
+            n_logged = record_cluster_signals(
+                run_id=state.get("run_id", bus.run_id if hasattr(bus, 'run_id') else ""),
+                cluster_signals=cluster_quality,
+                cluster_oss=cluster_oss,
+            )
+            if n_logged:
+                logger.info(f"Logged {n_logged} cluster signal records for weight learning")
     except Exception as e:
-        logger.warning(f"Trend memory OSS update failed: {e}")
+        logger.debug(f"Cluster signal logging skipped: {e}")
 
-    # ── 3. Weight Learner: Compute + persist all 4 weight types ──────────
+    # -- 2. Trend Memory: publish lifecycle distribution to bus ----------
+    stale_pruned = 0
+    try:
+        # The TrendPipeline stores memory results in pipeline.metrics["memory"]
+        # with lifecycle_counts and avg_novelty computed during the temporalize layer.
+        lifecycle_counts = {"birth": 0, "growth": 0, "peak": 0, "decline": 0}
+        avg_novelty = 0.5
+
+        memory_metrics = None
+        if pipeline and hasattr(pipeline, "metrics"):
+            memory_metrics = pipeline.metrics.get("memory")
+
+        used_memory_metrics = False
+        if memory_metrics:
+            stored_counts = memory_metrics.get("lifecycle_counts", {})
+            if stored_counts and sum(stored_counts.values()) > 0:
+                lifecycle_counts = {
+                    "birth": stored_counts.get("birth", 0),
+                    "growth": stored_counts.get("growth", 0),
+                    "peak": stored_counts.get("peak", 0),
+                    "decline": stored_counts.get("decline", 0),
+                }
+                used_memory_metrics = True
+            avg_novelty = memory_metrics.get("avg_novelty", 0.5)
+
+        if not used_memory_metrics and signals:
+            # Fallback: approximate lifecycle from OSS scores
+            for sig in signals:
+                oss = sig.oss_score
+                if oss >= 0.6:
+                    lifecycle_counts["birth"] += 1
+                elif oss >= 0.4:
+                    lifecycle_counts["growth"] += 1
+                elif oss >= 0.2:
+                    lifecycle_counts["peak"] += 1
+                else:
+                    lifecycle_counts["decline"] += 1
+            avg_novelty = sum(s.oss_score for s in signals) / max(len(signals), 1)
+
+        if sum(lifecycle_counts.values()) > 0:
+            bus.publish_trend_memory(lifecycle_counts, avg_novelty, stale_pruned)
+            logger.info(
+                f"Trend memory published: {lifecycle_counts}, "
+                f"avg_novelty={avg_novelty:.3f}"
+            )
+    except Exception as e:
+        logger.warning(f"Trend memory publish failed: {e}")
+
+    # -- 3. Weight Learner: Compute + persist all 4 weight types ----------
+    all_learned = {}
     try:
         if signals:
             from app.learning.weight_learner import (
                 compute_learned_weights, _save_persisted_weights,
+                maybe_update_stable_weights,
             )
             import json as _json
 
@@ -967,25 +1173,53 @@ async def learning_update_node(state: GraphState) -> dict:
                 },
             }
 
-            all_learned = {}
             for wt_name, defaults in weight_types.items():
                 all_learned[wt_name] = compute_learned_weights(wt_name, defaults)
 
             _save_persisted_weights(all_learned)
 
+            # Check if stable weights need updating (every N runs)
+            stable_updated = maybe_update_stable_weights(all_learned)
+
             # Invalidate composite.py weight cache so next scoring uses fresh weights
-            from app.trends.signals.composite import invalidate_weights_cache
-            invalidate_weights_cache()
+            # Invalidate weight cache if it exists (legacy  - noop if not present)
+            try:
+                from app.trends.signals.composite import invalidate_weights_cache
+                invalidate_weights_cache()
+            except ImportError:
+                pass  # trends/ module removed  - cache invalidation handled by intelligence pipeline
 
             mean_oss = sum(s.oss_score for s in signals) / len(signals)
             logger.info(
                 f"Weight learner: updated all 4 weight types | "
                 f"{len(signals)} signals | mean OSS={mean_oss:.3f}"
+                f"{' | stable weights promoted' if stable_updated else ''}"
             )
+
+            # PUBLISH to bus  - determine learning path and data count
+            learning_path = "default"
+            data_count = 0
+            try:
+                from app.tools.feedback_store import load_feedback
+                fb = load_feedback("trend") or []
+                human_fb = [f for f in fb if not f.get("metadata", {}).get("auto", False)]
+                if len(human_fb) >= 50:
+                    learning_path = "human"
+                    data_count = len(human_fb)
+                else:
+                    from app.learning.pipeline_metrics import load_cluster_signal_history
+                    cluster_data = load_cluster_signal_history(min_runs=3)
+                    if cluster_data:
+                        learning_path = "outcome"
+                        data_count = len(cluster_data)
+            except Exception:
+                pass
+
+            bus.publish_weight_learner(all_learned, weight_types, learning_path, data_count)
     except Exception as e:
         logger.warning(f"Weight learner update failed: {e}")
 
-    # ── 4. Persist learning signals to JSONL ─────────────────────────────
+    # -- 4. Persist learning signals to JSONL -----------------------------
     try:
         import json
         from pathlib import Path
@@ -1004,52 +1238,60 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as e:
         logger.warning(f"Learning signal persistence failed: {e}")
 
-    # ── 5. Company Bandit: reward update from lead sheets (Loop 4) ───────
+    # -- 5. Company Bandit: reward update from lead sheets (Loop 4) -------
     try:
         lead_sheets = getattr(deps, "_lead_sheets", [])
         if lead_sheets:
             company_bandit = deps.company_bandit
+            company_bandit.decay()
             updated_arms = set()
             for lead in lead_sheets:
                 arm_id = f"{lead.company_size_band or 'mid'}_{lead.event_type or 'general'}"
-                # Reward: 1.0 for high-confidence KB-verified lead, 0.5 for moderate, 0.0 for placeholder
-                if lead.company_cin:  # Has real CIN from KB
+                if lead.company_cin:
                     reward = min(1.0, lead.confidence + 0.2)
                 elif not lead.company_name.startswith("["):
                     reward = lead.confidence * 0.7
                 else:
-                    reward = 0.1  # Placeholder segment — minimal reward
+                    reward = 0.1
                 company_bandit.update(arm_id, reward)
                 updated_arms.add(arm_id)
             logger.info(f"Company bandit: updated {len(updated_arms)} arms from {len(lead_sheets)} leads")
+
+            # PUBLISH to bus (all arms, not just updated this run)
+            try:
+                bus.publish_company_bandit(company_bandit.get_estimates())
+            except Exception:
+                pass
     except Exception as e:
         logger.debug(f"Company bandit update skipped: {e}")
 
-    # ── 6. Quality Feedback: auto-record for weight learner (Loop 5) ──
+    # -- 6. Quality Feedback: auto-record for weight learner (Loop 5) --
+    feedback_dist = {"good_trend": 0, "already_knew": 0, "bad_trend": 0}
+    quality_sum = 0.0
     try:
         if signals:
-            from app.tools.feedback import save_feedback
+            from app.tools.feedback_store import save_feedback
             feedback_count = 0
             for sig in signals:
-                # Composite quality: KB hits (external) + hops + OSS (text quality)
-                # KB hit rate is NON-CIRCULAR — it checks against an external company database
                 quality = (
                     0.40 * sig.kb_hit_rate +
                     0.30 * min(1.0, sig.leads_with_companies / max(sig.leads_generated, 1)) +
                     0.30 * sig.oss_score
                 )
+                quality_sum += quality
                 if quality >= 0.45:
                     rating = "good_trend"
                 elif quality >= 0.25:
                     rating = "already_knew"
                 else:
                     rating = "bad_trend"
+                feedback_dist[rating] = feedback_dist.get(rating, 0) + 1
                 save_feedback(
                     feedback_type="trend",
                     item_id=sig.trend_title[:100],
                     rating=rating,
                     metadata={
-                        "auto": True,  # CRITICAL: weight_learner filters on this key
+                        "auto": True,
                         "source": "auto_learning",
                         "composite_quality": round(quality, 3),
                         "oss_score": sig.oss_score,
@@ -1061,22 +1303,281 @@ async def learning_update_node(state: GraphState) -> dict:
                 )
                 feedback_count += 1
             logger.info(f"Quality feedback: auto-recorded {feedback_count} trend ratings")
+
+            # PUBLISH to bus
+            mean_q = quality_sum / max(len(signals), 1)
+            bus.publish_auto_feedback(feedback_dist, mean_q)
     except Exception as e:
         logger.debug(f"Quality feedback recording skipped: {e}")
 
-    # ── 7. Summary ───────────────────────────────────────────────────────
+    # -- 6b. Adaptive Thresholds: publish current state to bus ---------
+    try:
+        from app.learning.pipeline_metrics import (
+            compute_adaptive_thresholds, detect_drift, detect_drift_ewma,
+        )
+        thresholds = compute_adaptive_thresholds()
+        drift_alerts = detect_drift({}) if not signals else []
+        ewma_drift = detect_drift_ewma({}) if not signals else []
+        all_drift = drift_alerts + ewma_drift
+        anomaly_flags = []
+
+        # Check for threshold anomalies
+        from app.learning.pipeline_metrics import THRESHOLD_REGISTRY
+        for name, at in THRESHOLD_REGISTRY.items():
+            if name in thresholds and at.is_anomaly(thresholds[name]):
+                anomaly_flags.append(f"{name}={thresholds[name]:.3f}")
+
+        bus.publish_adaptive_thresholds(thresholds, anomaly_flags, all_drift)
+    except Exception as e:
+        logger.debug(f"Adaptive thresholds publish skipped: {e}")
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 2: Compute cross-loop derived signals                   ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    bus.compute_derived_signals()
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 3: Cross-pollination adjustments                        ║
+    # ║  Each loop reads OTHER loops' signals and makes small tweaks    ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    # 3a. Source Bandit: reward novelty-producing sources more
+    try:
+        mod = bus.get_source_bandit_modulation()
+        if mod["novelty_bonus_active"] and hasattr(deps, "source_bandit"):
+            bandit = deps.source_bandit
+            # When most trends are stale (peak/decline), sources producing
+            # novel (birth) trends deserve a small exploration bonus
+            for source_id in bus.top_sources[:3]:
+                p = bandit._posteriors.get(source_id)
+                if p:
+                    bonus = 0.3 * mod["exploration_budget"]
+                    p["alpha"] += bonus
+            bandit._save()
+            logger.debug(
+                f"Cross-loop: source bandit novelty bonus applied "
+                f"(exploration_budget={mod['exploration_budget']:.2f})"
+            )
+    except Exception as e:
+        logger.debug(f"Cross-loop source bandit modulation skipped: {e}")
+
+    # 3b. Company Bandit: explore more when birth trends are high
+    try:
+        mod = bus.get_company_bandit_modulation()
+        if mod["birth_trend_ratio"] > 0.40 and hasattr(deps, "company_bandit"):
+            company_bandit = deps.company_bandit
+            # New trends need more company exploration  - gently pull posteriors
+            # toward uniform prior to increase Thompson Sampling variance
+            shrink = 0.97  # Very gentle
+            adjusted = 0
+            for arm_id, p in company_bandit._posteriors.items():
+                total = p["alpha"] + p["beta"]
+                if total > 15:
+                    p["alpha"] = 1.0 + (p["alpha"] - 1.0) * shrink
+                    p["beta"] = 1.0 + (p["beta"] - 1.0) * shrink
+                    adjusted += 1
+            if adjusted:
+                company_bandit._save()
+                logger.debug(
+                    f"Cross-loop: company bandit exploration boost  - "
+                    f"{adjusted} arms pulled toward prior (birth_ratio={mod['birth_trend_ratio']:.2f})"
+                )
+    except Exception as e:
+        logger.debug(f"Cross-loop company bandit modulation skipped: {e}")
+
+    # 3c. Apply previous MetaReasoner improvement hypotheses
+    try:
+        reasoner = deps.meta_reasoner
+        prev_hypotheses = reasoner.get_active_hypotheses()
+        applied_count = 0
+        for hyp in prev_hypotheses:
+            target = hyp.get("target", "")
+            action = hyp.get("action", "").lower()
+            priority = hyp.get("priority", "medium")
+
+            # Source-related hypotheses -> adjust exploration
+            if target in ("source_intel", "source_bandit", "sources"):
+                if "explor" in action and hasattr(deps, "source_bandit"):
+                    bandit = deps.source_bandit
+                    # Increase variance on uncertain arms
+                    for sid, p in bandit._posteriors.items():
+                        if 0.30 <= p["alpha"] / (p["alpha"] + p["beta"]) <= 0.70:
+                            nudge = 0.15 if priority == "high" else 0.08
+                            p["alpha"] += nudge
+                            p["beta"] += nudge
+                    bandit._save()
+                    applied_count += 1
+
+            # Weight-related hypotheses -> flag for conservative learning
+            elif target in ("weight_learner", "weights"):
+                if "conserv" in action or "slow" in action:
+                    # Already handled by signal bus lr_multiplier
+                    applied_count += 1
+
+        if applied_count:
+            logger.info(
+                f"Cross-loop: applied {applied_count}/{len(prev_hypotheses)} "
+                f"MetaReasoner hypotheses from previous run"
+            )
+    except Exception as e:
+        logger.debug(f"Cross-loop hypothesis application skipped: {e}")
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 4: MetaReasoner retrospective + publish to bus           ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
     avg_oss = sum(s.oss_score for s in signals) / len(signals) if signals else 0.0
     avg_kb_hit = sum(s.kb_hit_rate for s in signals) / len(signals) if signals else 0.0
+    mean_quality = (quality_sum / max(len(signals), 1)) if signals else 0.0
+
+    retro = None
+    try:
+        reasoner = deps.meta_reasoner
+        total_duration = _time.time() - getattr(deps, "_pipeline_t0", _time.time())
+
+        # Load previous retrospective for comparison
+        prev_retro = None
+        try:
+            retro_path = Path("./data/reasoning_traces.jsonl")
+            if retro_path.exists():
+                lines = retro_path.read_text(encoding="utf-8").strip().split("\n")
+                for line in reversed(lines):
+                    data = json.loads(line)
+                    if data.get("step") == "retrospective" and data.get("run_id") != state.get("run_id", ""):
+                        prev_retro = data
+                        break
+        except Exception:
+            pass
+
+        retro = await reasoner.run_retrospective(
+            run_id=state.get("run_id", ""),
+            total_duration_s=total_duration,
+            trend_count=len(state.get("trends", [])),
+            lead_count=len(getattr(deps, "_lead_sheets", [])),
+            mean_oss=avg_oss,
+            mean_kb_hit=avg_kb_hit,
+            mean_quality=mean_quality,
+            signal_bus_summary={
+                "system_confidence": bus.system_confidence,
+                "exploration_budget": bus.exploration_budget,
+                "learning_path": bus.learning_path,
+                "source_degraded": bus.source_degraded,
+            },
+            previous_retrospective=prev_retro,
+        )
+
+        # Publish reasoning traces + retrospective to the signal bus
+        run_summary = reasoner.get_run_summary()
+        retro_dict = None
+        if retro and retro.run_grade:
+            from dataclasses import asdict as _asdict
+            retro_dict = _asdict(retro)
+        bus.publish_reasoning(run_summary, retro_dict)
+
+        # Re-compute derived signals with reasoning data included
+        bus.compute_derived_signals()
+
+        logger.info(
+            f"MetaReasoner retrospective complete: grade={retro.run_grade if retro else '?'}, "
+            f"reasoning_quality={run_summary.get('avg_reasoning_quality', 0):.2f}"
+        )
+    except Exception as e:
+        logger.debug(f"MetaReasoner retrospective skipped: {e}")
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 4b: Dataset Enhancement  - auto-label from cluster signals ║
+    # ║  Extracts positive/negative examples from cluster coherence     ║
+    # ║  No human input needed  - self-improving from pipeline signals   ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+    try:
+        from app.learning.dataset_enhancer import DatasetEnhancer
+        enhancer = DatasetEnhancer()
+
+        # Cold start: bootstrap from Reuters + AG News if dataset is empty (first run)
+        if enhancer.get_stats()["total"] == 0:
+            logger.info("[dataset_enhancer] Cold start: bootstrapping from Reuters + AG News...")
+            r_pos, r_neg = enhancer.bootstrap_from_reuters(n_per_class=30)
+            ag_pos, ag_neg = enhancer.bootstrap_from_ag_news(n_per_class=50)
+            logger.info(
+                f"[dataset_enhancer] Bootstrap complete: "
+                f"Reuters +{r_pos}/{r_neg}, AG News +{ag_pos}/{ag_neg}"
+            )
+
+        # Extract labels from this run's cluster quality signals
+        clusters = getattr(deps, "_clusters", [])
+        if clusters:
+            pos, neg = enhancer.extract_labels_from_clusters(clusters)
+            logger.info(f"[dataset_enhancer] Extracted from clusters: +{pos} pos, +{neg} neg")
+
+        # Trigger SetFit retraining if we have enough examples
+        if enhancer.should_trigger_retrain():
+            try:
+                from app.learning.hypothesis_learner import HypothesisLearner
+                learner = HypothesisLearner()
+                positives, negatives = enhancer.get_examples_for_setfit(max_per_class=64)
+                # Inject dataset examples into feedback store path
+                logger.info(
+                    f"[dataset_enhancer] Triggering SetFit retraining: "
+                    f"{len(positives)} pos / {len(negatives)} neg"
+                )
+                # Use HypothesisLearner's internal methods with our dataset examples
+                updated = await learner._train_and_update(positives, negatives)
+                if updated:
+                    logger.info("[dataset_enhancer] SetFit hypothesis updated from dataset")
+                else:
+                    logger.warning("[dataset_enhancer] SetFit update failed  - keeping current hypothesis")
+            except Exception as exc:
+                logger.warning(f"[dataset_enhancer] SetFit trigger failed: {exc}")
+
+        stats = enhancer.get_stats()
+        logger.info(
+            f"[dataset_enhancer] Dataset: total={stats['total']} "
+            f"pos={stats['positives']} neg={stats['negatives']} "
+            f"ready={stats['ready_for_retrain']}"
+        )
+    except Exception as exc:
+        logger.warning(f"Dataset enhancement skipped: {exc}")
+
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 5: Persist bus + finalize                               ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+
+    # Save bus state for next run
+    from datetime import datetime, timezone as _tz
+    bus.timestamp = datetime.now(_tz.utc).isoformat()
+    bus.save()
+
+    # -- Summary ----------------------------------------------------------
     logger.info(
         f"Learning update complete: {len(signals)} trends | "
         f"avg_oss={avg_oss:.3f} | avg_kb_hit={avg_kb_hit:.1%}"
     )
+    logger.info(f"Signal bus: {bus.summary()}")
 
     _record(deps, "learning_update_complete", {
         "signal_count": len(signals),
         "avg_oss": round(avg_oss, 3),
         "avg_kb_hit": round(avg_kb_hit, 3),
         "signals": [s.to_dict() for s in signals] if signals else [],
+        "signal_bus": {
+            "system_confidence": bus.system_confidence,
+            "exploration_budget": bus.exploration_budget,
+            "learning_path": bus.learning_path,
+            "total_drift": bus.total_drift,
+            "source_degraded": bus.source_degraded,
+            "feedback_distribution": bus.feedback_distribution,
+            "reasoning_grade": bus.reasoning_run_grade,
+            "reasoning_quality": bus.reasoning_quality,
+            "strategy_adjustments": bus.reasoning_strategy_adjustments,
+        },
+        "retrospective": {
+            "grade": retro.run_grade if retro else "",
+            "summary": retro.summary if retro else "",
+            "successes": retro.successes[:3] if retro else [],
+            "failures": retro.failures[:3] if retro else [],
+            "improvement_plan": retro.improvement_plan[:3] if retro else [],
+        } if retro else None,
     }, t0)
 
     # Save recording manifest (finalizes the recording for replay)
@@ -1085,29 +1586,92 @@ async def learning_update_node(state: GraphState) -> dict:
         total_duration = _time.time() - getattr(deps, "_pipeline_t0", _time.time())
         recorder.save_manifest(total_duration)
 
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  PHASE 6: AutoResearch  - evaluate experiment + keep/discard    ║
+    # ╚══════════════════════════════════════════════════════════════════╝
+    try:
+        actionable_count = sum(1 for s in signals if s.oss_score > 0.4) if signals else 0
+        actionable_rate = actionable_count / max(len(signals), 1)
+        noise_rate_val = getattr(pipeline, "_noise_rate", 0.0) if pipeline else 0.0
+
+        # Check for active hypothesis
+        active_hyp = getattr(deps, "_active_hypothesis", None)
+
+        experiment = ExperimentRecord(
+            run_id=state.get("run_id", bus.run_id),
+            hypothesis=active_hyp.description if active_hyp else "",
+            mean_oss=avg_oss,
+            mean_coherence=getattr(pipeline, "_mean_coherence", 0.0) if pipeline else 0.0,
+            noise_rate=noise_rate_val,
+            actionable_rate=actionable_rate,
+            article_count=len(articles),
+            cluster_count=len(signals),
+            learning_updates=learning_updates,
+        )
+
+        if tracker.is_regression(experiment):
+            experiment.status = "discard"
+            experiment.reason = "regression detected  - rolled back weights + thresholds"
+            restore_learning_state()
+        else:
+            experiment.status = "keep"
+            cleanup_snapshot()
+
+        tracker.record(experiment)
+
+        # Mark hypothesis outcome
+        if active_hyp and active_hyp.param_changes:
+            baseline = tracker.rolling_baseline()
+            result_delta = {}
+            if baseline:
+                result_delta = {
+                    "mean_oss": round(avg_oss - baseline["mean_oss"], 4),
+                    "actionable_rate": round(actionable_rate - baseline["actionable_rate"], 4),
+                }
+            hyp_status = f"tested:{experiment.status}"
+            mark_hypothesis_tested(
+                active_hyp.id, experiment.run_id, hyp_status, result_delta,
+            )
+
+        oss_trend = tracker.trend("mean_oss")
+        if oss_trend != "stable":
+            logger.info(f"AutoResearch: quality trend = {oss_trend}")
+
+    except Exception as e:
+        logger.debug(f"Experiment tracking skipped: {e}")
+        cleanup_snapshot()
+
+    retro_summary = ""
+    if retro and retro.run_grade:
+        retro_summary = f" | grade={retro.run_grade}"
+        if retro.improvement_plan:
+            top_plan = retro.improvement_plan[0]
+            if isinstance(top_plan, dict):
+                retro_summary += f" | next: {top_plan.get('action', '')[:60]}"
+
     return {
         "errors": [],
         "current_step": "learning_update_complete",
         "agent_reasoning": {
             **state.get("agent_reasoning", {}),
             "learning_update": (
-                f"{len(signals)} signals processed | "
-                f"avg_oss={avg_oss:.3f} | avg_kb_hit={avg_kb_hit:.1%}"
+                f"{len(signals)} signals | avg_oss={avg_oss:.3f} | "
+                f"avg_kb_hit={avg_kb_hit:.1%} | bus: {bus.summary()}{retro_summary}"
             ),
         },
     }
 
 
-# ── Graph Construction ───────────────────────────────────────────────────────
+# -- Graph Construction -------------------------------------------------------
 
 def create_pipeline_graph():
     """Build and compile the multi-agent LangGraph with quality gate + checkpointing.
 
     Flow:
-      source_intel → analysis → impact → quality_validation
-        ├─ (retry) → analysis
-        ├─ (viable) → causal_council → lead_crystallize → lead_gen → END
-        └─ (no trends) → END
+      source_intel -> analysis -> impact -> quality_validation
+        +- (retry) -> analysis
+        +- (viable) -> causal_council -> lead_crystallize -> lead_gen -> END
+        └- (no trends) -> END
 
     LangGraph best practices applied:
       - InMemorySaver checkpointer: state is snapshotted after every node
@@ -1127,7 +1691,11 @@ def create_pipeline_graph():
     workflow.add_node("learning_update",     learning_update_node)   # Always runs at end
 
     workflow.add_edge(START, "source_intel")
-    workflow.add_edge("source_intel", "analysis")
+    workflow.add_conditional_edges(
+        "source_intel",
+        source_intel_route,
+        {"analysis": "analysis", "learning_update": "learning_update"},
+    )
     workflow.add_edge("analysis", "impact")
     workflow.add_edge("impact", "quality_validation")
     workflow.add_conditional_edges(
@@ -1145,26 +1713,82 @@ def create_pipeline_graph():
     return workflow.compile(checkpointer=checkpointer)
 
 
-# ── Public Entry Point ───────────────────────────────────────────────────────
+# -- Step Progress Formatter --------------------------------------------------
 
-async def run_pipeline(mock_mode: bool = False, log_callback=None) -> PipelineResult:
+_STEP_LABELS = {
+    "source_intel_complete": ("FETCH+DEDUP+NLI", "Articles collected and filtered"),
+    "source_intel_empty":    ("FETCH",           "No articles found - skipping to learning"),
+    "analysis_complete":     ("CLUSTER+TRENDS",  "Clusters validated, trends synthesized"),
+    "impact_complete":       ("IMPACT",          "Impact council analysis complete"),
+    "quality_retry_analysis":("QUALITY",         "Low quality - retrying clustering"),
+    "quality_complete":      ("QUALITY",         "Quality gate passed"),
+    "lead_gen_complete":     ("LEAD GEN",        "Opportunity scoring complete"),
+    "causal_council_complete":("CAUSAL",         "Causal chain analysis complete"),
+    "lead_crystallize_complete":("LEADS",        "Call sheets crystallized"),
+    "learning_update_complete": ("LEARN",        "Self-learning loops updated"),
+}
+
+
+def _format_step_progress(node_name: str, step: str, state: dict, deps: Any) -> str:
+    """Format a one-line progress message for a pipeline step transition."""
+    label, base_desc = _STEP_LABELS.get(step, (node_name.upper(), step))
+
+    # Augment with live counts from deps/state
+    articles = getattr(deps, "_articles", []) if deps else []
+    trends = state.get("trends", [])
+    companies = state.get("companies", [])
+    contacts = state.get("contacts", [])
+    lead_sheets = getattr(deps, "_lead_sheets", []) if deps else []
+    impacts = state.get("impacts", [])
+
+    detail = ""
+    if step == "source_intel_complete":
+        detail = f"{len(articles)} articles"
+    elif step == "analysis_complete":
+        detail = f"{len(trends)} trends detected"
+    elif step == "impact_complete":
+        detail = f"{len(impacts)} impacts analyzed"
+    elif step in ("quality_complete", "quality_retry_analysis"):
+        viable = len(state.get("impacts", []))
+        detail = f"{viable} viable trends"
+    elif step == "lead_gen_complete":
+        detail = f"{len(companies)} companies scored"
+    elif step in ("causal_council_complete", "lead_crystallize_complete"):
+        detail = f"{len(lead_sheets)} call sheets"
+    elif step == "learning_update_complete":
+        detail = "source bandit + NLI hypothesis + 4 other loops"
+
+    suffix = f"  ->  {detail}" if detail else ""
+    return f"[{label}]  {base_desc}{suffix}"
+
+
+# -- Public Entry Point -------------------------------------------------------
+
+async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -> PipelineResult:
     """Execute the multi-agent sales intelligence pipeline.
 
-    Uses LangGraph astream (stream_mode="values") so each snapshot after a node
-    is the complete accumulated state — Streamlit sees progress in real-time
-    without needing to merge partial diffs.
+    Uses LangGraph astream (stream_mode="updates") which yields per-node output
+    deltas  - avoids serialization issues with complex AgentDeps objects.
     InMemorySaver checkpointer snapshots state after every node for resilience.
+
+    scope: Optional DiscoveryScope from CLI  - sets region/hours/mode/companies/products.
+           When None, falls back to global settings (FastAPI path).
     """
     start_time = datetime.utcnow()
     run_id = start_time.strftime("%Y%m%d_%H%M%S")
 
     logger.info("Starting Multi-Agent Sales Intelligence Pipeline")
     logger.info(f"Run ID: {run_id} | Mock Mode: {mock_mode}")
+    if scope:
+        logger.info(
+            f"Scope: mode={getattr(scope, 'mode', '?')} "
+            f"region={getattr(scope, 'region', '?')} "
+            f"hours={getattr(scope, 'hours', '?')}"
+        )
 
     # Reset provider health and cooldowns so stale failures from previous runs
     # don't block this run's LLM calls (Fix 3A).
-    from ..tools.provider_health import provider_health
-    from ..tools.provider_manager import ProviderManager
+    from ..tools.llm.providers import provider_health, ProviderManager
     provider_health.reset_for_new_run()
     ProviderManager.reset_cooldowns()
     logger.info("Provider health + cooldowns reset for new run")
@@ -1174,9 +1798,32 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None) -> PipelineRe
         mock_mode=mock_mode,
         log_callback=log_callback,
         run_id=run_id,
+        scope=scope,
     )
 
     deps._pipeline_t0 = _time.time()
+
+    # -- AutoResearch: load & apply top hypothesis for this run ---------
+    active_hypothesis = None
+    try:
+        from app.learning.experiment_tracker import pick_next_hypothesis
+        active_hypothesis = pick_next_hypothesis()
+        if active_hypothesis and active_hypothesis.param_changes:
+            logger.info(
+                f"AutoResearch: testing hypothesis '{active_hypothesis.description}' "
+                f"(params: {active_hypothesis.param_changes})"
+            )
+            # Apply param changes to adaptive thresholds for this run
+            from app.intelligence.config import load_adaptive_params
+            params = load_adaptive_params()
+            for key, value in active_hypothesis.param_changes.items():
+                if hasattr(params, key):
+                    setattr(params, key, value)
+            # Store modified params on deps for pipeline to use
+            deps._hypothesis_params = params
+            deps._active_hypothesis = active_hypothesis
+    except Exception as e:
+        logger.debug(f"Hypothesis loading skipped: {e}")
 
     initial_state: GraphState = {
         "deps": deps,
@@ -1198,12 +1845,23 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None) -> PipelineRe
     try:
         graph = create_pipeline_graph()
 
-        # stream_mode="values" emits the FULL accumulated state after each node,
-        # giving Streamlit real-time progress without needing to merge partial diffs.
-        final_state: dict = {}
-        async for snapshot in graph.astream(initial_state, config, stream_mode="values"):
-            final_state = snapshot
-            logger.debug(f"Pipeline step: {snapshot.get('current_step', '?')}")
+        # stream_mode="updates" emits per-node output deltas  - avoids msgpack
+        # serialization of complex AgentDeps that crashes with "values" mode.
+        final_state: dict = dict(initial_state)
+        _last_step = "init"
+
+        async for node_output in graph.astream(initial_state, config, stream_mode="updates"):
+            for node_name, delta in node_output.items():
+                if isinstance(delta, dict):
+                    final_state.update(delta)
+
+            new_step = final_state.get("current_step", "")
+            if new_step != _last_step:
+                msg = _format_step_progress(node_name, new_step, final_state, deps)
+                logger.info(msg)
+                if log_callback:
+                    log_callback(msg, "step")
+                _last_step = new_step
 
         trends_count = len(final_state.get("trends", []))
         companies_count = len(final_state.get("companies", []))
@@ -1250,7 +1908,7 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None) -> PipelineRe
         )
 
 
-# ── Output Persistence ───────────────────────────────────────────────────────
+# -- Output Persistence -------------------------------------------------------
 
 async def save_outputs(state: GraphState, run_id: str) -> str:
     """Save pipeline outputs to JSON and CSV files."""
@@ -1276,32 +1934,69 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
         trend = trend_map.get(trend_id)
         impact = impact_map.get(trend_id)
 
+        imp = impact_map.get(trend_id) if trend_id else None
         lead = {
             "id": outreach.id,
             "trend": {
+                "id": trend.id if trend else "",
                 "title": trend.trend_title if trend else outreach.trend_title,
                 "summary": trend.summary if trend else "",
                 "severity": trend.severity if trend else "medium",
                 "industries": trend.industries_affected if trend else [],
+                "keywords": trend.keywords if trend else [],
+                "trend_score": trend.trend_score if trend else 0.0,
+                "actionability_score": trend.actionability_score if trend else 0.0,
+                "actionable_insight": trend.actionable_insight if trend else "",
+                "event_5w1h": trend.event_5w1h if trend else {},
+                "causal_chain": trend.causal_chain if trend else [],
+                "buying_intent": trend.buying_intent if trend else {},
+                "affected_companies": trend.affected_companies if trend else [],
+                "affected_regions": trend.affected_regions if trend else [],
+                "article_count": trend.article_count if trend else 0,
+            },
+            "impact": {
+                "first_order": imp.direct_impact if imp else [],
+                "second_order": imp.indirect_impact if imp else [],
+                "pain_points": imp.midsize_pain_points if imp else [],
+                "pitch_angle": imp.pitch_angle if imp else "",
+                "relevant_services": imp.relevant_services if imp else [],
+                "confidence": imp.council_confidence if imp else 0.0,
             },
             "company": {
+                "id": company.id if company else "",
                 "name": company.company_name if company else outreach.company_name,
                 "size": company.company_size if company else "mid",
                 "industry": company.industry if company else "",
                 "website": company.website if company else "",
                 "domain": company.domain if company else "",
+                "description": company.description if company else "",
+                "reason_relevant": company.reason_relevant if company else "",
+                "founded_year": company.founded_year if company else None,
+                "headquarters": company.headquarters if company else "",
+                "employee_count": company.employee_count if company else "",
+                "stock_ticker": company.stock_ticker if company else "",
+                "ceo": company.ceo if company else "",
+                "funding_stage": company.funding_stage if company else "",
+                "tech_stack": company.tech_stack if company else [],
+                "ner_verified": company.ner_verified if company else False,
+                "verification_source": company.verification_source if company else "",
+                "verification_confidence": company.verification_confidence if company else 0.0,
+                "target_roles": company.target_roles if company else [],
             },
             "contact": {
+                "id": contact.id if contact else "",
                 "name": contact.person_name if contact else outreach.person_name,
                 "role": contact.role if contact else outreach.role,
                 "email": contact.email if contact else outreach.email,
                 "email_confidence": contact.email_confidence if contact else 0,
                 "email_source": contact.email_source if contact else "",
+                "email_verified": contact.verified if contact else False,
                 "linkedin": contact.linkedin_url if contact else "",
             },
             "outreach": {
                 "subject": outreach.subject,
                 "body": outreach.body,
+                "email_confidence": outreach.email_confidence,
             },
             "generated_at": outreach.generated_at.isoformat()
             if hasattr(outreach.generated_at, 'isoformat')
@@ -1326,7 +2021,7 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
         }, f, indent=2, ensure_ascii=False, default=_json_default)
 
     # Save structured call sheets produced by CausalCouncil + LeadCrystallizer.
-    # These are the primary deliverable of the new pipeline — one file per run,
+    # These are the primary deliverable of the new pipeline  - one file per run,
     # separate from the old-style outreach emails so both can coexist during migration.
     deps = state.get("deps")
     lead_sheets = getattr(deps, "_lead_sheets", []) if deps else []
@@ -1374,9 +2069,9 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
                 "signals": [s.to_dict() for s in signals],
             }, f, indent=2, ensure_ascii=False, default=_json_default)
 
-    # ── Comprehensive run report (cluster validation + first/second-order view) ──
+    # -- Comprehensive run report (cluster validation + first/second-order view) --
     # Joins article titles from deps._articles into each trend card so you can
-    # verify that clusters contain real, coherent news — not garbage articles.
+    # verify that clusters contain real, coherent news  - not garbage articles.
     articles = getattr(deps, "_articles", []) if deps else []
     article_by_id = {str(getattr(a, 'id', '')): a for a in articles}
     trend_tree = getattr(deps, "_trend_tree", None) if deps else None
@@ -1434,7 +2129,7 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
                 "affected_regions": t.affected_regions,
                 "event_5w1h": t.event_5w1h,
                 "buying_intent": t.buying_intent,
-                # Article titles joined from TrendTree — validate cluster quality here
+                # Article titles joined from TrendTree  - validate cluster quality here
                 "source_articles": _get_article_titles(t),
                 # Impact analysis (first-order direct, second-order indirect)
                 "impact": (lambda imp: {
@@ -1519,7 +2214,7 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
                     lead["outreach"]["body"][:100] + "...",
                 ])
 
-    # ── Persist to DB ──────────────────────────────────────────────────────
+    # -- Persist to DB ------------------------------------------------------
     try:
         db = get_database()
 
@@ -1552,48 +2247,72 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
             if cn not in _em_by_co:
                 _em_by_co[cn] = em
 
+        # Build person profile index  - fallback for email if _outreach is empty
+        person_profiles = getattr(deps, "_person_profiles", []) if deps else []
+        _pp_by_co: dict = {}
+        for p in person_profiles:
+            cn = getattr(p, "company_name", "")
+            if cn not in _pp_by_co:
+                _pp_by_co.setdefault(cn, []).append(p)
+            else:
+                _pp_by_co[cn].append(p)
+
         for sheet in lead_sheets:
             cn = getattr(sheet, "company_name", "")
             co = _co_by_name.get(cn)
             cts = _ct_by_co.get(cn, [])
             ct = next((c for c in cts if getattr(c, "email", "")), cts[0] if cts else None)
             em = _em_by_co.get(cn)
+
+            # Primary email  - from OutreachEmail, or fallback to person profile outreach
+            email_subject = getattr(em, "subject", "") if em else ""
+            email_body = getattr(em, "body", "") if em else ""
+            if not email_subject:
+                pp_list = _pp_by_co.get(cn, [])
+                pp = next((p for p in pp_list if getattr(p, "outreach_subject", "")), None)
+                if pp:
+                    email_subject = getattr(pp, "outreach_subject", "")
+                    email_body = getattr(pp, "outreach_body", "")
+
+            # Primary contact  - from ContactData, or fallback to person profile
+            contact_name = getattr(ct, "person_name", "") if ct else ""
+            contact_email = getattr(ct, "email", "") if ct else ""
+            contact_role = getattr(ct, "role", "") if ct else ""
+            contact_linkedin = getattr(ct, "linkedin_url", "") if ct else ""
+            email_confidence = getattr(ct, "email_confidence", 0) if ct else 0
+            if not contact_name:
+                pp_list = _pp_by_co.get(cn, [])
+                pp = next((p for p in pp_list if getattr(p, "person_name", "")), None)
+                if pp:
+                    contact_name = getattr(pp, "person_name", "")
+                    contact_email = contact_email or getattr(pp, "email", "")
+                    contact_role = contact_role or getattr(pp, "role", "")
+                    contact_linkedin = contact_linkedin or getattr(pp, "linkedin_url", "")
+                    email_confidence = email_confidence or getattr(pp, "email_confidence", 0)
+
             enrichment = {
                 "company_website": getattr(co, "website", "") if co else "",
                 "company_domain": getattr(co, "domain", "") if co else "",
                 "reason_relevant": getattr(co, "reason_relevant", "") if co else "",
-                "contact_name": getattr(ct, "person_name", "") if ct else "",
-                "contact_role": getattr(ct, "role", "") if ct else "",
-                "contact_email": getattr(ct, "email", "") if ct else "",
-                "contact_linkedin": getattr(ct, "linkedin_url", "") if ct else "",
-                "email_confidence": getattr(ct, "email_confidence", 0) if ct else 0,
-                "email_subject": getattr(em, "subject", "") if em else "",
-                "email_body": getattr(em, "body", "") if em else "",
+                "contact_name": contact_name,
+                "contact_role": contact_role or getattr(sheet, "contact_role", ""),
+                "contact_email": contact_email,
+                "contact_linkedin": contact_linkedin,
+                "email_confidence": email_confidence,
+                "email_subject": email_subject,
+                "email_body": email_body,
                 "company_news": getattr(sheet, "company_news", []),
             }
             db.save_call_sheet(run_id, sheet, enrichment=enrichment)
 
-        # Save legacy outreach leads
-        for lead in leads:
-            trend_id = lead.get("trend", {}).get("title", "")
-            db.save_lead({
-                "id": lead["id"],
-                "trend": lead["trend"],
-                "impact": impact_map.get(trend_id, {}),
-                "company": lead["company"],
-                "contact": lead["contact"],
-                "outreach": lead["outreach"],
-            })
-
         # Save person profiles (multiple contacts per company with reach scores)
-        person_profiles = getattr(deps, "_person_profiles", []) if deps else []
         if person_profiles:
             saved_count = db.save_lead_contacts(run_id, person_profiles)
             logger.info(f"DB: saved {saved_count} person profiles")
 
         logger.info(
             f"DB: saved run + {len(trends)} trends + "
-            f"{len(lead_sheets)} call sheets + {len(leads)} outreach leads"
+            f"{len(lead_sheets)} call sheets"
         )
     except Exception as e:
         logger.warning(f"Failed to save to database: {e}")

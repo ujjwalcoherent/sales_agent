@@ -1,0 +1,215 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "In March 2024, India's IPO market showed mixed performance, with Clean Max Enviro and Shree Ram Twistex experiencing negative grey market premiums indicating expected discount listings, and Acetech E-Commerce facing weak subscription rates (0.26 times). This reflects investor uncertainty and reduced appetite for these IPOs, impacting capital raising and market confidence.",
+      "event_type": "ipo",
+      "reasoning": "The direct hits (hop 1) are the mid-sized IPO companies named in the news: Clean Max Enviro, Shree Ram Twistex, and Acetech E-Commerce, suffering valuation pressure and capital raising difficulty due to negative grey market premiums and weak subscription rates. These companies urgently need intelligence and strategy adjustment to manage capital: classified as pain.\n\nHop 2 firms are mid-size specialized IPO advisory and merchant bankers in India like Sarthi Capital Advisors, ASC Group, and India ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size IPO companies Clean Max Enviro, Shree Ram Twistex, Acetech E-Commerce, India",
+          "lead_type": "pain",
+          "mechanism": "Negative grey market premiums and weak subscription rates directly reduce capital raised and pressure valuation/market confidence of these mid-size IPO companies.",
+          "companies_found": [
+            "Clean Max Enviro",
+            "Shree Ram Twistex",
+            "Acetech E-Commerce"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size IPO advisory and merchant banking firms in India (50-500 employees), specifically Sarthi Capital Advisors, ASC Group, and India IPO Consultant",
+          "lead_type": "pain",
+          "mechanism": "Reduced IPO activity and investor interest among hop-1 IPO firms leads to decreased demand for IPO advisory, legal, and marketing services provided by these mid-size specialist firms advising on IPO pricing, documentation, and marketing.",
+          "companies_found": [
+            "Sarthi Capital Advisors",
+            "ASC Group",
+            "India IPO Consultant"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "SME legal, marketing, and financial services firms dependent on IPO advisory market in Mumbai and Pune, India, with 50-200 employees",
+          "lead_type": "pain",
+          "mechanism": "As mid-size IPO advisory firms reduce engagements due to lower IPO deal flow and pricing pressure, downstream supporting SME legal, marketing, and financial services firms face reduced revenues and project pipelines impacting business volumes.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "India and the US are renegotiating their trade agreement due to tariff concerns, particularly tariffs introduced by the US during the Trump administration. This renegotiation creates immediate cost and pricing uncertainty for Indian exporters to the US, affecting their competitiveness and market access. Secondary impacts include exporters reconsidering supply chains and pricing strategies, influencing their suppliers and logistics providers due to demand shifts and cost changes. Tertiary impacts affect buyers of these exporters' goods, such as importers and downstream OEMs facing delays or pricing pressures.",
+      "event_type": "geopolitical",
+      "reasoning": "The news of India-US trade deal renegotiation amid tariff concerns specifically impacts Indian exporters to the US subject to tariffs introduced earlier. SMEs in textiles, electronics, footwear, and automotive components sectors form a significant portion of India's export economy. They are directly exposed to cost increases or pricing uncertainty due to the tariffs, creating immediate pain points (hop 1). These exporters source from SME suppliers and rely on logistics providers for transport, w",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Indian SME exporters in textiles, electronics, footwear, and automotive components (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "US tariffs risk increasing costs and pricing uncertainty for exports, reducing competitiveness in the crucial US market",
+          "companies_found": [
+            "MSMEs in textile exporters sector (e.g. smaller textile manufacturers visible in trade articles)",
+            "SME electronics exporters affected by US tariff uncertainty (50-500 employees)",
+            "SME footwear exporters",
+            "SME automotive components exporters in Pune"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Indian SME suppliers and logistics providers serving exporters (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Exporters cutting orders or changing pricing/supply strategies lead to demand fluctuations for suppliers and logistics companies, causing margin pressure and operational uncertainty",
+          "companies_found": [
+            "SME logistics companies providing warehousing and transportation for exporters",
+            "SME suppliers to auto component exporters in Pune",
+            "SME raw material or packaging suppliers in textile and footwear sectors"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Indian SME importers and downstream manufacturers purchasing from exporters or their suppliers (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Downstream buyers face delays or cost increases as their supplier exporters and suppliers renegotiate prices or adjust supply chains",
+          "companies_found": [],
+          "confidence": 0.8,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "India's AI boom driven by platforms like ChatGPT is causing rapid user growth for AI startups who prioritize user acquisition over revenue, necessitating expanded data center capacity and public AI infrastructure. This trend benefits mid-size IT service and infrastructure firms but pressures them to scale, innovate, and comply with competition regulations to maintain market leadership. Cloud and hardware suppliers must expand capacity and accelerate innovation, while software firms must rapidly develop AI tools. The growing AI job market also boosts demand for HR and recruitment firms specializing in AI talent acquisition in India.",
+      "event_type": "technology",
+      "reasoning": "The event describes how rapid AI user growth in India led by startups using platforms like ChatGPT results in prioritizing user acquisition over immediate revenue. This requires more AI development, infrastructure, and talent support, directly impacting mid-size AI startups (Hop 1) who face opportunities to scale rapidly. These startups increase demand for cloud, data center capacity, and AI software development, thus benefiting mid-size IT service companies, infrastructure providers, and AI sof",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size AI startups in India, 50-500 employees, focusing on AI user growth and innovation",
+          "lead_type": "opportunity",
+          "mechanism": "AI startups see rapid user growth, driving demand for advanced AI development, infrastructure, and talent acquisition services to scale operations",
+          "companies_found": [
+            "Manthan",
+            "SigTuple",
+            "Mad Street De"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size IT service providers and data center infrastructure firms in India, 50-500 employees, supplying cloud, hardware, and AI development tools to AI startups",
+          "lead_type": "opportunity",
+          "mechanism": "These firms must expand cloud and hardware capacity and rapidly innovate AI tools to meet the growing needs of AI startups prioritizing user acquisition and infrastructure expansion",
+          "companies_found": [
+            "Craze",
+            "HROne",
+            "GreytHR"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size HR and recruitment firms in India, 50-500 employees, specializing in AI talent acquisition for IT and tech startups",
+          "lead_type": "opportunity",
+          "mechanism": "Growing AI job market driven by startups' rapid growth increases demand for AI-savvy HR and recruitment firms to source and place talent efficiently in the expanding AI and tech sectors",
+          "companies_found": [],
+          "confidence": 0.8,
+          "urgency_weeks": 5
+        }
+      ]
+    },
+    {
+      "event_summary": "In 2025, India's tech startups raised $9.1 billion, a 23% year-over-year increase driven mainly by AI and deeptech sectors. Early-stage startups like Spintly secured significant funding (e.g., $8 million from Accel and Enrission India). While this boosts product development and market expansion directly for these startups, the trend also limits growth capital availability for mid-size companies, slowing some innovation scaling. This environment increases demand for technology research and patent analysis services to aid startups in refining investor proposals. However, cautious sentiment constrains downstream client adoption and partnerships.",
+      "event_type": "funding",
+      "reasoning": "The news highlights a significant increase in AI and deeptech startup funding in India in 2025, with startups like Spintly raising substantial early-stage capital from VCs like Accel and Enrission India. These companies (hop 1) directly benefit from the influx, enabling accelerated innovation and market expansion. However, the preference for many smaller, early-stage rounds limits the availability of larger growth capital for mid-size startups, causing slower scale-up and more cautious investmen",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Early-stage AI & deeptech startups in India with 50-200 employees raising funding (e.g. Spintly)",
+          "lead_type": "opportunity",
+          "mechanism": "Direct recipients of the surge in AI startup funding, enabling accelerated product development and market expansion.",
+          "companies_found": [
+            "Spintly"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 0
+        },
+        {
+          "hop": 2,
+          "segment": "Technology research, patent analysis, and investor proposal support firms for startups in India, typically 50-200 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Startups strengthening investor proposals increase demand for specialized research and patent analysis services to attract funding.",
+          "companies_found": [
+            "Einfolge",
+            "Intellect Bastion",
+            "Intricate Research"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size AI and tech startups in India with 200-500 employees facing slowed growth due to constrained funding",
+          "lead_type": "pain",
+          "mechanism": "Reduced availability of growth capital and cautious investor sentiment impact mid-size startups’ ability to scale innovation and expand market reach.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "Indian IT stocks experienced a significant plunge in February 2026, led by major players like Infosys, which dropped over 20%, erasing ₹1,33,824 crore in market cap. The market selloff affected investor sentiment and valuations in the IT sector. This triggered a second-order effect where mid-size Indian IT firms faced increased pressure to innovate and adopt AI to stay competitive, leading to higher demand for AI consulting and financial advisory services to navigate disruption and regulatory challenges. Clients of these IT companies may reduce or delay tech spending amid uncertainty. Third-order impacts will affect SME clients dependent on mid-size IT service providers, resulting in possible operational delays and strategic re-alignments.",
+      "event_type": "market_movement",
+      "reasoning": "The initial stock price plunge of major Indian IT firms like Infosys and Affle 3i directly impacts these companies by causing financial losses and investor sentiment deterioration (Hop 1). This immediate pain forces mid-sized IT companies, which tend to have 100-5000 employees, to accelerate their AI adoption and seek specialized consulting to navigate disruption, creating new business for AI consulting firms like eSparkBiz, 7edge, and Wednes, along with financial advisory firms such as Ascentiu",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-sized IT companies in India facing stock price pressure and investor selloff",
+          "lead_type": "pain",
+          "mechanism": "Sharp drop in stock prices and market cap for mid-sized IT companies like Infosys causes immediate financial and investor sentiment stress, pressuring these firms to respond intensely to AI concerns and market selloff.",
+          "companies_found": [
+            "Infosys",
+            "Affle 3i"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Indian mid-size IT firms (100-2000 employees) engaged in AI adoption and financial advisory firms serving IT sector",
+          "lead_type": "opportunity",
+          "mechanism": "As mid-size IT companies face stock pressure, they increase spending on AI consulting and financial advisory services to manage innovation and regulatory complexity, creating new business opportunities. Further, clients may reduce or delay technology investments due to uncertainty, affecting the vendor ecosystem.",
+          "companies_found": [
+            "eSparkBiz (AI consulting, Ahmedabad)",
+            "7edge (AI consulting)",
+            "Wednes (AI consulting)",
+            "Ascentium India (financial advisory)"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Indian SME clients of mid-size IT service providers, mainly SMEs (50-500 employees) in sectors like retail, manufacturing, and financial services",
+          "lead_type": "pain",
+          "mechanism": "SME clients dependent on mid-size IT firms for digital transformation and technology support encounter delays, uncertainty, and possible cost pressures as their service providers navigate AI disruption and reduced funding, impacting their operational stability and growth trajectory.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "total_hops": 15,
+  "log_messages": []
+}

@@ -5,14 +5,58 @@ Finds decision-makers at companies based on trend type.
 
 import logging
 import hashlib
+import re
 from typing import List, Dict, Optional
 
 from ...schemas import CompanyData, ContactData, ImpactAnalysis, AgentState
-from ...tools.llm_service import LLMService
-from ...tools.apollo_tool import ApolloTool
+from app.tools.llm.llm_service import LLMService
+from app.tools.crm.apollo_tool import ApolloTool
 from ...config import get_settings, TREND_ROLE_MAPPING
 
 logger = logging.getLogger(__name__)
+
+
+def match_roles_to_trend(trend_type: str, pain_point: str = "", who_needs_help: str = "") -> list[str]:
+    """Determine which roles to target based on the trend.
+
+    Uses trend_type as primary signal, then scans pain_point and
+    who_needs_help for role keywords. Returns ordered list of target roles.
+    """
+    roles = list(TREND_ROLE_MAPPING.get(trend_type, []))
+
+    # Scan pain_point and who_needs_help for additional role signals
+    text = f"{pain_point} {who_needs_help}".lower()
+    if "security" in text or "cyber" in text or "breach" in text:
+        roles = list(TREND_ROLE_MAPPING.get("cybersecurity", [])) + roles
+    if "cost" in text or "budget" in text or "expense" in text or "savings" in text:
+        roles = list(TREND_ROLE_MAPPING.get("cost_reduction", [])) + roles
+    if "ai" in text or "artificial intelligence" in text or "machine learning" in text:
+        roles = list(TREND_ROLE_MAPPING.get("ai_adoption", [])) + roles
+    if "cloud" in text or "infrastructure" in text or "migration" in text:
+        roles = list(TREND_ROLE_MAPPING.get("cloud_migration", [])) + roles
+    if "compliance" in text or "regulatory" in text or "gdpr" in text:
+        roles = list(TREND_ROLE_MAPPING.get("compliance", [])) + roles
+    if "sustainability" in text or "esg" in text or "carbon" in text or "green" in text:
+        roles = list(TREND_ROLE_MAPPING.get("sustainability", [])) + roles
+    if "talent" in text or "hiring" in text or "workforce" in text or "retention" in text:
+        roles = list(TREND_ROLE_MAPPING.get("talent", [])) + roles
+    if "privacy" in text or "data protection" in text:
+        roles = list(TREND_ROLE_MAPPING.get("data_privacy", [])) + roles
+
+    # If no roles found, use default
+    if not roles:
+        roles = list(TREND_ROLE_MAPPING.get("default", []))
+
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique: list[str] = []
+    for r in roles:
+        key = r.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+
+    return unique[:8]  # Cap at 8 roles
 
 
 class ContactFinder:
@@ -102,11 +146,14 @@ class ContactFinder:
             self.search_manager = deps.search_manager
             self.llm_service = deps.llm_service
             self.apollo_tool = deps.apollo_tool
+            self.hunter_tool = getattr(deps, "hunter_tool", None)
         else:
             from ...search.manager import SearchManager
+            from app.tools.crm.hunter_tool import HunterTool
             self.search_manager = SearchManager()
             self.llm_service = LLMService(mock_mode=self.mock_mode, lite=True)
             self.apollo_tool = ApolloTool(mock_mode=self.mock_mode)
+            self.hunter_tool = HunterTool(mock_mode=self.mock_mode)
     
     async def find_contacts(self, state: AgentState) -> AgentState:
         """
@@ -124,8 +171,9 @@ class ContactFinder:
             logger.warning("No companies to find contacts for")
             return state
         
-        # Build a map of trend_id to impact for role lookup
+        # Build maps for role lookup
         impact_map = {imp.trend_id: imp for imp in state.impacts}
+        trend_map = {t.id: t for t in state.trends} if state.trends else {}
         
         all_contacts = []
         max_contacts = self.settings.max_contacts_per_company
@@ -138,9 +186,22 @@ class ContactFinder:
         async def _find_one(company):
             async with semaphore:
                 try:
-                    impact = impact_map.get(company.trend_id)
-                    target_roles = (impact.target_roles if impact and impact.target_roles
-                                    else ["CEO", "Founder", "CTO", "VP Operations"])
+                    # Priority: company.target_roles (LLM-inferred) > trend match > defaults
+                    if getattr(company, "target_roles", None):
+                        target_roles = list(company.target_roles)
+                    else:
+                        impact = impact_map.get(company.trend_id)
+                        trend = trend_map.get(company.trend_id)
+                        trend_type = getattr(trend, "trend_type", "") or "" if trend else ""
+                        pain_point = " ".join(getattr(impact, "midsize_pain_points", []) or []) if impact else ""
+                        who_needs_help = getattr(impact, "who_needs_help", "") or "" if impact else ""
+                        matched_roles = match_roles_to_trend(trend_type, pain_point, who_needs_help)
+                        if matched_roles:
+                            target_roles = matched_roles
+                        elif impact and impact.target_roles:
+                            target_roles = impact.target_roles
+                        else:
+                            target_roles = list(TREND_ROLE_MAPPING.get("default", []))
                     contacts = await self._find_contacts_for_company(
                         company, target_roles, max_contacts
                     )
@@ -178,14 +239,14 @@ class ContactFinder:
         dm_roles = [r for r in target_roles if self.classify_tier(r) == "decision_maker"]
         other_roles = [r for r in target_roles if self.classify_tier(r) != "decision_maker"]
 
-        # Fallback defaults if impact analysis didn't provide tier-specific roles
+        # Fallback defaults from settings (not hardcoded)
         if not dm_roles:
-            dm_roles = ["CEO", "Founder", "CTO", "VP Operations"]
+            dm_roles = [r.strip() for r in self.settings.default_dm_roles.split(",") if r.strip()]
         if not other_roles:
-            other_roles = ["Engineering Manager", "Product Manager", "Senior Engineer"]
+            other_roles = [r.strip() for r in self.settings.default_influencer_roles.split(",") if r.strip()]
 
-        # Phase 1: Decision makers (up to half the limit)
-        dm_limit = min(3, (limit + 1) // 2)
+        # Phase 1: Decision makers (up to half the limit, at least 3)
+        dm_limit = min(max(3, limit // 2), limit)
         if company.domain:
             try:
                 apollo_dms = await self._find_via_apollo(company, dm_roles, dm_limit)
@@ -194,13 +255,18 @@ class ContactFinder:
                 logger.debug(f"Apollo DM search failed for {company.company_name}: {e}")
 
         if len(contacts) < dm_limit:
-            for role in dm_roles[:dm_limit - len(contacts)]:
-                try:
-                    contact = await self._find_via_search(company, role)
-                    if contact and not self._contact_exists(contact, contacts):
-                        contacts.append(contact)
-                except Exception as e:
-                    logger.debug(f"Search DM failed for {role} at {company.company_name}: {e}")
+            import asyncio as _aio
+            needed = dm_limit - len(contacts)
+            dm_search_results = await _aio.gather(
+                *[self._find_via_search(company, role) for role in dm_roles[:needed]],
+                return_exceptions=True,
+            )
+            for i, result in enumerate(dm_search_results):
+                if isinstance(result, Exception):
+                    logger.debug(f"Search DM failed for {dm_roles[i]} at {company.company_name}: {result}")
+                    continue
+                if result and not self._contact_exists(result, contacts):
+                    contacts.append(result)
 
         # Phase 2: Influencers (remaining quota)
         inf_limit = limit - len(contacts)
@@ -214,15 +280,61 @@ class ContactFinder:
                 logger.debug(f"Apollo influencer search failed for {company.company_name}: {e}")
 
         if len(contacts) < limit:
-            for role in other_roles[:limit - len(contacts)]:
-                try:
-                    contact = await self._find_via_search(company, role)
-                    if contact and not self._contact_exists(contact, contacts):
+            import asyncio as _aio
+            needed = limit - len(contacts)
+            inf_search_results = await _aio.gather(
+                *[self._find_via_search(company, role) for role in other_roles[:needed]],
+                return_exceptions=True,
+            )
+            for i, result in enumerate(inf_search_results):
+                if isinstance(result, Exception):
+                    logger.debug(f"Search influencer failed for {other_roles[i]} at {company.company_name}: {result}")
+                    continue
+                if result and not self._contact_exists(result, contacts):
+                    contacts.append(result)
+                    if len(contacts) >= limit:
+                        break
+
+        # Phase 3: Hunter domain_search fallback — bulk contact discovery
+        if len(contacts) < limit and company.domain and self.hunter_tool:
+            try:
+                hunter_results = await self.hunter_tool.domain_search(
+                    company.domain, limit=limit - len(contacts)
+                )
+                for r in hunter_results:
+                    name = f"{r.get('first_name', '')} {r.get('last_name', '')}".strip()
+                    if not name or name == " ":
+                        continue
+                    contact_id = hashlib.md5(
+                        f"{company.id}_{name}".encode()
+                    ).hexdigest()[:12]
+                    contact = ContactData(
+                        id=contact_id,
+                        company_id=company.id,
+                        company_name=company.company_name,
+                        person_name=name,
+                        role=r.get("position", ""),
+                        email=r.get("email", ""),
+                        email_confidence=r.get("confidence", 50),
+                        email_source="hunter_domain",
+                        verified=False,
+                    )
+                    if not self._contact_exists(contact, contacts):
                         contacts.append(contact)
                         if len(contacts) >= limit:
                             break
-                except Exception as e:
-                    logger.debug(f"Search influencer failed for {role} at {company.company_name}: {e}")
+                if hunter_results:
+                    logger.info(f"Hunter domain_search added {len(hunter_results)} contacts for {company.company_name}")
+            except Exception as e:
+                logger.debug(f"Hunter domain_search failed for {company.company_name}: {e}")
+
+        # Post-process: validate emails and clean up
+        for c in contacts:
+            if c.email and not self.is_valid_email(c.email):
+                logger.debug(f"Invalid email format stripped: {c.email}")
+                c.email = ""
+                c.email_confidence = 0
+                c.verified = False
 
         return contacts[:limit]
     
@@ -232,24 +344,33 @@ class ContactFinder:
         roles: List[str],
         limit: int
     ) -> List[ContactData]:
-        """Find contacts using Apollo.io API."""
+        """Find contacts using Apollo.io API. Also caches org data for enrichment."""
         contacts = []
-        
-        # Search for people at the company with target roles
-        people = await self.apollo_tool.search_people_at_company(
+
+        # search_people_at_company now returns {"people": [...], "company": {...}}
+        result = await self.apollo_tool.search_people_at_company(
             domain=company.domain,
             roles=roles,
             limit=limit
         )
-        
+        people = result.get("people", []) if isinstance(result, dict) else result
+
+        # Cache Apollo org data on the company for downstream enrichment
+        apollo_org = result.get("company", {}) if isinstance(result, dict) else {}
+        if apollo_org:
+            if not company.description and apollo_org.get("description"):
+                company.description = apollo_org["description"]
+            if not company.industry and apollo_org.get("industry"):
+                company.industry = apollo_org["industry"]
+
         for person in people:
             if not person.get("name"):
                 continue
-            
+
             contact_id = hashlib.md5(
                 f"{company.id}_{person.get('name')}".encode()
             ).hexdigest()[:12]
-            
+
             contacts.append(ContactData(
                 id=contact_id,
                 company_id=company.id,
@@ -262,7 +383,7 @@ class ContactFinder:
                 email_source="apollo" if person.get("email") else "",
                 verified=person.get("email_verified", False)
             ))
-        
+
         return contacts
     
     async def _find_via_search(
@@ -270,8 +391,9 @@ class ContactFinder:
         company: CompanyData,
         role: str
     ) -> Optional[ContactData]:
-        """Find a contact via SearXNG web search."""
-        query = f"{role} {company.company_name} India LinkedIn"
+        """Find a contact via web search."""
+        country = getattr(self, '_country', 'India')
+        query = f"{role} {company.company_name} {country} LinkedIn"
         try:
             data = await self.search_manager.web_search(query, max_results=3)
         except Exception as e:
@@ -317,7 +439,7 @@ class ContactFinder:
         results = search_result.get("results", [])
         
         result_text = "\n".join([
-            f"- {r.get('title', '')}: {r.get('snippet', '')}"
+            f"- {r.get('title', '')}: {r.get('content', '')}"
             for r in results
         ])
         
@@ -363,20 +485,27 @@ If no relevant person is found, return {{"person_name": ""}}"""
             logger.warning(f"LLM extraction failed: {e}")
             return {}
     
+    _EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
+    @staticmethod
+    def is_valid_email(email: str) -> bool:
+        """Validate email format."""
+        if not email:
+            return False
+        return bool(ContactFinder._EMAIL_REGEX.match(email.strip()))
+
     def _contact_exists(self, new_contact: ContactData, existing: List[ContactData]) -> bool:
-        """Check if contact already exists in list."""
+        """Check if contact already exists by name OR email."""
         new_name = new_contact.person_name.lower().strip()
+        new_email = (new_contact.email or "").lower().strip()
         for contact in existing:
             if contact.person_name.lower().strip() == new_name:
+                return True
+            # Also deduplicate by email (different name variants, same person)
+            if new_email and (contact.email or "").lower().strip() == new_email:
                 return True
         return False
 
 
 # Backward compatibility alias
 ContactAgent = ContactFinder
-
-
-async def run_contact_agent(state: AgentState, deps=None) -> AgentState:
-    """Wrapper function for LangGraph."""
-    finder = ContactFinder(deps=deps) if deps else ContactFinder()
-    return await finder.find_contacts(state)

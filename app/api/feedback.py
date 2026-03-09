@@ -1,4 +1,10 @@
-"""Feedback router -- wraps existing feedback collection for API access."""
+"""Feedback router -- wraps existing feedback collection for API access.
+
+Rating translation: frontend sends simple labels (good/bad/known/ok), this
+endpoint maps them to the domain-specific ratings that the internal learning
+system expects (good_trend/bad_trend/already_knew for trends, would_email/
+bad_lead/maybe for leads).
+"""
 
 from typing import Optional
 
@@ -8,18 +14,27 @@ from app.api.schemas import (
     FeedbackRequest, FeedbackResponse, FeedbackSummaryResponse,
     FeedbackRecord, FeedbackHistoryResponse,
 )
-from app.tools.feedback import save_feedback, get_feedback_summary, load_feedback
+from app.tools.feedback_store import save_feedback, get_feedback_summary, load_feedback
 
 router = APIRouter()
+
+# Map frontend labels → internal domain-specific ratings
+_RATING_MAP = {
+    "trend": {"good": "good_trend", "bad": "bad_trend", "ok": "already_knew", "known": "already_knew"},
+    "lead":  {"good": "would_email", "bad": "bad_lead", "ok": "maybe", "known": "maybe"},
+}
 
 
 @router.post("", response_model=FeedbackResponse)
 async def submit_feedback(body: FeedbackRequest):
     """Submit trend or lead feedback for the learning system."""
+    mapping = _RATING_MAP.get(body.feedback_type, {})
+    internal_rating = mapping.get(body.rating, body.rating)
+
     record = save_feedback(
         feedback_type=body.feedback_type,
         item_id=body.item_id,
-        rating=body.rating,
+        rating=internal_rating,
         metadata=body.metadata,
     )
     return FeedbackResponse(saved=True, record=record)

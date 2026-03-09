@@ -50,6 +50,17 @@ function getDisabledProviders(): string[] {
   }
 }
 
+/** Read pipeline settings from localStorage */
+function getPipelineOverrides(): { country?: string; max_trends?: number } {
+  if (typeof window === "undefined") return {};
+  const overrides: { country?: string; max_trends?: number } = {};
+  const country = localStorage.getItem("harbinger_country");
+  if (country) overrides.country = country;
+  const maxTrends = localStorage.getItem("harbinger_max_trends");
+  if (maxTrends) overrides.max_trends = parseInt(maxTrends, 10);
+  return overrides;
+}
+
 /**
  * Core pipeline hook — handles real runs and mock replay via the same SSE path.
  *
@@ -78,7 +89,8 @@ export function usePipeline(onComplete?: (result: PipelineRunResult) => void) {
 
       try {
         const disabledProviders = getDisabledProviders();
-        const { run_id } = await api.runPipeline(mockMode, undefined, disabledProviders);
+        const overrides = getPipelineOverrides();
+        const { run_id } = await api.runPipeline(mockMode, undefined, disabledProviders, overrides);
         setState((s) => ({ ...s, runId: run_id }));
 
         const cleanup = api.streamPipeline(
@@ -125,10 +137,14 @@ export function usePipeline(onComplete?: (result: PipelineRunResult) => void) {
 
         cleanupRef.current = cleanup;
       } catch (err) {
+        const msg = err instanceof Error ? err.message : "Pipeline failed";
+        const isAlreadyRunning = msg.includes("409") || msg.toLowerCase().includes("already running");
         setState((s) => ({
           ...s,
           status: "error",
-          error: err instanceof Error ? err.message : "Pipeline failed",
+          error: isAlreadyRunning
+            ? "Pipeline already running. Use Force Reset to cancel the stuck run."
+            : msg,
         }));
       }
     },
@@ -140,5 +156,15 @@ export function usePipeline(onComplete?: (result: PipelineRunResult) => void) {
     setState(INITIAL_STATE);
   }, []);
 
-  return { ...state, run, reset };
+  const forceCancel = useCallback(async () => {
+    cleanupRef.current?.();
+    try {
+      await api.cancelPipeline();
+    } catch {
+      // Even if cancel fails, reset local state
+    }
+    setState(INITIAL_STATE);
+  }, []);
+
+  return { ...state, run, reset, forceCancel };
 }

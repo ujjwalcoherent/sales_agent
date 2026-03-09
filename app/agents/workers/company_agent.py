@@ -1,6 +1,6 @@
 """
 Company Finder Agent.
-Finds relevant Indian companies for each trend and impacted sector.
+Finds relevant companies for each trend and impacted sector.
 
 V8: AI Council Stage C — validates each company-trend pairing for genuine
 relevance. Improves pitch angles with service-specific recommendations.
@@ -16,18 +16,13 @@ import hashlib
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Set
-from urllib.parse import quote_plus
-
-import aiohttp
 
 from ...schemas import CompanyData, CompanySize, ImpactAnalysis, AgentState
-from ...tools.tavily_tool import TavilyTool
-from ...tools.llm_service import LLMService
-from ...tools.domain_utils import (
+from app.tools.llm.llm_service import LLMService
+from app.tools.domain_utils import (
     extract_clean_domain,
     is_valid_company_domain,
     extract_domain_from_company_name,
-    extract_domains_from_text
 )
 from ...config import get_settings, CMI_SERVICES
 
@@ -50,7 +45,7 @@ class CompanyDiscovery:
     Finds companies affected by trends via search + LLM extraction.
 
     For each impacted sector:
-    - Searches for relevant Indian companies
+    - Searches for relevant companies in the configured country
     - Classifies by size (startup/mid/enterprise)
     - Extracts company websites and domains
     - NER-based hallucination guard (V7)
@@ -66,10 +61,8 @@ class CompanyDiscovery:
         self._log_callback = log_callback
         self._deps = deps
         if deps:
-            self.tavily_tool = deps.tavily_tool
             self.llm_service = deps.llm_service
         else:
-            self.tavily_tool = TavilyTool(mock_mode=self.mock_mode)
             self.llm_service = LLMService(mock_mode=self.mock_mode)
 
     def _log(self, msg: str, level: str = "info"):
@@ -140,10 +133,10 @@ class CompanyDiscovery:
         # Size prioritization: mid-size companies first (CMI's target market)
         unique_companies = self._prioritize_by_size(unique_companies)
 
-        # V7: Verify companies against NER entities + Wikipedia
+        # V7: Verify companies against NER entities + company_enricher
         self._log(f"V7 Verification: Checking {len(unique_companies)} companies against source articles...")
         self._log(f"  Step 1: Cross-referencing with NER entities from trend sources")
-        self._log(f"  Step 2: Wikipedia fallback for companies not found in sources")
+        self._log(f"  Step 2: Enrichment via company_enricher (Wikidata + Apollo + KB)")
         unique_companies = await self._verify_all_companies(unique_companies, state)
 
         # V8: Stage C — AI council validates company-trend relevance
@@ -181,69 +174,66 @@ class CompanyDiscovery:
         # Build queries that return NEWS with specific company names
         trend_short = impact.trend_title[:60]
 
+        country = self.settings.country
+
         # Q1: Trend-specific company news (most likely to mention real companies)
-        search_queries.append(f'{trend_short} India companies')
-        search_queries.append(f'{trend_short} Indian company funding investment news {current_year}')
+        search_queries.append(f'{trend_short} {country} companies')
+        search_queries.append(f'{trend_short} {country} company funding investment news {current_year}')
 
         # Q2: Sector-specific company news
         if impact.direct_impact:
             for company_type in impact.direct_impact[:3]:
                 search_queries.append(
-                    f'{company_type} India company news {current_year}'
+                    f'{company_type} {country} company news {current_year}'
                 )
                 search_queries.append(
-                    f'Indian {company_type} startup funding acquisition {current_year}'
+                    f'{country} {company_type} startup funding acquisition {current_year}'
                 )
 
         # Q3: Company list queries (high yield for company names)
         if impact.direct_impact:
             for sector in impact.direct_impact[:2]:
-                search_queries.append(f'top {sector} companies India {current_year}')
-                search_queries.append(f'emerging {sector} companies India startups {current_year}')
+                search_queries.append(f'top {sector} companies {country} {current_year}')
+                search_queries.append(f'emerging {sector} companies {country} startups {current_year}')
 
         # Q4: Pain-point-driven company search
         if impact.midsize_pain_points:
             for pain_point in impact.midsize_pain_points[:2]:
                 keywords = self._extract_key_terms(pain_point)
                 if keywords:
-                    search_queries.append(f'India company {keywords} news {current_year}')
+                    search_queries.append(f'{country} company {keywords} news {current_year}')
 
         # Q5: Phase 3B — use who_needs_help verbatim as highest-signal query
         if getattr(impact, 'who_needs_help', ''):
             who = impact.who_needs_help[:120]  # cap length
-            search_queries.insert(0, f'{who} India company news {current_year}')
-            search_queries.insert(1, f'{who} India startup SME {current_year}')
+            search_queries.insert(0, f'{who} {country} company news {current_year}')
+            search_queries.insert(1, f'{who} {country} startup SME {current_year}')
         
         max_queries = self.settings.max_search_queries_per_impact
         queries_to_run = search_queries[:max_queries]
 
-        # Route to best available search: Tavily (if enabled) → SearchManager (SearXNG/DDG)
-        use_tavily = getattr(self.settings, 'tavily_enabled', False) and self.tavily_tool.available
-        search_label = "Tavily" if use_tavily else "SearXNG/DDG"
-        self._log(f"  Running {len(queries_to_run)} {search_label} searches (parallel)...")
+        self._log(f"  Running {len(queries_to_run)} web searches (parallel)...")
 
-        # Step 1: Run all searches concurrently
+        # Step 1: Run all searches concurrently via web_intel
         async def _do_search(query: str):
             try:
                 if self.mock_mode:
                     return await self._get_mock_companies_with_intent(query, impact, limit)
-                if use_tavily:
-                    resp = await self.tavily_tool.search(query=query, max_results=8)
-                    if isinstance(resp, dict) and "error" in resp:
-                        return []
-                    return resp.get("results", [])
-                # SearXNG/DDG via SearchManager
-                sm = getattr(self._deps, 'search_manager', None) if self._deps else None
-                if sm:
-                    resp = await sm.web_search(query, max_results=8)
-                    return resp.get("results", [])
-                return []
+                from app.tools.web.web_intel import search
+                results = await search(query, max_results=8)
+                # Convert SearchResult objects to dicts for downstream compatibility
+                return [{"title": r.title, "url": r.url, "content": r.snippet} for r in results]
             except Exception as e:
                 logger.warning(f"Search failed: {e}")
                 return []
 
+        search_sem = asyncio.Semaphore(10)
+        async def _do_search_bounded(query):
+            async with search_sem:
+                return await _do_search(query)
+
         search_results_per_query = await asyncio.gather(
-            *[_do_search(q) for q in queries_to_run]
+            *[_do_search_bounded(q) for q in queries_to_run]
         )
 
         # Step 2: Collect all search results and extract companies concurrently
@@ -285,9 +275,9 @@ class CompanyDiscovery:
                 if fail:
                     self._log(f"  Extraction: {ok} succeeded, {fail} failed", "warning")
             else:
-                self._log("  No search results returned from Tavily", "warning")
+                self._log("  No search results returned", "warning")
 
-        # Fallback chain when Tavily returns 0: Company KB → DDG web search
+        # Fallback chain when search returns 0: Company KB → DDG web search
         if not companies and self._deps:
             companies = await self._fallback_search(impact, queries_to_run[:3], limit)
 
@@ -296,33 +286,28 @@ class CompanyDiscovery:
         return companies[:limit]
     
     async def _fallback_search(self, impact, queries: list, limit: int = 10) -> list:
-        """Fallback: DDG/SearXNG web search when Tavily is unavailable."""
+        """Fallback: web search (DDG) when primary search returns empty."""
         from app.schemas.sales import CompanyData, CompanySize
         companies = []
-
-        # DDG/SearXNG via SearchManager (free, no API key needed)
-        sm = getattr(self._deps, 'search_manager', None)
-        if sm:
-            self._log("  Fallback: web search (DDG/SearXNG)...")
-            for query in queries[:3]:
-                try:
-                    result = await sm.web_search(f"{query}", max_results=5)
-                    for r in result.get("results", []):
-                        title = r.get("title", "")
-                        # Extract company names from search results using LLM
-                        if title and self.llm_service.has_available_provider():
-                            try:
-                                extracted = await self._extract_companies_with_intent(r, impact, query)
-                                companies.extend(extracted)
-                            except Exception:
-                                pass
-                    if len(companies) >= limit:
-                        break
-                except Exception as e:
-                    logger.debug(f"  Fallback search failed: {e}")
-            if companies:
-                self._log(f"  Web fallback: {len(companies)} companies found")
-
+        from app.tools.web.web_intel import search
+        self._log("  Fallback: web search (ddgs)...")
+        for query in queries[:3]:
+            try:
+                results = await search(query, max_results=5)
+                for r in results:
+                    result_dict = {"title": r.title, "url": r.url, "content": r.snippet}
+                    if r.title and self.llm_service.has_available_provider():
+                        try:
+                            extracted = await self._extract_companies_with_intent(result_dict, impact, query)
+                            companies.extend(extracted)
+                        except Exception:
+                            pass
+                if len(companies) >= limit:
+                    break
+            except Exception as e:
+                logger.debug(f"  Fallback search failed: {e}")
+        if companies:
+            self._log(f"  Web fallback: {len(companies)} companies found")
         return companies[:limit]
 
     _STOPWORDS = frozenset({
@@ -347,13 +332,14 @@ class CompanyDiscovery:
         pain_points = getattr(impact, 'midsize_pain_points', [])[:2]
         company_types = getattr(impact, 'direct_impact', [])[:2]
         
-        prompt = f"""Find REAL mid-size Indian companies (50-300 employees) that would be affected by this trend.
+        country = self.settings.country
+        prompt = f"""Find REAL mid-size {country} companies (50-300 employees) that would be affected by this trend.
 
 TREND: {impact.trend_title}
 COMPANY TYPES AFFECTED: {', '.join(company_types) if company_types else 'General mid-size companies'}
 PAIN POINTS THEY FACE: {', '.join(pain_points) if pain_points else 'Market challenges'}
 
-Return a JSON array of 3-4 REAL Indian companies with:
+Return a JSON array of 3-4 REAL {country} companies with:
 - company_name: REAL company name (not fictional)
 - website: Their actual website
 - industry: Their industry
@@ -389,8 +375,8 @@ Focus on:
                 if not domain:
                     domain = extract_domain_from_company_name(company_name)
                 
-                company_id = hashlib.md5(company_name.encode()).hexdigest()[:12]
-                
+                company_id = hashlib.md5(company_name.lower().encode()).hexdigest()[:12]
+
                 # Build reason with intent signal
                 intent = item.get("intent_signal", "")
                 reason = item.get("reason_relevant", f"Affected by {impact.trend_title[:30]}")
@@ -487,7 +473,7 @@ RULES:
             # Load company relevance bandit for contextual scoring
             relevance_bandit = None
             try:
-                from app.agents.company_relevance_bandit import CompanyRelevanceBandit
+                from app.learning.company_bandit import CompanyRelevanceBandit
                 relevance_bandit = CompanyRelevanceBandit()
                 logger.debug("Relevance bandit loaded for contextual scoring")
             except Exception:
@@ -560,7 +546,7 @@ RULES:
                 if domain and not is_valid_company_domain(domain):
                     domain = ""
 
-                company_id = hashlib.md5(company_name.encode()).hexdigest()[:12]
+                company_id = hashlib.md5(company_name.lower().encode()).hexdigest()[:12]
 
                 intent = item.get("intent_signal", "")
                 reason = item.get("reason_relevant", "")
@@ -661,7 +647,7 @@ RULES:
             return companies
 
         try:
-            from .council.lead_validator import validate_lead
+            from .lead_validator import validate_lead
         except ImportError:
             logger.warning("Lead validator not available, skipping Stage C")
             return companies
@@ -788,83 +774,87 @@ RULES:
 
         return False
 
-    @staticmethod
-    async def _verify_via_wikipedia(company_name: str) -> bool:
-        """
-        V7: Verify company existence via Wikipedia API (free, no key needed).
-
-        Uses the Wikipedia search API to check if a page exists for the company.
-        Returns True if a relevant page is found, False otherwise.
-        """
-        try:
-            encoded = quote_plus(f"{company_name} company")
-            url = (
-                f"https://en.wikipedia.org/w/api.php?"
-                f"action=query&list=search&srsearch={encoded}"
-                f"&srlimit=3&format=json"
-            )
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    if resp.status != 200:
-                        return False
-                    data = await resp.json()
-                    results = data.get("query", {}).get("search", [])
-                    if not results:
-                        return False
-                    # Check if any result title contains the company name
-                    norm = CompanyDiscovery._normalize_name(company_name)
-                    for result in results:
-                        result_norm = CompanyDiscovery._normalize_name(result.get("title", ""))
-                        if norm in result_norm or result_norm in norm:
-                            return True
-                    return False
-        except Exception as e:
-            logger.debug(f"Wikipedia verification failed for '{company_name}': {e}")
-            return False
-
     async def _verify_company(
         self,
         company: CompanyData,
         source_entities: Set[str],
     ) -> CompanyData:
-        """
-        V7: Verify a single company against NER entities and Wikipedia.
-
-        Sets company.ner_verified, verification_source, verification_confidence.
+        """V8: Verify and enrich via NER + company_enricher (unified pipeline).
 
         Confidence scoring:
-        - NER match: 0.9 (entity found in source articles)
-        - Wikipedia match: 0.6 (company exists but not in article context)
+        - NER match + Wikidata: 0.95 (verified in both sources)
+        - NER match only: 0.9 (entity found in source articles)
+        - Wikidata match: 0.85 (structured KB match, rich data)
+        - Enriched (description only): 0.6
         - No match: 0.2 (potentially hallucinated)
         """
-        min_confidence = self.settings.company_min_verification_confidence
-
-        # Step 1: Check against NER entities from source articles
-        if self._fuzzy_entity_match(company.company_name, source_entities):
+        # Step 1: NER entity matching (keep — this is article-specific)
+        ner_match = self._fuzzy_entity_match(company.company_name, source_entities)
+        if ner_match:
             company.ner_verified = True
             company.verification_source = "ner_match"
             company.verification_confidence = 0.9
-            logger.debug(f"V7: '{company.company_name}' verified via NER match")
+
+        # Step 2: Unified enrichment via company_enricher
+        try:
+            from app.tools.company_enricher import validate_entity, enrich
+
+            # Validate first (fast, cached)
+            validation = await asyncio.wait_for(
+                validate_entity(company.company_name), timeout=5.0
+            )
+
+            if not validation.is_valid_company and not ner_match:
+                company.verification_source = "invalid_entity"
+                company.verification_confidence = 0.1
+                return company
+
+            # Enrich (uses Wikidata + Apollo + KB cache)
+            enriched = await asyncio.wait_for(
+                enrich(company.company_name, domain=company.domain, skip_validation=True),
+                timeout=8.0
+            )
+
+            if enriched:
+                # Apply enrichment data (only fill blanks)
+                company.description = enriched.description or company.description
+                company.industry = enriched.industry or company.industry
+                company.headquarters = enriched.headquarters or getattr(company, "headquarters", "")
+                company.employee_count = enriched.employee_count or getattr(company, "employee_count", "")
+                company.stock_ticker = enriched.stock_ticker or getattr(company, "stock_ticker", "")
+                company.ceo = enriched.ceo or getattr(company, "ceo", "")
+                company.founded_year = enriched.founded_year or getattr(company, "founded_year", None)
+                if enriched.website and not company.website:
+                    company.website = enriched.website
+                if enriched.domain and not company.domain:
+                    company.domain = enriched.domain
+
+                # Set confidence based on validation + enrichment
+                validation_src = enriched.validation.validation_source if enriched.validation else ""
+                if validation_src in ("tavily", "kb_cache"):
+                    if ner_match:
+                        company.verification_confidence = 0.95
+                        company.verification_source = f"ner_match+{validation_src}"
+                    else:
+                        company.ner_verified = True
+                        company.verification_confidence = 0.85
+                        company.verification_source = validation_src
+                elif enriched.description:
+                    company.verification_confidence = max(company.verification_confidence, 0.6)
+                    company.verification_source = company.verification_source or "enriched"
+
+                return company
+        except Exception as e:
+            logger.debug(f"Enrichment failed for '{company.company_name}': {e}")
+
+        # NER-only result
+        if ner_match:
             return company
 
-        # Step 2: Wikipedia fallback
-        wiki_verified = await self._verify_via_wikipedia(company.company_name)
-        if wiki_verified:
-            company.ner_verified = True
-            company.verification_source = "wikipedia"
-            company.verification_confidence = 0.6
-            logger.debug(f"V7: '{company.company_name}' verified via Wikipedia")
-            return company
-
-        # Step 3: No verification — flag as potentially hallucinated
+        # Step 3: Unverified
         company.ner_verified = False
         company.verification_source = "unverified"
         company.verification_confidence = 0.2
-        logger.warning(
-            f"V7: '{company.company_name}' could NOT be verified "
-            f"(not in NER entities, not on Wikipedia)"
-        )
-
         return company
 
     async def _verify_all_companies(
@@ -904,7 +894,7 @@ RULES:
         verified: List[CompanyData] = []
         min_confidence = self.settings.company_min_verification_confidence
 
-        self._log(f"  V7: Running NER match + Wikipedia verification (concurrent)...")
+        self._log(f"  V7: Running NER match + enrichment verification (concurrent)...")
         verified_companies = await asyncio.gather(
             *[self._verify_company(c, source_entities) for c in companies]
         )
@@ -919,13 +909,14 @@ RULES:
 
         # Log verification summary
         ner_count = sum(1 for c in verified if c.verification_source == "ner_match")
-        wiki_count = sum(1 for c in verified if c.verification_source == "wikipedia")
+        tavily_count = sum(1 for c in verified if "tavily" in (c.verification_source or ""))
+        enriched_count = sum(1 for c in verified if c.verification_source == "enriched")
         unverified_count = sum(1 for c in verified if c.verification_source == "unverified")
         filtered_count = len(companies) - len(verified)
 
         self._log(
             f"  V7 Results: {len(verified)}/{len(companies)} passed — "
-            f"{ner_count} found in articles, {wiki_count} verified via Wikipedia, "
+            f"{ner_count} NER, {tavily_count} Tavily, {enriched_count} enriched, "
             f"{unverified_count} unverified, {filtered_count} filtered out"
         )
 
@@ -934,9 +925,3 @@ RULES:
 
 # Backward compatibility alias
 CompanyAgent = CompanyDiscovery
-
-
-async def run_company_agent(state: AgentState, deps=None) -> AgentState:
-    """Wrapper function for LangGraph."""
-    finder = CompanyDiscovery(deps=deps) if deps else CompanyDiscovery()
-    return await finder.find_companies(state)

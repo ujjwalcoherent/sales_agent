@@ -23,9 +23,9 @@ Hypothesis v1 (data/filter_hypothesis.json): B2B_mean=0.859, Noise_mean=0.333
 Verified on real 120h data: 195/1018 articles pass (19%%, mean_NLI=0.721)
 
 Decision:
-  nli_entailment >= nli_auto_accept (0.55) → keep (no LLM)
-  nli_entailment <= nli_auto_reject (0.05) → drop (no LLM)
-  0.05 < entailment < 0.55               → LLM batch classify (ambiguous cases only)
+  nli_entailment >= nli_auto_accept (0.88) → keep (no LLM)
+  nli_entailment <= nli_auto_reject (0.10) → drop (no LLM)
+  0.10 < entailment < 0.88               → LLM batch classify (ambiguous cases only)
 
 ~80% of decisions are pure NLI math. LLM is the exception, not the rule.
 The NLI hypothesis is loaded from data/filter_hypothesis.json and updated
@@ -100,14 +100,22 @@ async def filter_articles(
     ambiguous: List[Tuple[Article, float]] = []
 
     for article, nli_score in zip(articles, nli_scores):
-        if nli_score >= params.nli_auto_accept:
+        # Title-only articles (no summary) → always route to LLM regardless of NLI score.
+        # Without summary context, NLI auto-accept produces too many false positives
+        # (consumer product launches, celebrity quotes, government announcements all score
+        # high on title alone — e.g., "OnePlus 15T launches" scores 0.95 title-only).
+        summary_len = len(getattr(article, "summary", "") or "")
+        is_title_only = summary_len < 30
+
+        if nli_score >= params.nli_auto_accept and not is_title_only:
             kept.append(article)
             auto_accepted += 1
         elif nli_score <= params.nli_auto_reject:
             dropped_ids.append(article.id)
             auto_rejected += 1
         else:
-            # Semantic ambiguity zone (0.05–0.55) → LLM second opinion
+            # Semantic ambiguity zone → LLM second opinion
+            # (also includes title-only articles that scored above auto_accept threshold)
             ambiguous.append((article, nli_score))
 
     # ── LLM batch classify ambiguous cases ────────────────────────────────────
@@ -115,8 +123,51 @@ async def filter_articles(
     kept.extend(llm_kept)
     dropped_ids.extend(a.id for a in llm_rejected)
 
+    # ── Industry classification (1st/2nd order) ───────────────────────────────
+    # Runs AFTER base NLI filter — only labels articles that already passed B2B gate.
+    # Labels each article with industry_label, industry_order, first_order_score.
+    # Soft step: never drops articles, only annotates.
+    if scope.mode != "company_first" or scope.industry:
+        try:
+            from app.intelligence.industry_classifier import (
+                classify_articles as classify_by_industry,
+                build_spec_from_profile,
+                get_spec,
+                BUILT_IN_SPECS,
+            )
+            # Build specs from scope: use scope.industry if set, else all built-ins
+            if scope.industry:
+                spec = get_spec(scope.industry)
+                if spec is None:
+                    spec = build_spec_from_profile(
+                        industry_id=scope.industry,
+                        first_order_description=scope.industry,
+                        second_order_description="vendors and service providers for " + scope.industry,
+                        region=scope.region,
+                    )
+                industry_specs = [spec]
+            else:
+                # Use all built-ins — article gets best-matching industry
+                industry_specs = list(BUILT_IN_SPECS.values())
+                # Apply region from scope to each spec
+                if scope.region and scope.region != "GLOBAL":
+                    from dataclasses import replace
+                    industry_specs = [
+                        replace(s, region=scope.region) for s in industry_specs
+                    ]
+            kept = classify_by_industry(kept, industry_specs)
+        except Exception as exc:
+            logger.warning(f"[filter] Industry classification failed (non-fatal): {exc}")
+
     # ── Apply Gap 4 rule ───────────────────────────────────────────────────────
-    kept, gap4_dropped = _apply_gap4(kept, targets, params.filter_gap4_days)
+    # Gap4 only makes sense in Company-First mode (tracking real named companies).
+    # In Industry-First mode, targets are generic keywords ('saas', 'ai', 'software') —
+    # Gap4 would incorrectly drop articles about "SaaS companies" if "saas" keyword
+    # has no standalone recent match, even though the article is a valid B2B signal.
+    if scope.companies:
+        kept, gap4_dropped = _apply_gap4(kept, targets, params.filter_gap4_days)
+    else:
+        gap4_dropped = []
 
     # ── Set run_index on kept articles ────────────────────────────────────────
     for i, art in enumerate(kept):
@@ -129,6 +180,26 @@ async def filter_articles(
         if art.id in kept_ids
     ]
     nli_mean = float(sum(kept_nli_scores) / len(kept_nli_scores)) if kept_nli_scores else 0.0
+
+    # ── Auto-label high-confidence examples for dataset enhancement ────────────
+    # NLI high-confidence kept → positive examples (no human needed)
+    # NLI auto-rejected → negative examples (very low entailment = confirmed noise)
+    # Runs async in background, never blocks filter output.
+    try:
+        from app.learning.dataset_enhancer import DatasetEnhancer
+        enhancer = DatasetEnhancer()
+        # Build nli_score map per kept article
+        article_nli = {art.id: score for art, score in zip(articles, nli_scores)}
+        kept_with_scores = [article_nli.get(a.id, 0.0) for a in kept]
+        # Gather auto-rejected texts (articles that scored below auto_reject threshold)
+        rejected_texts = [
+            f"{a.title}. {a.summary or ''}"[:400]
+            for a, s in zip(articles, nli_scores)
+            if s <= params.nli_auto_reject and a.id not in kept_ids
+        ]
+        enhancer.extract_labels_from_filter(kept, rejected_texts, kept_with_scores)
+    except Exception as _exc:
+        pass  # Never block the filter for dataset enhancement
 
     # ── Math assertions ───────────────────────────────────────────────────────
     assert_target_present = _check_targets_present(kept, targets, articles)
@@ -277,13 +348,22 @@ async def _llm_classify_batch(
     rejected: List[Article] = []
     targets = _get_targets(scope)
 
-    # Fast path: if any target name is in title → accept without LLM
+    # Fast path: only used in Company-First mode where scope.companies lists real company names.
+    # DISABLED for Industry-First mode — industry keywords like "ai", "cloud", "saas" are too
+    # generic and would substring-match unrelated words, bypassing LLM for sports/crime/etc.
     fast_accept: List[Article] = []
     need_llm: List[Tuple[Article, float]] = []
 
+    # Only fast-accept when scope explicitly lists company names (Company-First path).
+    # Industry keywords are sent to LLM without exception.
+    company_first_targets = scope.companies if (scope.companies) else []
+
     for article, nli_score in ambiguous:
         title_lower = article.title.lower()
-        if any(t.lower() in title_lower for t in targets):
+        if company_first_targets and any(
+            re.search(r'\b' + re.escape(t.lower()) + r'\b', title_lower)
+            for t in company_first_targets
+        ):
             fast_accept.append(article)
         else:
             need_llm.append((article, nli_score))
@@ -332,16 +412,34 @@ async def _classify_batch(
         try:
             from app.intelligence.config import INDUSTRY_TAXONOMY
             exclude = INDUSTRY_TAXONOMY.get(industry, {}).get("exclude", [])
-            exclude_str = ", ".join(exclude[:4]) if exclude else "sports, celebrity, crime"
+            exclude_str = ", ".join(exclude[:4]) if exclude else "sports, celebrity, crime, politics"
         except Exception:
             exclude_str = "sports, celebrity, crime, politics"
 
         prompt = f"""You are a B2B sales intelligence filter for the {industry} industry.
 
+B2B ONLY: Keep articles relevant to BUSINESS-TO-BUSINESS events where companies sell
+to or partner with other businesses — NOT consumer-facing news.
+
 For each article below, respond with KEEP or DROP.
-KEEP if the article is about: enterprise deals, M&A, funding, regulation, product launches,
-  earnings, executive changes, or market trends in the {industry} sector.
-DROP if the article is about: {exclude_str}, general consumer news, or unrelated industries.
+
+KEEP if ALL three are true:
+1. A specific named private or public company is the PRIMARY actor
+2. The event is B2B-relevant: enterprise software, SaaS, cloud services, industrial tech,
+   semiconductors, data centers, B2B platforms, funding rounds, acquisitions, partnerships,
+   IPO filings, regulatory actions affecting a named company
+3. Not primarily consumer-facing
+
+DROP if ANY is true:
+- Consumer electronics (phones, tablets, TVs, headphones, wearables for end users)
+- Consumer product reviews, gadget reviews, 'best of' buying guides for general public
+- Stock analyst tips, price targets, buy/sell recommendations, investor commentary
+- Sports, cricket, gaming, entertainment, celebrity news
+- Government/politician announcements, military operations, geopolitical events
+- Crime, court cases, bail hearings NOT involving a company as defendant
+- Macro trends with no specific company as primary actor
+- {exclude_str}
+- No named company as the primary subject making a business decision
 
 Articles:
 {titles}
@@ -354,9 +452,11 @@ Example: KEEP, DROP, KEEP, KEEP, DROP"""
 
 Target companies: {targets_str}
 
+Rule: KEEP only if a SPECIFIC NAMED COMPANY (not government/politician) is the primary actor.
+
 For each article below, respond with KEEP or DROP.
-KEEP = article is directly about {targets_str} (business news, earnings, product, strategy, regulation).
-DROP = article is NOT about {targets_str} (politics, sports, crime, celebrity, unrelated sectors).
+KEEP = a specific company in {targets_str} is making a business move (earnings, product, strategy, deal, regulation targeting the company).
+DROP = article is about government policy, infrastructure by politicians, macro trends, or {targets_str} is not the primary subject (politics, sports, crime, celebrity).
 
 Articles:
 {titles}
@@ -366,7 +466,7 @@ Example: KEEP, DROP, KEEP, KEEP, DROP"""
 
     try:
         from app.tools.llm.llm_service import LLMService
-        response = await llm.generate(prompt, model_tier="lite", max_tokens=50)
+        response = await llm.generate(prompt, max_tokens=50)
         decisions = [d.strip().upper() for d in response.split(",")]
 
         kept = []

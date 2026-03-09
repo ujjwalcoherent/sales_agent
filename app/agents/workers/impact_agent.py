@@ -11,9 +11,9 @@ import logging
 from typing import List, Optional
 
 from ...schemas import TrendData, ImpactAnalysis, AgentState
-from ...tools.llm_service import LLMService
+from app.tools.llm.llm_service import LLMService
 from ...config import get_settings, TREND_ROLE_MAPPING, CMI_SERVICES
-from .council.impact_council import run_impact_council
+from .impact_council import run_impact_council
 
 logger = logging.getLogger(__name__)
 

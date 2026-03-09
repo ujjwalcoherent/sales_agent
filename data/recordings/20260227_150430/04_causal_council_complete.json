@@ -1,0 +1,174 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Anthropic is resisting the US Department of Defense's demand to remove AI safeguards, risking blacklisting and loss of a $200 million defense contract. This creates regulatory pressure and potential contract risks for AI firms supplying defense and cascades supply chain impacts to dependent defense contractors.",
+      "event_type": "regulation",
+      "reasoning": "Step 1: The news event describes how Anthropic, an AI company with a $200 million US Department of Defense contract, faces risk of blacklisting if it does not comply with the Pentagon's demand to remove AI safeguards. This poses direct risk to Anthropic's contract and to similar AI firms dealing with defense contracts. This is Hop 1 with high confidence.\n\nStep 2: Indian AI startups and mid-sized firms involved in defense AI tech supply chains (such as Constelli, Hi-Tech Robotics Systemz, Beta Co",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "AI technology firms with US defense contracts facing compliance demands and risk of blacklisting",
+          "lead_type": "pain",
+          "mechanism": "Anthropic's resistance to Pentagon demands risks contract loss and blacklisting, creating immediate compliance and revenue risk for AI firms in defense supply chain.",
+          "companies_found": [
+            "Anthropic"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Indian AI startups and mid-size companies supplying or aiming to supply AI tech to defense ecosystem (e.g. Constelli Hyderabad, Hi-Tech Robotics Systemz Gurgaon, Beta Control Pune, Logic Fruit Technologies Delhi) exposed to increased scrutiny and contract risk due to tightened US/foreign AI defense regulations",
+          "lead_type": "risk",
+          "mechanism": "These AI startups may face increased regulatory demand and supply chain disruptions if US firms lose contracts or tighten AI system capabilities, causing delays or need for compliance upgrades.",
+          "companies_found": [
+            "Constelli",
+            "Hi-Tech Robotics Systemz",
+            "Beta Control",
+            "Logic Fruit Technologies"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Indian defense technology and manufacturing SMEs relying on AI tech supplied by tier-2 AI startups for autonomous systems, robotics, surveillance, and defense applications",
+          "lead_type": "pain",
+          "mechanism": "If AI startups face contract or capability risks (Hop 2), Indian defense SMEs depending on these AI technologies will face operational delays or need to find alternate suppliers, affecting production timelines.",
+          "companies_found": [
+            "Craic Precision Pvt. Ltd.",
+            "Ideaforge Tech",
+            "Krishna Defence"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "TCS laid off 20,000 employees to reduce workforce costs while mandating increased AI adoption among remaining staff to boost productivity, impacting IT employees with job loss or reskilling pressures. This drives demand for AI training, digital transformation consulting, and HR transition services among mid-size firms, affecting clients of IT services who must adapt to AI-driven models.",
+      "event_type": "technology",
+      "reasoning": "Step 1: The direct news event is TCS laying off 20k employees and mandating AI adoption. Mid-size IT service firms similar to TCS or in overlapping talent markets, such as Pune-based Talentica Software and LogiQuad Solutions, are directly impacted by workforce disruptions and AI skill demands. This is an immediate pain with urgency ~2 weeks.\n\nStep 2: These workforce reductions and AI mandates increase demand for AI training, reskilling, and digital transformation consulting among mid-size compan",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian IT service and software companies undergoing workforce reduction and AI adoption mandates",
+          "lead_type": "pain",
+          "mechanism": "TCS's large layoffs and AI mandates directly cause workforce reduction and skill pressures among mid-size IT service firms in India facing similar pressures or talent market shifts.",
+          "companies_found": [
+            "Talentica Software (Pune)",
+            "LogiQuad Solutions (Pune)"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size AI training and workforce reskilling firms in India",
+          "lead_type": "opportunity",
+          "mechanism": "The layoffs and AI skill mandates at IT firms create increased demand for AI training and workforce reskilling services, benefiting mid-size firms providing these offerings.",
+          "companies_found": [
+            "Manthan (AI), SigTuple, Mad Street De",
+            "Zensar Technologies (upskilling)"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size HR consulting and IT service client companies in India adapting to AI-driven workforce and service delivery changes",
+          "lead_type": "intelligence",
+          "mechanism": "The surge in reskilling and digital transformation consulting impacts mid-size HR consulting firms managing workforce transitions and mid-size IT clients adjusting procurement and project plans for AI-driven services.",
+          "companies_found": [
+            "Wisemonk (HR consulting)",
+            "BetterWorld Technology (IT managed services)"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "India's commercial real estate and hospitality markets are being reshaped by 2030 due to growth of Global Capability Centres (GCCs), increasing demand for premium office spaces, and a shift toward midscale hotels especially in tier-2 and tier-3 cities. Rising construction costs challenge growth, but urban expansion and wealth growth fuel investment in luxury real estate and modular kitchens.",
+      "event_type": "consumer_shift",
+      "reasoning": "The trend highlights a reshaping of India's commercial real estate and hospitality markets by 2030 fueled by GCC growth, increased urbanization in tier-2 and tier-3 cities, and rising wealth driving luxury real estate and modular kitchen demand. First-order impact (Hop 1) falls on mid-size commercial real estate developers and office space providers like Table Space and Marvel Realtors, who benefit from increased demand for premium offices by GCCs. Second-order impacts (Hop 2) extend to construc",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size commercial real estate developers and office space providers in metropolitan areas like Pune and Mumbai (e.g., Table Space, Marvel Realtors)",
+          "lead_type": "opportunity",
+          "mechanism": "Growth of GCCs drives demand for premium office spaces, creating direct growth opportunities for space providers like Table Space",
+          "companies_found": [
+            "Table Space",
+            "Marvel Realtors"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Construction contractors and modular kitchen manufacturers in tier-2 and tier-3 cities (e.g., Shree Kitchen, Saras Kitchen Trolleys And Furniture)",
+          "lead_type": "opportunity",
+          "mechanism": "Increased construction by real estate and hospitality developers boosts demand for construction services and modular kitchens",
+          "companies_found": [
+            "Shree Kitchen",
+            "Saras Kitchen Trolleys And Furniture"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Local furniture manufacturers and logistics providers servicing tier-2 and tier-3 cities (e.g., smaller furniture workshops and regional transport companies)",
+          "lead_type": "opportunity",
+          "mechanism": "Rising modular kitchen demand generates opportunities for local furniture makers and logistics providers to supply and support growing urban housing needs",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "In 2025, India's tech startup funding surged by 23%, reaching $9.1 billion, fueled primarily by innovations in AI and IoT. Key companies directly impacted are mid-size AI and IoT startups such as Spintly (IoT security, Goa) backed by venture capital firms Accel and Enrission India. Regional innovation hubs like NAMO iHub in Mehsana are playing a vital role in nurturing startup ecosystems. This surge in funding indicates strong investor confidence and increased innovation activity, as reflected in rising patent filings.",
+      "event_type": "funding",
+      "reasoning": "The trend is a surge in tech startup funding in India driven by AI and IoT innovation. The direct impacted companies (Hop 1) are mid-sized startups like Spintly in Goa, which raised significant funding from Accel and Enrission India. These startups are positioned to benefit immediately by scaling operations and product development. In Hop 2, suppliers and service providers specializing in AI and IoT components and development services are likely to experience increased demand thanks to their dir",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size AI and IoT startups in India (20-200 employees), especially in innovation hubs like Goa and Mehsana such as Spintly and competitors",
+          "lead_type": "opportunity",
+          "mechanism": "Direct benefit from increased venture capital funding leading to growth, innovation, and scaling opportunities",
+          "companies_found": [
+            "Spintly"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Indian AI and IoT component suppliers and software service providers supplying technology and development services to mid-size startups funded in India",
+          "lead_type": "opportunity",
+          "mechanism": "AI and IoT startups fueled by fresh funding increase demand for components, hardware, and software development services",
+          "companies_found": [
+            "Nadcab Labs",
+            "SIEORA",
+            "True Value Infosoft"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME clients of AI and IoT startups' software and solutions customers like small and medium enterprises adopting AI and IoT innovations in India",
+          "lead_type": "opportunity",
+          "mechanism": "AI and IoT startups expand their product/service offerings, enabling SMEs to adopt new technologies, improving their efficiency and competitiveness",
+          "companies_found": [],
+          "confidence": 0.75,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "total_hops": 12,
+  "log_messages": []
+}

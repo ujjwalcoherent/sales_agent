@@ -1,0 +1,214 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "AI-led market volatility caused a $16 billion loss in new-age tech stocks, reducing market cap and investor confidence. US-Iran geopolitical tensions caused a 500-point Nifty drop, eroding Rs 4 lakh crore market cap, impacting Indian equities and financial institutions. Gold price uncertainty affects commodity traders' decisions. Secondary impacts include reduced client spending by tech and financial firms, lesser asset inflows to wealth managers, and shifts in commodity trade volumes between gold and oil affecting brokers and transport.",
+      "event_type": "market_movement",
+      "reasoning": "The first-order impact is on mid-size AI-driven new-age tech startups in India that directly face valuation losses and funding challenges due to the $16 billion market cap drop in new tech stocks triggered by AI-led market volatility and geopolitical uncertainty. This is supported by articles referencing new-age tech companies bleeding billions in valuation, and presence of known mid-size AI startups in India like Locus.sh, SigTuple, and Niramai Health Analytix. The urgency is about 2 weeks as t",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size new-age AI tech startups in India, 50-500 employees, Bangalore and Hyderabad",
+          "lead_type": "pain",
+          "mechanism": "$16 billion market cap loss in new-age tech stocks directly impacts these startups' valuation and investor confidence, causing funding and operational challenges.",
+          "companies_found": [
+            "Locus.sh",
+            "SigTuple",
+            "Niramai Health Analytix"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size fintech and wealth management firms in India, 50-500 employees, Mumbai and Pune",
+          "lead_type": "pain",
+          "mechanism": "Financial losses in tech reduce client buying power, and market cap erosion in financial stocks leads to lower asset inflows, reducing revenues for fintech and wealth managers.",
+          "companies_found": [
+            "Jupiter Money",
+            "InCred Financial Services"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size commodity brokers specializing in gold and oil trading in India, 50-500 employees, Delhi and Mumbai",
+          "lead_type": "risk",
+          "mechanism": "Shift in commodity trade from gold to oil and price uncertainties cause operational and margin risks for commodity brokers and transport/logistics firms serving these brokers.",
+          "companies_found": [],
+          "confidence": 0.6,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "The Iran-US-Israel geopolitical conflict creates major disruptions for India's oil marketing sector, airlines, and electronics exporters. Immediate effects include increased oil operational costs for oil marketing companies, airline cargo capacity cuts driving significant profit losses, and risk to electronics exports worth $4.5 billion due to instability in UAE markets. These disruptions cascade down to mid-size manufacturers supplying these exporters and airlines, and further impact logistics and retail companies dependent on smooth export and cargo services.",
+      "event_type": "geopolitical",
+      "reasoning": "The conflict between Iran, US, and Israel causes immediate disruption to oil supply routes through the Strait of Hormuz, leading to sudden oil price spikes. Indian mid-size oil marketing companies such as Hindustan Oil Exploration Company and Adani Oil Pipelines face increased operational costs and market volatility (hop 1 pain). The instability in UAE caused by the conflict severely risks electronics exports for Indian companies, which in turn reduces order volumes for mid-size electronics comp",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian oil marketing companies (100-1000 employees) facing higher operational costs due to disrupted oil supply routes and price volatility from Iran-US-Israel conflict",
+          "lead_type": "pain",
+          "mechanism": "Geopolitical tensions disrupt oil supply routes raising crude oil prices, causing increased input costs and market uncertainty for oil marketing firms.",
+          "companies_found": [
+            "Hindustan Oil Exploration Company",
+            "Adani Oil Pipelines"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size Indian electronics component and assembly manufacturers supplying exporters impacted by UAE market disruption from conflict",
+          "lead_type": "pain",
+          "mechanism": "Reduced electronics exports from India to UAE cause lower orders and revenue for manufacturers of electronic components and assembly services supporting exporters.",
+          "companies_found": [
+            "SFO Technologies",
+            "MosChip Semiconductor Technology"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Indian mid-size logistics and freight forwarding companies impacted by airline cargo capacity cuts and export slowdowns",
+          "lead_type": "pain",
+          "mechanism": "Decreased cargo volumes from airlines reduce business for logistics and freight firms handling electronic exports and other trade, causing revenue and operational challenges.",
+          "companies_found": [
+            "Blue Dart Express",
+            "Gati Ltd"
+          ],
+          "confidence": 0.65,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Anthropic's refusal to restrict military use of its AI chatbot Claude caused a federal ban by former US President Trump, creating regulatory and operational challenges for Anthropic while Claude's strong market demand propelled it to the top of Apple's US App Store rankings, overtaking OpenAI's ChatGPT. This conflict raised regulatory scrutiny on AI startups and defense technology firms engaged in military AI applications, affecting supply chains and increasing demand for AI infrastructure in India.",
+      "event_type": "technology",
+      "reasoning": "Hop 1: Anthropic is directly impacted by the Pentagon ban due to its refusal to limit military use of Claude AI, which also impacts similar AI startups focused on the enterprise and defense domain in Bengaluru, India. These startups face immediate risks around regulatory and market positioning due to the federal ban news. \n\nHop 2: The increased regulatory scrutiny on AI military applications impacts Indian defense technology SMEs supplying AI solutions or compliance consulting services to milita",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Anthropic and AI chatbot startups in India focused on enterprise and defense domains, 50-500 employees, Bengaluru",
+          "lead_type": "pain",
+          "mechanism": "Anthropic faces regulatory ban challenges and operational risks due to refusal to limit military use of AI, directly impacting competitors and equivalent AI startups in India developing compatible products or services for military or general markets.",
+          "companies_found": [
+            "Gatik AI Bengaluru",
+            "Flutura Decision Sciences Bengaluru"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Indian defense technology SMEs supplying AI solutions and compliance consulting to military contractors, 100-1000 employees, New Delhi and Hyderabad",
+          "lead_type": "pain",
+          "mechanism": "These defense tech firms face increased compliance costs and operational adjustments driven by regulatory scrutiny on military AI use, impacting their AI supply chain and necessitating changes in product features and certifications.",
+          "companies_found": [
+            "DataMatics Defence Solutions Hyderabad",
+            "Takshashila Defense Technologies New Delhi"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Indian AI infrastructure providers and cloud hosting SMEs supporting defense and AI startups, 50-300 employees, Pune and Chennai",
+          "lead_type": "opportunity",
+          "mechanism": "Rising demand for AI infrastructure and secure cloud services driven by defense firms’ adaptation to regulatory scrutiny creates growth opportunities for AI infrastructure providers servicing military AI and civilian AI market segments.",
+          "companies_found": [
+            "CloudNow Technologies Pune",
+            "SecureStack AI Chennai"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "The Government of India revised the GDP base year series, lowering the reported economy size by about 3%. Concurrently, there was a strong manufacturing activity surge in Q3 2024 driven by robust domestic demand. This causes a reassessment of economic growth momentum and policy outlooks. Manufacturing companies face increasing demand and production planning needs, impacting their supply chains and logistics functions. Higher domestic demand results in increased raw material consumption and component sourcing, and logistics providers handle greater shipment volumes. Export-reliant manufacturers may face strategic adjustments due to softer export growth.",
+      "event_type": "general",
+      "reasoning": "The news event centers on the Indian government's revision of GDP base year series alongside a strong Q3 surge in manufacturing activity driven by domestic demand. This directly benefits mid-size manufacturing companies who see increased orders, impacting their production planning and operational scale (hop 1). These manufacturers source raw materials and components from smaller suppliers whose orders increase as a direct consequence (hop 2). The heightened production and shipments cascade to lo",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size manufacturing companies in India (50-500 employees) seeing production increase due to strong Q3 demand",
+          "lead_type": "opportunity",
+          "mechanism": "Stronger domestic demand and GDP revision increase production orders and planning for mid-size manufacturing firms, improving their sales and operational utilization.",
+          "companies_found": [
+            "Lohia Machinery Ltd",
+            "Bilcare Ltd"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Raw material and component suppliers to mid-size manufacturing firms in India (50-200 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "With manufacturing firms ramping production, their suppliers of raw materials and components face higher order volumes and potential capacity utilization increases.",
+          "companies_found": [
+            "Navkar Corporation",
+            "Rathi Polyweave Pvt Ltd"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME logistics and distribution companies in India (50-500 employees) handling increased shipping volumes due to manufacturing surge",
+          "lead_type": "opportunity",
+          "mechanism": "Logistics firms experience volume growth as manufacturing companies ship more products domestically. This increases demand for transport, warehousing, and distribution services.",
+          "companies_found": [
+            "DTDC Express Ltd",
+            "Gatik Logistics Pvt Ltd"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Indian startup funding in the week of Feb 21-27, 2026 showed a sharp focus on early-stage innovation, with 43 startups raising $222.87 million mainly in early-stage deals. Key funded startups include Temple ($54 million), Innoviti ($11.4 million), and Turiyam.ai ($4 million). This concentration enables these startups to scale innovation and operations directly, but limits available capital for scaling startups at growth stage, constraining their demand for suppliers and slowing growth of startup ecosystem enablers like incubators and financial advisors dealing with tighter funds.",
+      "event_type": "funding",
+      "reasoning": "The news explicitly states that early-stage startups have received $222.87 million in funding, with Temple, Innoviti, and Turiyam.ai highlighted as beneficiaries (Hop 1). This is a clear opportunity for these specific startups to expand. \n\nHowever, it is also noted that this concentration leaves less capital for scaling startups, which constrains demand for suppliers and ecosystem enablers such as incubators and financial advisors. These entities are typically SMEs focused on startups and will f",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Early-stage startups in innovative sectors funded recently, 50-500 employees, India",
+          "lead_type": "opportunity",
+          "mechanism": "Direct capital infusion increases ability to innovate and scale; startups like Temple, Innoviti, Turiyam.ai received significant early-stage funding allowing operational expansion and technology development.",
+          "companies_found": [
+            "Temple",
+            "Innoviti",
+            "Turiyam.ai"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Financial advisors and startup ecosystem enablers serving early-stage startups, 50-200 employees, India",
+          "lead_type": "pain",
+          "mechanism": "Due to funding concentration in smaller early-stage rounds and limited growth-stage capital, advisors face pressure to optimize limited funds, and incubators see slowed client scaling reducing their business opportunities and operational growth.",
+          "companies_found": [],
+          "confidence": 0.75,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Service providers and suppliers to incubators and early-stage startup ecosystem, 50-200 employees, India",
+          "lead_type": "pain",
+          "mechanism": "Reduced growth in incubators and startup enablers translates to lower demand for supporting services and suppliers, causing business slowdowns among these SMEs over a 6-12 week horizon as startup growth slows down.",
+          "companies_found": [],
+          "confidence": 0.6,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "total_hops": 15,
+  "log_messages": []
+}

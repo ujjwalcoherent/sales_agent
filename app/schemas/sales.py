@@ -4,7 +4,7 @@ Sales pipeline data models.
 These models represent the downstream sales outreach pipeline:
 impact analysis, company intelligence, contact information, and emails.
 
-Hierarchy: MajorTrend → SectorImpact → CompanyData → ContactData → OutreachEmail
+Hierarchy: TrendData → ImpactAnalysis → CompanyData → ContactData → OutreachEmail
 
 V1 VALIDATION: All models now include field validators that catch/coerce
 bad LLM output. Lists coerce None/strings, URLs are validated, enums
@@ -14,15 +14,12 @@ are checked. Every coercion is logged for observability.
 import logging
 import re
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from uuid import UUID, uuid4
-
 from .base import (
-    Severity, CompanySize, Sector, ServiceType, ImpactType,
+    Severity, CompanySize,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,50 +60,6 @@ def _coerce_to_str_list(v: Any, field_name: str) -> List[str]:
     return [str(v)]
 
 
-class SectorImpact(BaseModel):
-    """How a trend impacts a specific sector."""
-    id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    # Parent reference
-    trend_id: UUID
-    trend_title: str
-
-    # Sector identity
-    sector: Sector
-
-    # Impact classification
-    impact_type: ImpactType = ImpactType.NEUTRAL
-    impact_severity: Severity = Severity.MEDIUM
-    relevance_score: float = Field(ge=0.0, le=1.0, default=0.5)
-
-    # Impact analysis
-    impact_summary: str = ""
-    direct_effects: List[str] = Field(default_factory=list)
-    indirect_effects: List[str] = Field(default_factory=list)
-
-    # Challenges & opportunities
-    challenges: List[str] = Field(default_factory=list)
-    opportunities: List[str] = Field(default_factory=list)
-
-    # Consulting angle
-    pain_points: List[str] = Field(default_factory=list)
-    urgent_needs: List[str] = Field(default_factory=list)
-
-    # Target personas
-    target_roles: List[str] = Field(default_factory=list)
-
-    # Recommended services
-    recommended_services: List[ServiceType] = Field(default_factory=list)
-
-    # Pitch elements
-    pitch_angle: str = ""
-    pitch_hooks: List[str] = Field(default_factory=list)
-
-    class Config:
-        use_enum_values = True
-
-
 class TrendData(BaseModel):
     """Market trend detected from RSS/Tavily.
 
@@ -136,12 +89,27 @@ class TrendData(BaseModel):
     article_count: int = 0
     article_snippets: List[str] = Field(default_factory=list)  # Top-5 raw excerpts for impact council
 
+    # Evidence chain (AutoResearch D7 — citation path for emails)
+    evidence_snippets: List[str] = Field(default_factory=list)  # Sourced quotes from articles
+    evidence_companies: List[str] = Field(default_factory=list)  # Companies cited in evidence
+
     @field_validator('industries_affected', 'source_links', 'keywords',
                      'causal_chain', 'affected_companies', 'affected_regions',
+                     'evidence_snippets', 'evidence_companies',
                      mode='before')
     @classmethod
     def coerce_str_lists(cls, v, info):
         return _coerce_to_str_list(v, info.field_name)
+
+    @model_validator(mode='after')
+    def warn_empty_industries(self):
+        if not self.industries_affected and self.trend_title:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"TrendData '{self.trend_title[:60]}' has empty industries_affected — "
+                "LLM synthesis may have missed this field"
+            )
+        return self
 
     class Config:
         use_enum_values = True
@@ -256,10 +224,21 @@ class CompanyData(BaseModel):
     description: str = ""
     reason_relevant: str = ""
     trend_id: str = ""
+    # Enrichment fields (from Wikidata/Wikipedia/Apollo)
+    wikidata_id: str = ""
+    founded_year: Optional[int] = None
+    headquarters: str = ""
+    employee_count: str = ""
+    stock_ticker: str = ""
+    ceo: str = ""
+    funding_stage: str = ""         # From Apollo (seed, series A, etc.)
+    tech_stack: List[str] = Field(default_factory=list)  # From Apollo
     # V7: NER verification fields
     ner_verified: bool = False
-    verification_source: str = ""  # "ner_match", "wikipedia", "web_search"
+    verification_source: str = ""  # "ner_match", "wikipedia", "wikidata", "web_search"
     verification_confidence: float = 0.0
+    # V8: LLM-inferred target roles for contact discovery (overrides trend-based mapping)
+    target_roles: List[str] = Field(default_factory=list)
 
     @field_validator('company_name', mode='before')
     @classmethod
@@ -333,13 +312,6 @@ class ContactData(BaseModel):
             logger.debug(f"Invalid email format '{v}', clearing")
             return ""
         return v
-
-
-class SeniorityTier(str, Enum):
-    """Seniority tier for outreach prioritization."""
-    DECISION_MAKER = "decision_maker"   # C-suite, VP, Director — signs the deal
-    INFLUENCER = "influencer"           # Manager, Lead, Sr. Engineer — champions internally
-    GATEKEEPER = "gatekeeper"           # Admin, EA, Office Manager — controls access
 
 
 class PersonProfile(BaseModel):

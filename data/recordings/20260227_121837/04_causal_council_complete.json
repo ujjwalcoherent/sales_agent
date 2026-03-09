@@ -1,0 +1,137 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Narayana Murthy, co-founder of Infosys, issued a public warning to young Indian IT professionals about the risk of job displacement due to AI. This has created immediate uncertainty and pressure on these professionals to upskill in AI technology to safeguard their jobs. As a result, companies and startups in the Indian IT sector are prioritizing AI adoption, training, and infrastructure expansion, such as data centers, to remain competitive and manage the skill gaps. This dynamic affects workforce training providers, AI startups, data center service providers, and ultimately enterprises relying on AI-enhanced IT services.",
+      "event_type": "technology",
+      "reasoning": "Step 1: Narayana Murthy's warning focuses on the vulnerability of young IT professionals in Indian IT SMEs to AI-driven job disruptions; this directly impacts small-mid sized tech firms employing and training software engineers focused on legacy vs AI skills (Hop 1).  \nStep 2: These impacted firms turn to AI-training firms and AI software startups to help upskill employees and integrate new AI tools to stay competitive. This increased demand is a clear opportunity for AI-focused startups and tra",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Indian IT workforce and small-mid IT service firms focused on AI upskilling and training, 50-500 employees, metro cities like Bengaluru and Hyderabad",
+          "lead_type": "pain",
+          "mechanism": "Young IT professionals face job risk from AI displacement; companies need to rapidly upskill workforce to adapt and remain employable.",
+          "companies_found": [
+            "Qurious AI",
+            "UpGrad",
+            "Great Learning"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "AI training and consulting SMEs serving Indian IT firms; AI solution startups specializing in automation and augmentation for IT projects, 50-500 employees, Bangalore and Pune",
+          "lead_type": "opportunity",
+          "mechanism": "Demand for AI-training, platforms, and tool-based consulting increases as IT firms scramble to adopt AI tech and reskill staff, driving new business for these SMEs.",
+          "companies_found": [
+            "Manthan",
+            "SigTuple",
+            "Mad Street Den"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME businesses in BFSI, healthcare, retail sectors relying on AI-enabled software and IT services from Indian AI startups and IT consultancies, 50-1000 employees, top metro cities",
+          "lead_type": "pain",
+          "mechanism": "Cost and complexity of AI adoption rise due to increased demand upstream; delays and price pressures impact SME end-users who depend on AI-enhanced IT solutions.",
+          "companies_found": [
+            "DataWeave",
+            "Lenskart",
+            "PharmEasy"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "India experienced a significant surge in AI and deeptech funding in 2025, with a 23% increase in total tech startup funding reaching $9.1 billion and a 37% rise in deeptech funding to $2.3 billion. This influx of capital directly benefits mid-size AI and deeptech startups, enabling rapid innovation, higher patent filings, and faster commercialization of technologies. Consequently, this growth increases demand for specialized AI hardware suppliers and AI consulting firms which support these startups' technology needs and strategic growth.",
+      "event_type": "funding",
+      "reasoning": "The direct surge in AI and deeptech funding (hop 1) is spotlighted in news about increased capital raising by mid-size startups in Bengaluru and Chennai. These companies benefit by accelerating innovation and scaling their technologies. This increased activity increases their requirement for specialized AI hardware (hop 2) to handle AI computations and related tech, creating opportunity for AI hardware suppliers such as TAMA SYSTEMS INDIA. As these startups expand, they also need expert consulti",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size AI and deeptech startups in India, 50-500 employees, primarily based in Bengaluru and Chennai",
+          "lead_type": "opportunity",
+          "mechanism": "Direct influx of funding boosts capital availability allowing accelerated R&D, patent filings, and scaling up of AI and deeptech startups.",
+          "companies_found": [
+            "Innoviti Solutions",
+            "Leena AI",
+            "Speciale Invest"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 0
+        },
+        {
+          "hop": 2,
+          "segment": "Specialized AI hardware suppliers in India with 50-500 employees, serving AI startups",
+          "lead_type": "opportunity",
+          "mechanism": "Increased scale and innovation in funded AI startups drives higher demand for specialized hardware components like GPUs, AI accelerators, and embedded systems, benefitting niche hardware suppliers.",
+          "companies_found": [
+            "TAMA SYSTEMS INDIA"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "AI technology consulting firms in India with 50-500 employees supporting startups and SMEs",
+          "lead_type": "opportunity",
+          "mechanism": "AI startups scaling up require expert advisory on technology strategy, patent analysis, and market intelligence, creating growth opportunities for AI-focused consulting firms.",
+          "companies_found": [
+            "Ksolves"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "AI technology adoption disrupts traditional Indian IT and services market, causing investor uncertainty and pressure on mid-size IT companies to integrate AI. This leads to demand for AI technology vendors and consulting services, while clients in sectors like defense, metals, and pharma face IT service delivery and cost changes, impacting their operations.",
+      "event_type": "market_movement",
+      "reasoning": "The news highlights AI disruption causing investor uncertainty and pressure on mid-size Indian IT services firms like WNS to integrate AI urgently. This creates immediate pain for these IT companies as they must adapt swiftly to remain competitive. The downstream effect is a surge in demand for AI technology vendors and consulting service providers specialized in AI integration, mainly mid-size firms in Bangalore and Hyderabad, presenting an opportunity for these suppliers. Further downstream, c",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian IT services firms facing AI integration pressure, 200-1500 employees, metro cities",
+          "lead_type": "pain",
+          "mechanism": "AI disruption causes investor uncertainty, stock sell-off, and pressure to integrate AI for competitiveness and investor confidence.",
+          "companies_found": [
+            "WNS"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "AI technology vendors and AI consulting service providers for IT firms, mid-size companies, 50-300 employees, Bangalore, Hyderabad",
+          "lead_type": "opportunity",
+          "mechanism": "IT firms pressured to integrate AI drive demand for AI technology and consulting service vendors to manage AI adoption.",
+          "companies_found": [
+            "Kore.ai",
+            "Gnani.ai",
+            "Flutura Decision Sciences"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Clients of Indian IT firms in sectors like defense, metals, and pharma impacted by IT service changes, mid-size manufacturing and pharma companies, 100-1000 employees, industrial clusters in Pune and Hyderabad",
+          "lead_type": "pain",
+          "mechanism": "Changes in IT service costs and delivery due to AI integration in IT firms cause operational impacts and cost pressures for clients in defense, metals, and pharma sectors.",
+          "companies_found": [
+            "Suven Life Sciences",
+            "Larsen & Toubro Defence"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "total_hops": 9,
+  "log_messages": []
+}

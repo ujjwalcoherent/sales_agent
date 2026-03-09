@@ -22,6 +22,7 @@ export interface PipelineContextValue {
   initialLoading: boolean;
   run: (mockMode?: boolean) => void;
   reset: () => void;
+  forceCancel: () => Promise<void>;
 }
 
 const PipelineContext = createContext<PipelineContextValue | null>(null);

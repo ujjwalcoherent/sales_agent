@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, SlidersHorizontal, X, ArrowDown, Users, AlertTriangle, Quote, Target, ExternalLink, Newspaper } from "lucide-react";
+import Link from "next/link";
+import { Search, SlidersHorizontal, X, ArrowDown, Users, AlertTriangle, Quote, Target, ExternalLink, Newspaper, Building2, ChevronRight, Star } from "lucide-react";
 import { TrendsFeed } from "@/components/dashboard/trends-feed";
 import { usePipelineContext } from "@/contexts/pipeline-context";
 import { api } from "@/lib/api";
-import type { TrendData, Severity } from "@/lib/types";
+import { extractDomain, parseSnippet, confidenceColor, TYPE_CLASSES } from "@/lib/utils";
+import { TrendSection } from "@/components/ui/detail-section";
+import { BadgeTagList } from "@/components/ui/tag-list";
+import type { TrendData, Severity, LeadRecord } from "@/lib/types";
 
 const SEVERITY_OPTIONS: { label: string; value: Severity | "all" }[] = [
   { label: "All",        value: "all"       },
@@ -227,6 +231,33 @@ function parseImpactEntry(entry: string): { segment: string; detail: string } {
 }
 
 function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void }) {
+  const { leads: contextLeads } = usePipelineContext();
+  const [apiLeads, setApiLeads] = useState<LeadRecord[]>([]);
+
+  // Fetch from API when context is empty (e.g., page refresh without active run)
+  useEffect(() => {
+    if (contextLeads.length === 0) {
+      api.getLeads({ limit: 200 }).then(({ leads }) => setApiLeads(leads)).catch(() => {});
+    }
+  }, [contextLeads.length]);
+
+  const allLeads = contextLeads.length > 0 ? contextLeads : apiLeads;
+  // Match leads by trend — exact match OR fuzzy (trend title contained in lead's trend_title or vice versa)
+  const titleLower = trend.title.toLowerCase();
+  const titleWords = titleLower.split(/\s+/).filter((w) => w.length > 4).slice(0, 5);
+  const trendLeads = allLeads.filter((l) => {
+    const lt = (l.trend_title || "").toLowerCase();
+    // Exact match
+    if (lt === titleLower) return true;
+    // Contains match (either direction)
+    if (lt.includes(titleLower) || titleLower.includes(lt)) return true;
+    // Keyword overlap: if 3+ significant words from the title appear in the lead's trend_title
+    if (titleWords.length >= 3) {
+      const matches = titleWords.filter((w) => lt.includes(w));
+      if (matches.length >= 3) return true;
+    }
+    return false;
+  });
   const scoreColor = trend.trend_score >= 0.75 ? "var(--green)" : trend.trend_score >= 0.5 ? "var(--accent)" : "var(--text-muted)";
   const councilPct = trend.council_confidence > 0 ? Math.round(trend.council_confidence * 100) : null;
 
@@ -262,13 +293,13 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
       </div>
 
       {/* Summary */}
-      <DetailSection label="SUMMARY">
+      <TrendSection label="SUMMARY">
         <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>{trend.summary}</p>
-      </DetailSection>
+      </TrendSection>
 
       {/* ── FIRST-ORDER IMPACT ── */}
       {trend.direct_impact?.length > 0 && (
-        <DetailSection label="FIRST-ORDER IMPACT" icon={<Target size={11} style={{ color: "var(--red)" }} />}>
+        <TrendSection label="FIRST-ORDER IMPACT" icon={<Target size={11} style={{ color: "var(--red)" }} />}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {trend.direct_impact.map((entry, i) => {
               const { segment, detail } = parseImpactEntry(entry);
@@ -280,12 +311,12 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
               );
             })}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* ── SECOND-ORDER IMPACT ── */}
       {trend.indirect_impact?.length > 0 && (
-        <DetailSection label="SECOND-ORDER IMPACT" icon={<ArrowDown size={11} style={{ color: "var(--amber)" }} />}>
+        <TrendSection label="SECOND-ORDER IMPACT" icon={<ArrowDown size={11} style={{ color: "var(--amber)" }} />}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {trend.indirect_impact.map((entry, i) => {
               const { segment, detail } = parseImpactEntry(entry);
@@ -297,23 +328,23 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
               );
             })}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* ── PAIN POINTS ── */}
       {trend.midsize_pain_points?.length > 0 && (
-        <DetailSection label="MID-SIZE COMPANY PAIN POINTS" icon={<AlertTriangle size={11} style={{ color: "var(--amber)" }} />}>
+        <TrendSection label="MID-SIZE COMPANY PAIN POINTS" icon={<AlertTriangle size={11} style={{ color: "var(--amber)" }} />}>
           <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 4 }}>
             {trend.midsize_pain_points.map((pt, i) => (
               <li key={i} style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>{pt}</li>
             ))}
           </ul>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* ── PITCH ANGLE + WHO NEEDS HELP ── */}
       {(trend.pitch_angle || trend.who_needs_help) && (
-        <DetailSection label="SALES ANGLE">
+        <TrendSection label="SALES ANGLE">
           {trend.who_needs_help && (
             <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: trend.pitch_angle ? 8 : 0 }}>
               <span style={{ fontWeight: 600, color: "var(--text-muted)", fontSize: 11 }}>WHO: </span>
@@ -325,32 +356,32 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
               {trend.pitch_angle}
             </div>
           )}
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* ── TARGET ROLES ── */}
       {trend.target_roles?.length > 0 && (
-        <DetailSection label="TARGET CONTACTS" icon={<Users size={11} style={{ color: "var(--blue)" }} />}>
+        <TrendSection label="TARGET CONTACTS" icon={<Users size={11} style={{ color: "var(--blue)" }} />}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {trend.target_roles.map((role, i) => (
               <span key={i} className="badge badge-blue">{role}</span>
             ))}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* Actionable insight */}
       {trend.actionable_insight && (
-        <DetailSection label="ACTIONABLE INSIGHT">
+        <TrendSection label="ACTIONABLE INSIGHT">
           <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, paddingLeft: 10, borderLeft: "2px solid var(--accent)", background: "var(--accent-light)", padding: "10px 12px", borderRadius: "0 7px 7px 0" }}>
             {trend.actionable_insight}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* Causal chain */}
       {trend.causal_chain?.length > 0 && (
-        <DetailSection label="CAUSAL CHAIN">
+        <TrendSection label="CAUSAL CHAIN">
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {trend.causal_chain.map((step, i) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -359,12 +390,12 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
               </div>
             ))}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* ── EVIDENCE ── */}
       {trend.evidence_citations?.length > 0 && (
-        <DetailSection label="EVIDENCE" icon={<Quote size={11} style={{ color: "var(--text-xmuted)" }} />}>
+        <TrendSection label="EVIDENCE" icon={<Quote size={11} style={{ color: "var(--text-xmuted)" }} />}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {trend.evidence_citations.map((cite, i) => (
               <div key={i} style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
@@ -372,12 +403,12 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
               </div>
             ))}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* 5W1H */}
       {Object.keys(trend.event_5w1h || {}).length > 0 && (
-        <DetailSection label="EVENT 5W1H">
+        <TrendSection label="EVENT 5W1H">
           <div style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: "4px 12px" }}>
             {Object.entries(trend.event_5w1h).map(([k, v]) => (
               <div key={k} style={{ display: "contents" }}>
@@ -386,12 +417,12 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
               </div>
             ))}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* Buying intent */}
       {Object.keys(trend.buying_intent || {}).length > 0 && (
-        <DetailSection label="BUYING INTENT">
+        <TrendSection label="BUYING INTENT">
           <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "4px 12px" }}>
             {Object.entries(trend.buying_intent).map(([k, v]) => (
               <div key={k} style={{ display: "contents" }}>
@@ -400,27 +431,118 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
               </div>
             ))}
           </div>
-        </DetailSection>
+        </TrendSection>
       )}
 
       {/* Industries + Keywords */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <DetailSection label="INDUSTRIES">
-          <TagList items={trend.industries} />
-        </DetailSection>
+        <TrendSection label="INDUSTRIES">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {[...new Set(trend.industries)].map((ind) => (
+              <Link
+                key={ind}
+                href={`/companies?industry=${encodeURIComponent(ind)}`}
+                style={{ textDecoration: "none" }}
+              >
+                <span className="badge badge-amber" style={{ cursor: "pointer", transition: "opacity 150ms" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                >
+                  {ind}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </TrendSection>
         {trend.keywords?.length > 0 && (
-          <DetailSection label="KEYWORDS">
-            <TagList items={trend.keywords} className="badge-muted" />
-          </DetailSection>
+          <TrendSection label="KEYWORDS">
+            <BadgeTagList items={trend.keywords} className="badge-muted" />
+          </TrendSection>
         )}
       </div>
 
-      {/* Companies */}
+      {/* Companies — clickable, navigate to company detail */}
       {trend.affected_companies?.length > 0 && (
-        <DetailSection label="COMPANIES MENTIONED">
-          <TagList items={trend.affected_companies} className="badge-blue" />
-        </DetailSection>
+        <TrendSection label="COMPANIES MENTIONED" icon={<Building2 size={11} style={{ color: "var(--blue)" }} />}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {[...new Set(trend.affected_companies)].map((name) => (
+              <Link
+                key={name}
+                href={`/companies/${encodeURIComponent(name)}`}
+                style={{ textDecoration: "none" }}
+              >
+                <span
+                  className="badge badge-blue"
+                  style={{ cursor: "pointer", transition: "all 150ms", display: "inline-flex", alignItems: "center", gap: 3 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--blue)"; e.currentTarget.style.color = "#fff"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ""; e.currentTarget.style.color = ""; }}
+                >
+                  {name}
+                  <ExternalLink size={8} style={{ opacity: 0.6 }} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </TrendSection>
       )}
+
+      {/* Leads generated from this trend */}
+      <TrendSection label={`LEADS (${trendLeads.length})`} icon={<Star size={11} style={{ color: "var(--accent)" }} />}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {trendLeads.slice(0, 10).map((lead, i) => {
+              const cc = confidenceColor(lead.confidence);
+              return (
+                <Link
+                  key={lead.id ?? i}
+                  href={`/leads/${lead.id ?? i}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  <div
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "8px 10px", borderRadius: 7,
+                      background: "var(--surface-raised)", border: "1px solid transparent",
+                      transition: "border-color 150ms, background 150ms", cursor: "pointer",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; (e.currentTarget as HTMLElement).style.background = "var(--surface-raised)"; }}
+                  >
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: cc.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <span className="num" style={{ fontSize: 11, fontWeight: 700, color: cc.text }}>{Math.round(lead.confidence * 100)}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {lead.company_name}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                        {lead.contact_name || lead.people?.[0]?.person_name || lead.lead_type} · H{lead.hop}
+                      </div>
+                    </div>
+                    <span className={`badge ${TYPE_CLASSES[lead.lead_type] ?? "badge-muted"}`} style={{ fontSize: 9 }}>{lead.lead_type}</span>
+                    <ChevronRight size={11} style={{ color: "var(--text-xmuted)", flexShrink: 0 }} />
+                  </div>
+                </Link>
+              );
+            })}
+            {trendLeads.length > 10 && (
+              <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: "4px 0" }}>
+                Showing 10 of {trendLeads.length}
+              </div>
+            )}
+            <Link
+              href={`/leads?trend=${encodeURIComponent(trend.title)}`}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: "8px 14px", marginTop: 6, borderRadius: 7,
+                border: "1px solid var(--accent)33", background: "var(--accent-light)",
+                fontSize: 11, fontWeight: 600, color: "var(--accent)", textDecoration: "none",
+              }}
+            >
+              <Target size={11} /> View All Leads for this Trend
+              <ChevronRight size={11} />
+            </Link>
+          </div>
+        </TrendSection>
 
       {/* Source Articles */}
       <SourceArticlesSection snippets={trend.article_snippets} links={trend.source_links} />
@@ -428,47 +550,6 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
   );
 }
 
-function DetailSection({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-        {icon}
-        <span style={{ fontSize: 10, color: "var(--text-xmuted)", letterSpacing: "0.07em", fontWeight: 600 }}>{label}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function TagList({ items, className = "badge-amber" }: { items: string[]; className?: string }) {
-  const unique = [...new Set(items)];
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {unique.map((item, idx) => (
-        <span key={`${item}-${idx}`} className={`badge ${className}`}>{item}</span>
-      ))}
-    </div>
-  );
-}
-
-/** Extract domain from a URL for display, e.g. "livemint.com" */
-function extractDomain(url: string): string {
-  try {
-    const hostname = new URL(url).hostname;
-    return hostname.replace(/^www\./, "");
-  } catch {
-    return url.substring(0, 40);
-  }
-}
-
-/** Parse a snippet "Title: body..." into parts */
-function parseSnippet(snippet: string): { title: string; body: string } {
-  const colonIdx = snippet.indexOf(":");
-  if (colonIdx > 0 && colonIdx < 120) {
-    return { title: snippet.substring(0, colonIdx).trim(), body: snippet.substring(colonIdx + 1).trim() };
-  }
-  return { title: snippet.substring(0, 100), body: "" };
-}
 
 /** Shared source articles section — used in trends detail and lead detail */
 function SourceArticlesSection({ snippets, links }: { snippets?: string[]; links?: string[] }) {
@@ -479,7 +560,7 @@ function SourceArticlesSection({ snippets, links }: { snippets?: string[]; links
   const count = Math.max(snippets?.length ?? 0, links?.length ?? 0);
 
   return (
-    <DetailSection
+    <TrendSection
       label={`SOURCE ARTICLES (${count})`}
       icon={<Newspaper size={11} style={{ color: "var(--blue)" }} />}
     >
@@ -573,6 +654,6 @@ function SourceArticlesSection({ snippets, links }: { snippets?: string[]; links
           );
         })}
       </div>
-    </DetailSection>
+    </TrendSection>
   );
 }

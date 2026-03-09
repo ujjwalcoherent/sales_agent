@@ -111,7 +111,6 @@ export interface SendEmailResponse {
   subject: string;
   error: string;
   test_mode: boolean;
-  dry_run: boolean;
   sent_at: string;
 }
 
@@ -200,15 +199,16 @@ export interface HealthResponse {
 export interface LearningStatus {
   source_bandit: {
     total_arms?: number;
-    top_sources?: { source: string; mean: number; pulls: number }[];
+    top_sources?: { source: string; mean: number; pulls: number; alpha?: number; beta?: number }[];
   };
   weight_learner: {
-    weights?: Record<string, number>;
+    weights?: Record<string, number | Record<string, number>>;
     data_count?: number;
+    last_updated?: string;
   };
   company_bandit: {
     total_arms?: number;
-    top_arms?: { arm: string; mean: number }[];
+    top_arms?: { arm: string; mean: number; alpha?: number; beta?: number }[];
   };
   adaptive_thresholds: {
     thresholds?: Record<string, number>;
@@ -217,6 +217,7 @@ export interface LearningStatus {
   trend_memory: {
     trend_count?: number;
     status?: string;
+    collection?: string;
   };
   feedback: {
     total_records?: number;
@@ -226,6 +227,172 @@ export interface LearningStatus {
       by_rating: Record<string, number>;
     };
   };
+  signal_bus?: {
+    system_confidence?: number;
+    exploration_budget?: number;
+    phase?: string;
+    signal_count?: number;
+    last_updated?: string;
+  };
+  meta_reasoner?: {
+    trace_count?: number;
+    hypothesis_count?: number;
+    latest_hypotheses?: string[];
+    last_run?: string;
+  };
+}
+
+// ── Company Search ──────────────────────────────
+
+export interface CompanySearchResult {
+  id: string;
+  company_name: string;
+  domain: string;
+  website: string;
+  industry: string;
+  description: string;
+  headquarters: string;
+  employee_count: string;
+  founded_year: number | null;
+  stock_ticker: string;
+  ceo: string;
+  funding_stage: string;
+  reason_relevant: string;
+  article_count: number;
+  recent_articles: { title: string; summary: string; source_name: string; published_at: string; url: string }[];
+  live_news: { title: string; url: string; content: string }[];
+  // Enrichment fields from web intelligence
+  sub_industries?: string[];
+  key_people?: { name: string; role?: string; title?: string; linkedin_url?: string }[];
+  products_services?: string[];
+  competitors?: string[];
+  revenue?: string;
+  total_funding?: string;
+  investors?: string[];
+  tech_stack?: string[];
+  validation_source?: string;
+}
+
+export interface CompanySearchResponse {
+  companies: CompanySearchResult[];
+  search_type: string;
+  query: string;
+  cached_articles_used: number;
+  search_duration_ms: number;
+}
+
+export interface GenerateLeadsResponse {
+  company_name: string;
+  contacts: PersonRecord[];
+  outreach_count: number;
+  reasoning: string;
+  duration_ms: number;
+}
+
+// ── Saved Company (DB-persisted search result with contacts) ──
+
+export interface SavedCompany {
+  id: string;
+  company_name: string;
+  domain: string;
+  website: string;
+  industry: string;
+  description: string;
+  headquarters: string;
+  employee_count: string;
+  founded_year: number | null;
+  stock_ticker: string;
+  ceo: string;
+  funding_stage: string;
+  wikidata_id: string;
+  reason_relevant: string;
+  article_count: number;
+  recent_articles: { title: string; summary: string; source_name: string; published_at: string; url: string }[];
+  live_news: { title: string; url: string; content: string }[];
+  // Enrichment fields from web intelligence
+  sub_industries?: string[];
+  key_people?: { name: string; role?: string; title?: string; linkedin_url?: string }[];
+  products_services?: string[];
+  competitors?: string[];
+  revenue?: string;
+  total_funding?: string;
+  investors?: string[];
+  tech_stack?: string[];
+  validation_source?: string;
+  search_query: string;
+  search_type: string;
+  contacts: PersonRecord[];
+  contacts_reasoning: string;
+  contacts_generated_at: string | null;
+  last_searched_at: string | null;
+  created_at: string | null;
+}
+
+// ── Company News (on-demand from ChromaDB) ──────
+
+export interface CompanyNewsArticle {
+  title: string;
+  summary: string;
+  source_name: string;
+  published_at: string;
+  url: string;
+  sentiment_score: number;
+  source_type: string;  // "cached" | "live"
+}
+
+export interface CompanyNewsResponse {
+  articles: CompanyNewsArticle[];
+  total: number;
+  page: number;
+  per_page: number;
+  company_name: string;
+}
+
+export interface SavedCompanyListResponse {
+  companies: SavedCompany[];
+  total: number;
+}
+
+// ── News Feed ───────────────────────────────────
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  summary: string;
+  url: string;
+  source_name: string;
+  source_type: string;
+  source_credibility: number;
+  published_at: string;
+  sentiment_score: number;
+  entity_names: string[];
+  keywords: string[];
+  content_preview: string;
+}
+
+export interface NewsListResponse {
+  articles: NewsArticle[];
+  total: number;
+  page: number;
+  per_page: number;
+  sources: string[];
+}
+
+// ── Feedback History ────────────────────────────
+
+export interface FeedbackRecord {
+  timestamp: string;
+  feedback_type: string;
+  item_id: string;
+  rating: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface FeedbackHistoryResponse {
+  items: FeedbackRecord[];
+  total: number;
+  page: number;
+  per_page: number;
 }
 
 // ── Dashboard State ──────────────────────────────
@@ -235,4 +402,99 @@ export interface DashboardStats {
   trendsDetected: number;
   companiesFound: number;
   pipelineRuns: number;
+}
+
+// ── Campaigns ────────────────────────────────────
+
+export type CampaignType = "company_first" | "industry_first" | "report_driven";
+export type CampaignStatus = "draft" | "running" | "completed" | "failed";
+
+export interface CampaignCompanyInput {
+  company_name: string;
+  domain?: string;
+  industry?: string;
+  context?: string;
+}
+
+export interface CampaignConfig {
+  max_companies: number;
+  max_contacts_per_company: number;
+  generate_outreach: boolean;
+  target_roles: string[];
+  country: string;
+  background_deep: boolean;
+}
+
+export interface CampaignContact {
+  full_name: string;
+  role: string;
+  email: string;
+  linkedin_url: string;
+  seniority: string;
+  email_confidence: number;
+}
+
+export interface CampaignEmail {
+  recipient_name: string;
+  recipient_role: string;
+  subject: string;
+  body: string;
+}
+
+export interface CampaignCompanyStatus {
+  company_name: string;
+  status: string;  // pending | enriching | contacts | outreach | done | failed
+  domain: string;
+  industry: string;
+  description: string;
+  contacts_found: number;
+  outreach_generated: number;
+  contacts: CampaignContact[];
+  emails: CampaignEmail[];
+  error: string;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  campaign_type: CampaignType;
+  status: CampaignStatus;
+  companies: CampaignCompanyStatus[];
+  config?: Partial<CampaignConfig>;
+  total_companies: number;
+  completed_companies: number;
+  total_contacts: number;
+  total_outreach: number;
+  created_at: string;
+  completed_at: string;
+  error: string;
+}
+
+export interface CampaignListResponse {
+  campaigns: Campaign[];
+  total: number;
+}
+
+export interface CreateCampaignRequest {
+  name?: string;
+  campaign_type: CampaignType;
+  companies?: CampaignCompanyInput[];
+  industry?: string;
+  report_text?: string;
+  config?: Partial<CampaignConfig>;
+}
+
+export interface CampaignStreamEvent {
+  event: "campaign_start" | "company_start" | "company_enriched" | "company_contacts" | "company_outreach" | "company_done" | "company_error" | "campaign_done" | "campaign_error" | "heartbeat";
+  campaign_id?: string;
+  company?: string;
+  index?: number;
+  total?: number;
+  domain?: string;
+  industry?: string;
+  contacts_found?: number;
+  outreach_generated?: number;
+  total_contacts?: number;
+  total_outreach?: number;
+  error?: string;
 }

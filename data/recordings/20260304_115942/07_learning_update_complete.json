@@ -1,0 +1,115 @@
+{
+  "signal_count": 3,
+  "avg_oss": 0.767,
+  "avg_kb_hit": 1.0,
+  "signals": [
+    {
+      "trend_title": "AI and Digital Infrastructure Drive Agritech and Token Economy Shifts",
+      "event_type": "technology",
+      "oss_score": 0.76,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Titan and Myntra Drive India's B2B Rewards and D2C Market Growth",
+      "event_type": "consumer_shift",
+      "oss_score": 0.72,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "February 2026 Indian Startup Funding Dynamics",
+      "event_type": "funding",
+      "oss_score": 0.82,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    }
+  ],
+  "signal_bus": {
+    "system_confidence": 0.6649,
+    "exploration_budget": 0.3351,
+    "learning_path": "outcome",
+    "total_drift": 0.0,
+    "source_degraded": [
+      "google_news_business",
+      "google_news_tech"
+    ],
+    "feedback_distribution": {
+      "good_trend": 3,
+      "already_knew": 0,
+      "bad_trend": 0
+    },
+    "reasoning_grade": "B",
+    "reasoning_quality": 0.667,
+    "strategy_adjustments": {
+      "source_intel": {
+        "source_relevance": "Develop a relevance scoring model that weights sources based on past performance and topic relevance.",
+        "source_diversification": "Identify and include additional sources with complementary coverage to reduce bias and increase topic breadth."
+      },
+      "analysis": {
+        "drop_trends": [],
+        "boost_trends": [
+          "AI and Digital Infrastructure Drive Agritech and Token Economy Shifts",
+          "February 2026 Indian Startup Funding Dynamics"
+        ]
+      },
+      "lead_gen": {
+        "personalization_tips": [
+          "Obtain and use contact names and roles for tailored messaging.",
+          "Highlight specific pain points relevant to each company's event context."
+        ],
+        "targeting_improvements": [
+          "Focus on acquiring contact details early in the process.",
+          "Refine lead criteria to include more specific company size, role, or decision-maker info."
+        ]
+      }
+    }
+  },
+  "retrospective": {
+    "grade": "B",
+    "summary": "This retrospective indicates moderate success with notable improvements in source diversity and trend relevance, but persistent issues in lead quality and actionable insights. While the overall metrics show progress, the low lead quality and degraded sources highlight areas needing targeted enhancements. The system's confidence remains moderate, suggesting room for better calibration and data refinement. The planned improvements are aligned with previous hypotheses, but further validation is needed to confirm their effectiveness.",
+    "successes": [
+      "Detection of 3 trends with relatively high specificity (mean OSS 0.767)",
+      "Leads generated (25) show potential, though quality remains an issue",
+      "Trend analysis incorporated broader source diversity, addressing previous bias"
+    ],
+    "failures": [
+      "Lead quality remains low (mean quality 0.40) due to lack of contact info and broad targeting, root cause being insufficient data enrichment",
+      "Degraded sources ('google_news_business', 'google_news_tech') continue to impact trend relevance and confidence, root cause being limited source diversification",
+      "System confidence at 0.6645 indicates uncertainty, possibly from insufficient feedback loops and threshold tuning"
+    ],
+    "improvement_plan": [
+      {
+        "target": "lead_gen",
+        "action": "Integrate contact verification and role-specific data sources",
+        "expected_impact": "Increase lead quality and conversion potential",
+        "priority": "high"
+      },
+      {
+        "target": "source_intel",
+        "action": "Implement source-specific relevance scoring and diversify sources further",
+        "expected_impact": "Enhance trend relevance and reduce bias from degraded sources",
+        "priority": "high"
+      },
+      {
+        "target": "analysis",
+        "action": "Incorporate granular data such as company news and product launches",
+        "expected_impact": "Generate more actionable, specific trends",
+        "priority": "medium"
+      }
+    ]
+  },
+  "log_messages": []
+}

@@ -13,8 +13,6 @@ Offline fallback: Ollama llama3.2:3b (the only local model with tool calling).
 Chain-of-thought: `reasoning` field captures the LLM's step-by-step analysis
 BEFORE it produces the structured output — not post-hoc rationalization.
 """
-from __future__ import annotations
-
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -79,7 +77,7 @@ EXCLUDE:
 - Hops with confidence < 0.4
 - Generic "all companies" descriptions
 
-FOCUS ON: SME and mid-size companies (50-5000 employees) in India."""
+FOCUS ON: SME and mid-size companies (50-5000 employees) in the specified geography."""
 
 
 # ── Main entry point ─────────────────────────────────────────────────────────
@@ -89,7 +87,7 @@ async def run_causal_council(
     trend_summary: str,
     event_type: str,
     keywords: list[str],
-    geo: str = "India",
+    geo: str = "",
     provider_manager=None,
     search_manager=None,
     max_hops: int = 3,
@@ -138,7 +136,7 @@ async def run_causal_council(
         """
         import json
         if ctx.deps.sm:
-            result = await ctx.deps.sm.web_search(f"{query} companies India SME", max_results=5)
+            result = await ctx.deps.sm.web_search(f"{query} companies {geo} SME", max_results=5)
             if result["results"]:
                 snippets = [f"{r['title']}: {r['content'][:100]}" for r in result["results"][:3]]
                 return json.dumps(snippets)
@@ -186,7 +184,7 @@ Produce a complete CausalChainResult with {max_hops} hops and full reasoning."""
 
     # ── Attempt 4: Build synthetic hops from templates (no LLM needed) ──
     chain = _build_synthetic_hops(
-        trend_title, trend_summary, event_type, keywords,
+        trend_title, trend_summary, event_type, keywords, geo=geo,
     )
     return chain
 
@@ -196,7 +194,7 @@ Produce a complete CausalChainResult with {max_hops} hops and full reasoning."""
 async def _try_agent_run(agent, prompt, deps, trend_title) -> Optional[CausalChainResult]:
     """Run pydantic-ai agent, returning None on failure."""
     try:
-        from app.tools.provider_manager import ProviderManager
+        from app.tools.llm.providers import ProviderManager
         await ProviderManager.acquire_gcp_rate_limit()
         result = await agent.run(prompt, deps=deps)
         chain = result.output
@@ -221,7 +219,7 @@ async def _try_llm_structured_fallback(
     output but not function calling (e.g., NVIDIA DeepSeek).
     """
     try:
-        from app.tools.llm_service import LLMService
+        from app.tools.llm.llm_service import LLMService
         llm = LLMService()
 
         prompt = f"""Analyze this business trend and trace its causal impact chain.
@@ -233,7 +231,7 @@ KEY ENTITIES: {", ".join(keywords[:10])}
 SUMMARY: {trend_summary[:600]}
 
 For each hop, identify specific company SEGMENTS (not individual companies).
-Focus on mid-size Indian companies (50-5000 employees).
+Focus on mid-size companies (50-5000 employees) in {geo}.
 
 Return JSON with:
 - event_summary: the trend title
@@ -245,7 +243,7 @@ Return JSON with:
   - lead_type: "pain" or "opportunity" or "risk" or "intelligence"
   - mechanism: how this trend affects them (e.g. "Steel duty → input cost increase of ~15%")
   - urgency_weeks: estimated weeks until impact materializes
-  - geo_hint: specific Indian cities/states
+  - geo_hint: specific cities/states in {geo}
   - employee_band: "sme" (50-500) or "mid" (500-5000)
   - confidence: 0.0-1.0 based on directness of causal link
   - companies_found: [] (leave empty)"""
@@ -278,6 +276,7 @@ def _build_synthetic_hops(
     trend_summary: str,
     event_type: str,
     keywords: list[str],
+    geo: str = "",
 ) -> CausalChainResult:
     """Last-resort: build template hops without any LLM calls.
 
@@ -307,7 +306,7 @@ def _build_synthetic_hops(
             lead_type="pain" if event_type in ("crisis", "regulation") else "opportunity",
             mechanism=base_mechanism,
             urgency_weeks=2 if event_type in ("crisis", "regulation") else 4,
-            geo_hint="India",
+            geo_hint=geo,
             employee_band="sme",
             confidence=0.45,
         ),
@@ -317,7 +316,7 @@ def _build_synthetic_hops(
             lead_type="intelligence",
             mechanism=f"Downstream effect: {base_mechanism.lower()}",
             urgency_weeks=6,
-            geo_hint="India",
+            geo_hint=geo,
             employee_band="sme",
             confidence=0.40,
         ),

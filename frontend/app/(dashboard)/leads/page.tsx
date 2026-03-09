@@ -24,11 +24,13 @@ export default function LeadsPage() {
 function LeadsContent() {
   const searchParams = useSearchParams();
   const selectedId = searchParams.get("selected") ?? undefined;
+  const companyParam = searchParams.get("company") ?? "";
+  const trendParam = searchParams.get("trend") ?? "";
   const { leads: contextLeads, initialLoading } = usePipelineContext();
 
   const [leads, setLeads] = useState<LeadRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(companyParam || trendParam);
   const [leadType, setLeadType] = useState("all");
   const [hop, setHop] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("confidence");
@@ -59,9 +61,11 @@ function LeadsContent() {
       if (hop !== "all" && l.hop !== Number(hop)) return false;
       if (search) {
         const q = search.toLowerCase();
-        return (
+        const lt = (l.trend_title || "").toLowerCase();
+        // Standard substring search across all fields
+        const substringMatch =
           l.company_name.toLowerCase().includes(q) ||
-          l.trend_title.toLowerCase().includes(q) ||
+          lt.includes(q) ||
           l.pain_point.toLowerCase().includes(q) ||
           l.event_type.toLowerCase().includes(q) ||
           (l.contact_name || "").toLowerCase().includes(q) ||
@@ -72,8 +76,17 @@ function LeadsContent() {
           (l.opening_line || "").toLowerCase().includes(q) ||
           (l.company_city || "").toLowerCase().includes(q) ||
           (l.company_state || "").toLowerCase().includes(q) ||
-          (l.email_subject || "").toLowerCase().includes(q)
-        );
+          (l.email_subject || "").toLowerCase().includes(q);
+        if (substringMatch) return true;
+        // Fuzzy keyword matching for trend title (trend titles are short, lead trend_titles are summaries)
+        if (trendParam) {
+          const words = q.split(/\s+/).filter((w) => w.length > 4).slice(0, 6);
+          if (words.length >= 3) {
+            const hits = words.filter((w) => lt.includes(w));
+            if (hits.length >= 3) return true;
+          }
+        }
+        return false;
       }
       return true;
     });
@@ -183,7 +196,7 @@ function LeadsContent() {
         ) : filtered.length === 0 ? (
           <div style={{ padding: "50px 24px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
             {leads.length === 0
-              ? "No leads yet — run the pipeline to generate."
+              ? <>No leads yet. <a href="/dashboard" style={{ color: "var(--accent)", textDecoration: "none" }}>Run the pipeline</a> or use <a href="/companies" style={{ color: "var(--accent)", textDecoration: "none" }}>Company Search</a> to generate leads.</>
               : <>No leads match your filters.{" "}<button onClick={() => { setSearch(""); setLeadType("all"); setHop("all"); }} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontSize: 13 }}>Clear filters</button></>}
           </div>
         ) : (

@@ -8,16 +8,31 @@ import type { LogEntry } from "@/hooks/use-pipeline";
 const MIN_HEIGHT = 72;
 const DEFAULT_HEIGHT = 200;
 const MAX_HEIGHT = 480;
+const CLOSE_THRESHOLD = 60; // px below MIN_HEIGHT → snap closed
 
 export function TerminalPanel() {
-  const [open, setOpen] = useState(false);
-  const [panelHeight, setPanelHeight] = useState(DEFAULT_HEIGHT);
+  const [open, setOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("harbinger_terminal_open") === "true";
+    }
+    return false;
+  });
+  const [panelHeight, setPanelHeight] = useState(() => {
+    if (typeof window !== "undefined") {
+      const h = parseInt(localStorage.getItem("harbinger_terminal_height") ?? "", 10);
+      return h > 0 ? h : DEFAULT_HEIGHT;
+    }
+    return DEFAULT_HEIGHT;
+  });
+  const [willClose, setWillClose] = useState(false);
+  const willCloseRef = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const dragStartY = useRef(0);
   const dragStartH = useRef(0);
 
-  const { status, progress, currentStep, messages, result, error, run, reset } = usePipelineContext();
+  const { status, progress, currentStep, messages, result, error, run, reset, forceCancel } = usePipelineContext();
+  const [lastMockMode, setLastMockMode] = useState(false);
   const [verbosity, setVerbosity] = useState("standard");
 
   // Read verbosity from localStorage (syncs with Settings page)
@@ -39,6 +54,10 @@ export function TerminalPanel() {
     }, 2000);
     return () => clearInterval(id);
   }, []);
+
+  // Persist terminal open/height to localStorage
+  useEffect(() => { localStorage.setItem("harbinger_terminal_open", String(open)); }, [open]);
+  useEffect(() => { localStorage.setItem("harbinger_terminal_height", String(panelHeight)); }, [panelHeight]);
 
   const filteredMessages = useMemo(() => filterByVerbosity(messages, verbosity), [messages, verbosity]);
 
@@ -71,7 +90,7 @@ export function TerminalPanel() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Drag-to-resize handle
+  // Drag-to-resize handle (drag down past threshold → close)
   const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDragging.current = true;
@@ -81,10 +100,27 @@ export function TerminalPanel() {
     const onMove = (ev: MouseEvent) => {
       if (!isDragging.current) return;
       const delta = dragStartY.current - ev.clientY;
-      setPanelHeight(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, dragStartH.current + delta)));
+      const newH = dragStartH.current + delta;
+      // overDrag = how many px below MIN_HEIGHT the user has pulled
+      const overDrag = newH < MIN_HEIGHT ? MIN_HEIGHT - newH : 0;
+      if (overDrag > CLOSE_THRESHOLD) {
+        willCloseRef.current = true;
+        setWillClose(true);
+        setPanelHeight(MIN_HEIGHT);
+      } else {
+        willCloseRef.current = false;
+        setWillClose(false);
+        setPanelHeight(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, newH)));
+      }
     };
     const onUp = () => {
       isDragging.current = false;
+      if (willCloseRef.current) {
+        setOpen(false);
+        setPanelHeight(DEFAULT_HEIGHT);
+        willCloseRef.current = false;
+        setWillClose(false);
+      }
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
@@ -92,13 +128,13 @@ export function TerminalPanel() {
     document.addEventListener("mouseup", onUp);
   }, [panelHeight]);
 
-  const totalHeight = open ? panelHeight + 40 : 40;
+  const totalHeight = open ? panelHeight + 40 + 8 : 40;
 
   return (
     <div style={{
       flexShrink: 0,
-      borderTop: "1px solid #252318",
-      background: "#131210",
+      borderTop: "1px solid var(--term-border)",
+      background: "var(--term-bg)",
       display: "flex",
       flexDirection: "column",
       height: totalHeight,
@@ -106,54 +142,57 @@ export function TerminalPanel() {
       transition: isDragging.current ? "none" : "height 200ms cubic-bezier(0.23,1,0.32,1)",
     }}>
 
-      {/* ── Resize handle (only when open) ──────────────── */}
+      {/* ── Resize / close handle (only when open) ──────── */}
       {open && (
         <div
           onMouseDown={onResizeMouseDown}
-          title="Drag to resize"
+          title="Drag to resize · drag down to close"
           style={{
-            height: 5,
+            height: 8,
             flexShrink: 0,
             cursor: "row-resize",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "transparent",
+            background: willClose ? "rgba(204,102,102,0.10)" : "transparent",
+            transition: "background 150ms",
+            userSelect: "none",
           }}
         >
-          <div style={{ width: 28, height: 2, borderRadius: 1, background: "#3A3828" }} />
+          {!willClose
+            ? <div style={{ width: 32, height: 2, borderRadius: 1, background: "var(--term-handle)" }} />
+            : <span style={{ fontSize: 9, fontWeight: 700, color: "var(--term-red-bright)", letterSpacing: "0.08em", whiteSpace: "nowrap", pointerEvents: "none" }}>↓ RELEASE TO CLOSE</span>
+          }
         </div>
       )}
 
       {/* ── Header bar ─────────────────────────────────── */}
-      <div style={{ height: 40, flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "0 14px", borderBottom: open ? "1px solid #252318" : "none" }}>
+      <div style={{ height: 40, flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "0 14px", borderBottom: open ? "1px solid var(--term-border)" : "none" }}>
 
         {/* Toggle */}
         <button
           onClick={() => setOpen((v) => !v)}
           style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
         >
-          <Terminal size={12} style={{ color: "#6A6858" }} />
-          <span style={{ fontSize: 11, color: "#6A6858", fontWeight: 700, letterSpacing: "0.06em" }}>PIPELINE</span>
           {open
-            ? <ChevronDown size={10} style={{ color: "#4A4838" }} />
-            : <ChevronUp size={10} style={{ color: "#4A4838" }} />}
+            ? <ChevronDown size={10} style={{ color: "var(--term-text-dim)" }} />
+            : <ChevronUp size={10} style={{ color: "var(--term-text-dim)" }} />}
         </button>
 
-        <div style={{ width: 1, height: 14, background: "#2A2820" }} />
+        <div style={{ width: 1, height: 14, background: "var(--term-border)" }} />
 
         {/* Action buttons */}
         {!isRunning ? (
           <div style={{ display: "flex", gap: 5 }}>
-            <button onClick={() => run(false)} style={tbtn("primary")}>
+            <button onClick={() => { setLastMockMode(false); run(false); }} style={tbtn("primary")}>
               <Play size={10} strokeWidth={2.5} /> Run
             </button>
-            <button onClick={() => run(true)} style={tbtn("demo")}>
+            <button onClick={() => { setLastMockMode(true); run(true); }} style={tbtn("demo")}>
               <FlaskConical size={10} /> Mock
             </button>
           </div>
         ) : (
-          <button onClick={reset} style={tbtn("stop")}>
+          <button onClick={forceCancel} style={tbtn("stop")}>
             <Square size={10} /> Stop
           </button>
         )}
@@ -161,26 +200,26 @@ export function TerminalPanel() {
         {/* Status */}
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0, overflow: "hidden" }}>
           {status === "idle" && (
-            <span style={{ fontSize: 10, color: "#3A3828" }}>Ready — Ctrl+` to toggle</span>
+            <span style={{ fontSize: 10, color: "var(--term-text-dim)" }}>Ready — Ctrl+` to toggle</span>
           )}
 
           {isRunning && (
             <>
               <span className="dot dot-amber dot-pulse" style={{ width: 6, height: 6, flexShrink: 0 }} />
-              <span style={{ fontSize: 10, color: "#9A9080", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+              <span style={{ fontSize: 10, color: "var(--term-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                 {currentStep || "Initializing..."}
               </span>
-              <div style={{ width: 100, height: 2, background: "#2A2820", borderRadius: 1, overflow: "hidden", flexShrink: 0 }}>
-                <div style={{ height: "100%", width: progress > 0 ? `${progress}%` : "30%", background: "linear-gradient(90deg, #8A5520, #C4892A)", borderRadius: 1, transition: progress > 0 ? "width 500ms ease" : "none", ...(progress === 0 ? { animation: "progress-indeterminate 1.4s ease-in-out infinite" } : {}) }} />
+              <div style={{ width: 100, height: 2, background: "var(--term-border)", borderRadius: 1, overflow: "hidden", flexShrink: 0 }}>
+                <div style={{ height: "100%", width: progress > 0 ? `${progress}%` : "30%", background: `linear-gradient(90deg, var(--term-accent-dark), var(--term-accent))`, borderRadius: 1, transition: progress > 0 ? "width 500ms ease" : "none", ...(progress === 0 ? { animation: "progress-indeterminate 1.4s ease-in-out infinite" } : {}) }} />
               </div>
-              {progress > 0 && <span style={{ fontSize: 10, color: "#6A6858", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{progress}%</span>}
+              {progress > 0 && <span style={{ fontSize: 10, color: "var(--term-text-dim)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{progress}%</span>}
             </>
           )}
 
           {isComplete && result && (
             <>
-              <CheckCircle2 size={11} style={{ color: "#5ABF7A", flexShrink: 0 }} />
-              <span style={{ fontSize: 10, color: "#5ABF7A" }}>
+              <CheckCircle2 size={11} style={{ color: "var(--term-green)", flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: "var(--term-green)" }}>
                 {result.leads_generated} leads · {result.run_time_seconds.toFixed(1)}s
               </span>
               <button onClick={reset} style={{ ...tbtn("ghost"), marginLeft: 4 }}>
@@ -191,16 +230,23 @@ export function TerminalPanel() {
 
           {isError && (
             <>
-              <AlertCircle size={11} style={{ color: "#CC6666", flexShrink: 0 }} />
-              <span style={{ fontSize: 10, color: "#CC6666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{error || "Pipeline failed"}</span>
-              <button onClick={reset} style={{ ...tbtn("ghost"), color: "#CC6666", borderColor: "#3A2020", marginLeft: 4 }}>
-                <RefreshCw size={10} /> Retry
-              </button>
+              <AlertCircle size={11} style={{ color: "var(--term-red)", flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: "var(--term-red)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{error || "Pipeline failed"}</span>
+              {error?.includes("Force Reset") ? (
+                <button
+                  onClick={async () => { await forceCancel(); run(lastMockMode); }}
+                  style={{ ...tbtn("ghost"), color: "#fff", background: "var(--term-red)", borderColor: "var(--term-red)", marginLeft: 4, fontWeight: 700 }}
+                >
+                  Force Reset
+                </button>
+              ) : (
+                <button onClick={reset} style={{ ...tbtn("ghost"), color: "var(--term-red)", borderColor: "var(--term-red-dim)", marginLeft: 4 }}>
+                  <RefreshCw size={10} /> Retry
+                </button>
+              )}
             </>
           )}
         </div>
-
-        <span style={{ fontSize: 9, color: "#2A2820", flexShrink: 0, letterSpacing: "0.04em" }}>Ctrl+`</span>
       </div>
 
       {/* ── Log body ─────────────────────────────────────── */}
@@ -209,7 +255,7 @@ export function TerminalPanel() {
         style={{ flex: 1, overflowY: "auto", padding: "8px 14px 12px", display: "flex", flexDirection: "column", gap: 0 }}
       >
         {filteredMessages.length === 0 ? (
-          <div style={{ fontSize: 11, color: "#3A3828", fontFamily: "'Courier New', monospace", padding: "4px 0" }}>
+          <div style={{ fontSize: 11, color: "var(--term-text-dim)", fontFamily: "'Courier New', monospace", padding: "4px 0" }}>
             › No output yet. Hit Run or Mock above.
           </div>
         ) : (
@@ -223,13 +269,13 @@ export function TerminalPanel() {
                 style={{
                   fontSize: 11,
                   fontFamily: "'Courier New', monospace",
-                  color: isErr ? "#CC6666" : isWarn ? "#C4892A" : isLatest ? "#E8DFC0" : "#7A7060",
+                  color: isErr ? "var(--term-red)" : isWarn ? "var(--term-accent)" : isLatest ? "var(--term-text)" : "var(--term-text-dim)",
                   lineHeight: 1.6,
                   paddingTop: 1,
                   paddingBottom: 1,
                 }}
               >
-                <span style={{ color: isErr ? "#993333" : isWarn ? "#8A5520" : isLatest ? "#6A7A3A" : "#3A4018", marginRight: 8 }}>›</span>
+                <span style={{ color: isErr ? "var(--term-red-dim)" : isWarn ? "var(--term-accent-dark)" : isLatest ? "var(--term-handle)" : "var(--term-text-xdim)", marginRight: 8 }}>›</span>
                 {entry.text}
               </div>
             );
@@ -284,8 +330,8 @@ function tbtn(v: "primary" | "demo" | "stop" | "ghost"): React.CSSProperties {
     padding: "4px 10px", borderRadius: 5, fontSize: 10, fontWeight: 600,
     cursor: "pointer", letterSpacing: "0.02em", flexShrink: 0,
   };
-  if (v === "primary") return { ...base, border: "none",                background: "#C4892A", color: "#0E0D09" };
-  if (v === "demo")    return { ...base, border: "1px solid #4A4030",   background: "transparent", color: "#C4892A" };
-  if (v === "stop")    return { ...base, border: "1px solid #3A3828",   background: "transparent", color: "#8A8070" };
-  return                      { ...base, border: "1px solid #2A2820",   background: "transparent", color: "#6A6858" };
+  if (v === "primary") return { ...base, border: "none",                              background: "var(--term-accent)", color: "var(--term-bg)" };
+  if (v === "demo")    return { ...base, border: "1px solid var(--term-text-xdim)",   background: "transparent",        color: "var(--term-accent)" };
+  if (v === "stop")    return { ...base, border: "1px solid var(--term-text-xdim)",   background: "transparent",        color: "var(--term-text-muted)" };
+  return                      { ...base, border: "1px solid var(--term-border)",       background: "transparent",        color: "var(--term-text-dim)" };
 }

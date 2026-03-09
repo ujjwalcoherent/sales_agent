@@ -2,22 +2,10 @@
 
 import Link from "next/link";
 import { ArrowRight, ChevronRight } from "lucide-react";
+import { confidenceColor, TYPE_CLASSES } from "@/lib/utils";
 import type { LeadRecord } from "@/lib/types";
 
-/** Confidence 0–1 → display color */
-function confidenceColor(c: number) {
-  if (c >= 0.75) return { text: "var(--green)",  bg: "var(--green-light)"  };
-  if (c >= 0.50) return { text: "var(--accent)", bg: "var(--amber-light)"  };
-  return               { text: "var(--text-muted)", bg: "var(--surface-raised)" };
-}
-
 const HOP_LABELS: Record<number, string> = { 1: "H1", 2: "H2", 3: "H3" };
-const TYPE_CLASSES: Record<string, string> = {
-  pain: "badge-red",
-  opportunity: "badge-green",
-  risk: "badge-amber",
-  intelligence: "badge-blue",
-};
 
 interface LeadsCompactProps {
   leads: LeadRecord[];

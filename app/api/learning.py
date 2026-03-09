@@ -1,4 +1,4 @@
-"""Learning status API — exposes all 6 self-learning loop states."""
+"""Learning status API — exposes all 8 self-learning loop states."""
 
 import json
 import logging
@@ -16,13 +16,15 @@ DATA_DIR = Path("data")
 
 
 class LearningStatusResponse(BaseModel):
-    """Full learning system state — all 6 loops."""
+    """Full learning system state — all 8 loops."""
     source_bandit: Dict[str, Any] = Field(default_factory=dict)
     weight_learner: Dict[str, Any] = Field(default_factory=dict)
     company_bandit: Dict[str, Any] = Field(default_factory=dict)
     adaptive_thresholds: Dict[str, Any] = Field(default_factory=dict)
     trend_memory: Dict[str, Any] = Field(default_factory=dict)
     feedback: Dict[str, Any] = Field(default_factory=dict)
+    signal_bus: Dict[str, Any] = Field(default_factory=dict)
+    meta_reasoner: Dict[str, Any] = Field(default_factory=dict)
 
 
 def _load_json(path: Path) -> Dict:
@@ -177,6 +179,34 @@ async def learning_status():
         except Exception:
             pass
 
+    # 7. Signal Bus — cross-loop communication backbone
+    signal_bus_data = _load_json(DATA_DIR / "signal_bus.json")
+    signal_bus = {}
+    if signal_bus_data:
+        signal_bus = {
+            "system_confidence": signal_bus_data.get("system_confidence", 0.0),
+            "exploration_budget": signal_bus_data.get("exploration_budget", 0.0),
+            "phase": signal_bus_data.get("current_phase", "unknown"),
+            "signal_count": len(signal_bus_data.get("signals", {})),
+            "last_updated": signal_bus_data.get("last_updated", ""),
+        }
+
+    # 8. MetaReasoner — chain-of-thought reasoning traces
+    meta_reasoner = {}
+    trace_count = _count_jsonl(DATA_DIR / "reasoning_traces.jsonl")
+    hypotheses_data = _load_json(DATA_DIR / "improvement_hypotheses.json")
+    hypotheses = hypotheses_data if isinstance(hypotheses_data, list) else hypotheses_data.get("hypotheses", [])
+    if trace_count or hypotheses:
+        meta_reasoner = {
+            "trace_count": trace_count,
+            "hypothesis_count": len(hypotheses),
+            "latest_hypotheses": [
+                h.get("hypothesis", h) if isinstance(h, dict) else str(h)
+                for h in hypotheses[-5:]
+            ],
+            "last_run": hypotheses_data.get("last_updated", "") if isinstance(hypotheses_data, dict) else "",
+        }
+
     return LearningStatusResponse(
         source_bandit=source_bandit,
         weight_learner=weight_learner,
@@ -184,4 +214,6 @@ async def learning_status():
         adaptive_thresholds=adaptive_thresholds,
         trend_memory=trend_memory,
         feedback=feedback,
+        signal_bus=signal_bus,
+        meta_reasoner=meta_reasoner,
     )

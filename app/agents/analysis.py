@@ -1,8 +1,8 @@
 """
 Analysis Agent — autonomous trend clustering and signal computation.
 
-pydantic-ai agent wrapping TrendPipeline layers as callable tools.
-Decides clustering parameters, evaluates coherence, triggers retries.
+pydantic-ai agent powered by intelligence/pipeline.py (math-first, 22-agent system).
+Math gates 1-9 run before any LLM call. First LLM call is at synthesis (step 8).
 """
 
 import logging
@@ -59,115 +59,127 @@ async def run_trend_pipeline(
     coherence_min: float = 0.48,
     merge_threshold: float = 0.82,
 ) -> str:
-    """Run full TrendPipeline (Leiden clustering + synthesis) on articles.
+    """Run intelligence/pipeline.py (math-first, 22-agent system) on current scope.
+
+    Replaces old TrendPipeline. Runs 9 math gates before first LLM call:
+    Fetch → Dedup → Salience Filter → Entity Extraction → Similarity →
+    Cluster → Validate → Synthesize → Match
 
     Args:
-        semantic_dedup_threshold: Dedup similarity threshold (0.85-0.92).
-        coherence_min: Min coherence to keep a cluster (0.35-0.55).
-        merge_threshold: Threshold for merging similar clusters (0.70-0.90).
+        semantic_dedup_threshold: Dedup similarity threshold (0.85-0.92) — adaptive.
+        coherence_min: Min coherence to keep a cluster (0.35-0.55) — adaptive.
+        merge_threshold: Threshold for merging similar clusters — adaptive.
     """
-    articles = ctx.deps._articles
-    if not articles:
-        return "ERROR: No articles. Source Intel must run first."
-
     settings = get_settings()
-    from app.trends.engine import TrendPipeline
 
-    pipeline = TrendPipeline(
-        max_depth=settings.engine_max_depth,
-        semantic_dedup_threshold=semantic_dedup_threshold,
-        max_concurrent_llm=settings.engine_max_concurrent_llm,
-        mock_mode=ctx.deps.mock_mode,
-        country=settings.country,
-        domestic_source_ids=get_domestic_source_ids(settings.country_code),
+    from app.intelligence.pipeline import execute as intelligence_execute
+    from app.intelligence.models import DiscoveryScope, DiscoveryMode
+    from app.intelligence.config import load_adaptive_params
+
+    scope = DiscoveryScope(
+        mode=DiscoveryMode.INDUSTRY_FIRST,
+        industry=getattr(settings, "industry_focus", "Technology"),
+        region=settings.country_code or "IN",
+        hours=getattr(settings, "rss_hours_ago", 120),
     )
 
-    tree = await pipeline.run(articles)
-    ctx.deps._trend_tree = tree
-    ctx.deps._pipeline = pipeline
-    ctx.deps._params_used = {
-        "semantic_dedup_threshold": semantic_dedup_threshold,
-        "coherence_min": coherence_min,
-        "merge_threshold": merge_threshold,
-    }
+    params = load_adaptive_params()
+    # Allow the agent's arguments to override adaptive defaults (for retry)
+    params.dedup_title_threshold = max(0.80, semantic_dedup_threshold)
+    params.filter_auto_accept = coherence_min * 0.9  # tighter filter = more precise
 
-    major = tree.to_major_trends()
-    metrics = getattr(pipeline, '_last_metrics', {})
+    result = await intelligence_execute(scope, params)
+    ctx.deps._intelligence_result = result
+    ctx.deps._trend_tree = None  # Clear old tree — intelligence result takes precedence
+
     return (
-        f"Pipeline: {len(articles)} articles -> {len(major)} trends, "
-        f"noise={metrics.get('noise_ratio', 0):.2f}, "
-        f"coherence={metrics.get('mean_coherence', 0):.2f}"
+        f"Intelligence pipeline: {result.total_articles_fetched} articles fetched, "
+        f"{result.total_articles_post_filter} after filter, "
+        f"{result.total_clusters} clusters, "
+        f"noise={result.noise_rate:.2f}, "
+        f"coherence={result.mean_coherence:.2f}"
     )
 
 
 @analysis.tool
 async def evaluate_cluster_quality(ctx: RunContext[AgentDeps]) -> str:
     """Evaluate quality of current clustering results."""
-    tree = ctx.deps._trend_tree
-    if tree is None:
-        return "No trend tree. Run pipeline first."
-
     import numpy as np
-    major = tree.to_major_trends()
-    if not major:
-        return "Zero clusters. All articles are noise."
 
-    cohs = [getattr(m, 'coherence_score', 0.5) for m in major]
-    sizes = [getattr(m, 'article_count', 0) for m in major]
-    issues = []
-    mean_c = float(np.mean(cohs))
-    if mean_c < 0.40:
-        issues.append(f"Low coherence: {mean_c:.3f}")
-    if len(major) < 3:
-        issues.append(f"Few clusters: {len(major)}")
+    intel = getattr(ctx.deps, "_intelligence_result", None)
+    if intel is not None:
+        clusters = intel.clusters
+        if not clusters:
+            return "Zero clusters. All articles are noise."
+        cohs = [c.coherence_score for c in clusters if c.coherence_score > 0]
+        sizes = [len(c.article_indices) for c in clusters]
+        mean_c = float(np.mean(cohs)) if cohs else 0.0
+        issues = []
+        if mean_c < 0.40:
+            issues.append(f"Low coherence: {mean_c:.3f}")
+        if len(clusters) < 3:
+            issues.append(f"Few clusters: {len(clusters)}")
+        status = "PASS" if not issues else "RETRY"
+        return f"{status}: {len(clusters)} clusters, coherence={mean_c:.3f}, sizes={sorted(sizes, reverse=True)[:8]}, issues={issues}"
 
-    status = "PASS" if not issues else "RETRY"
-    return f"{status}: {len(major)} clusters, coherence={mean_c:.3f}, sizes={sorted(sizes, reverse=True)[:8]}, issues={issues}"
+    return "No analysis result. Run pipeline first."
 
 
 @analysis.tool
 async def check_trend_novelty(ctx: RunContext[AgentDeps]) -> str:
     """Check trend memory for novelty scores."""
-    tree = ctx.deps._trend_tree
-    if tree is None:
-        return "No trend tree."
-    major = tree.to_major_trends()
+    intel = getattr(ctx.deps, "_intelligence_result", None)
+    if intel is None:
+        return "No intelligence result."
+    clusters = intel.clusters
     lines = []
-    for m in major:
-        nov = getattr(m, 'novelty_score', None)
-        cont = getattr(m, 'continuity_run_count', 0)
-        lines.append(f"  {m.trend_title[:50]}: novelty={nov}, seen={cont}x")
-    return f"Novelty ({len(major)} trends):\n" + "\n".join(lines)
+    for c in clusters[:15]:
+        lines.append(f"  {(c.label or c.primary_entity or 'unknown')[:50]}: "
+                     f"coherence={c.coherence_score:.3f}, articles={len(c.article_indices)}")
+    return f"Clusters ({len(clusters)}):\n" + "\n".join(lines)
 
 
 async def run_analysis(deps: AgentDeps) -> Any:
-    """Run the Analysis Agent. Returns (tree, result_metadata)."""
-    prompt = f"Analyze {len(deps._articles)} articles. Cluster into market trends. Target coherence >= 0.45."
+    """Run the Analysis Agent. Returns (intelligence_result_or_None, result_metadata).
+
+    Powered by intelligence/pipeline.py (22-agent math-first system).
+    The pydantic-ai agent calls run_trend_pipeline tool which executes the full
+    intelligence pipeline. Result is stored in deps._intelligence_result.
+    """
+    prompt = (
+        f"Run the trend pipeline to cluster news articles into market trends. "
+        f"Target coherence >= 0.45. Evaluate quality after clustering."
+    )
 
     agent_result = None
     try:
         model = deps.get_model()
         result = await analysis.run(prompt, deps=deps, model=model)
-        logger.info(f"Analysis: {result.output.num_clusters} clusters, coh={result.output.mean_coherence:.3f}")
         agent_result = result.output
+        intel = getattr(deps, "_intelligence_result", None)
+        if intel:
+            logger.info(
+                f"Analysis: {intel.total_clusters} clusters, "
+                f"coherence={intel.mean_coherence:.3f}, "
+                f"noise={intel.noise_rate:.2f}"
+            )
     except Exception as e:
-        logger.error(f"Analysis Agent failed: {e}, using fallback")
+        logger.error(f"Analysis Agent failed: {e}, running intelligence pipeline directly")
 
-    # Build the tree if the agent's tool call didn't (e.g. mock mode skips tools)
-    tree = deps._trend_tree
-    if tree is None:
+    # Fallback: if agent didn't run the tool, run intelligence pipeline directly
+    intel = getattr(deps, "_intelligence_result", None)
+    if intel is None:
+        from app.intelligence.pipeline import execute as intelligence_execute
+        from app.intelligence.models import DiscoveryScope, DiscoveryMode
+        from app.intelligence.config import load_adaptive_params
         settings = get_settings()
-        from app.trends.engine import TrendPipeline
-        pipeline = TrendPipeline(
-            max_depth=settings.engine_max_depth,
-            semantic_dedup_threshold=settings.semantic_dedup_threshold,
-            max_concurrent_llm=settings.engine_max_concurrent_llm,
-            mock_mode=deps.mock_mode,
-            country=settings.country,
-            domestic_source_ids=get_domestic_source_ids(settings.country_code),
+        scope = DiscoveryScope(
+            mode=DiscoveryMode.INDUSTRY_FIRST,
+            industry=getattr(settings, "industry_focus", "Technology"),
+            region=settings.country_code or "IN",
+            hours=getattr(settings, "rss_hours_ago", 120),
         )
-        tree = await pipeline.run(deps._articles)
-        deps._trend_tree = tree
-        deps._pipeline = pipeline
+        intel = await intelligence_execute(scope, load_adaptive_params())
+        deps._intelligence_result = intel
 
-    return tree, agent_result or AnalysisResult(reasoning="Fallback pipeline")
+    return intel, agent_result or AnalysisResult(reasoning="Intelligence pipeline")

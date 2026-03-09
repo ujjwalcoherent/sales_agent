@@ -108,7 +108,7 @@ async def run_market_impact(deps: AgentDeps) -> tuple:
 
     agent_result = None
     try:
-        from app.tools.provider_manager import ProviderManager
+        from app.tools.llm.providers import ProviderManager
         await ProviderManager.acquire_gcp_rate_limit()
         model = deps.get_model()
         result = await impact_agent.run(prompt, deps=deps, model=model)

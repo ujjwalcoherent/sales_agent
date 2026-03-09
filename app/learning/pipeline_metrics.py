@@ -285,6 +285,10 @@ def compute_adaptive_thresholds(
 ) -> Dict[str, float]:
     """Compute dual-rate EMA adaptive thresholds from pipeline history.
 
+    Uses signal bus cross-loop data to modulate adaptation speed:
+    - High weight_drift -> dampen threshold changes (score distributions shifting)
+    - Low avg_novelty -> tighten thresholds (recycled trends need higher bar)
+
     Returns config-key -> adapted-value dict. Empty if insufficient history.
     """
     history = load_history(log_path, last_n=20)
@@ -295,6 +299,19 @@ def compute_adaptive_thresholds(
             f"(need {min_runs}), using config defaults"
         )
         return {}
+
+    # Load signal bus for cross-loop modulation
+    bus_weight_drift = 0.0
+    bus_avg_novelty = 0.5
+    try:
+        from app.learning.signal_bus import LearningSignalBus
+        bus = LearningSignalBus.load_previous()
+        if bus:
+            modulation = bus.get_adaptive_threshold_modulation()
+            bus_weight_drift = modulation.get("weight_drift", 0.0)
+            bus_avg_novelty = modulation.get("avg_novelty", 0.5)
+    except Exception:
+        pass
 
     results = {}
     anomalies = []
@@ -316,6 +333,21 @@ def compute_adaptive_thresholds(
             continue
 
         adapted = at.update_from_history(values)
+
+        # Signal bus modulation: weight drift dampens threshold movement
+        if bus_weight_drift > 0.1:
+            # Weights changed a lot — score distributions are shifting,
+            # so pull thresholds back toward their defaults to avoid chasing noise
+            dampen = min(0.5, bus_weight_drift)  # cap at 50% blend-back
+            adapted = (1.0 - dampen) * adapted + dampen * at.default
+
+        # Signal bus modulation: low novelty tightens thresholds
+        if bus_avg_novelty < 0.3 and at.higher_is_better:
+            # Mostly recycled trends — raise the bar slightly
+            tighten = 0.05 * (0.3 - bus_avg_novelty) / 0.3  # up to +0.05
+            adapted += tighten
+
+        adapted = max(at.floor, min(at.ceiling, adapted))
         results[threshold_name] = round(adapted, 4)
 
         if values and at.is_anomaly(values[-1]):
@@ -334,7 +366,10 @@ def compute_adaptive_thresholds(
         logger.warning(f"Adaptive threshold anomalies: {anomalies}")
 
     if results:
-        logger.info(f"Adaptive thresholds (dual-rate EMA, {len(history)} runs): {results}")
+        bus_info = ""
+        if bus_weight_drift > 0.1 or bus_avg_novelty < 0.3:
+            bus_info = f" | bus: drift={bus_weight_drift:.3f}, novelty={bus_avg_novelty:.2f}"
+        logger.info(f"Adaptive thresholds (dual-rate EMA, {len(history)} runs): {results}{bus_info}")
 
     return results
 

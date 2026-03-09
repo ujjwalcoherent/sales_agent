@@ -8,8 +8,6 @@ tools through properties (lazy init on first use).
 This replaces PipelineDeps for the multi-agent architecture.
 """
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -33,6 +31,7 @@ class AgentDeps:
     mock_mode: bool = False
     log_callback: Optional[object] = field(default=None, repr=False)
     disabled_providers: List[str] = field(default_factory=list, repr=False)
+    scope: Optional[Any] = field(default=None, repr=False)  # DiscoveryScope from CLI
 
     # Lazy-initialized tools
     _llm_service: Optional[object] = field(default=None, repr=False)
@@ -72,18 +71,24 @@ class AgentDeps:
     _recorder: Optional[object] = field(default=None, repr=False)
     _pipeline_t0: float = 0.0  # Pipeline start time (set by orchestrator)
 
+    # MetaReasoner — chain-of-thought reasoning layer (lazy-initialized)
+    _meta_reasoner: Optional[object] = field(default=None, repr=False)
+
     @classmethod
     def create(
         cls,
         mock_mode: bool = False,
         log_callback=None,
         run_id: str = "",
-        disabled_providers: list[str] | None = None,
-    ) -> AgentDeps:
+        disabled_providers: Optional[List[str]] = None,
+        scope=None,
+    ) -> "AgentDeps":
         """Create deps with settings-aware mock_mode.
 
         When mock_mode=False and run_id is provided, a RunRecorder is
         automatically created to capture step snapshots for replay.
+
+        scope: DiscoveryScope from CLI (overrides settings for region/hours/mode).
         """
         from app.config import get_settings
         settings = get_settings()
@@ -98,6 +103,7 @@ class AgentDeps:
             mock_mode=effective_mock,
             log_callback=log_callback,
             disabled_providers=disabled_providers or [],
+            scope=scope,
             _recorder=recorder,
         )
 
@@ -115,7 +121,7 @@ class AgentDeps:
     @property
     def llm_service(self):
         if self._llm_service is None:
-            from app.tools.llm_service import LLMService
+            from app.tools.llm.llm_service import LLMService
             self._llm_service = LLMService(
                 mock_mode=self.mock_mode,
                 disabled_providers=self.disabled_providers,
@@ -125,7 +131,7 @@ class AgentDeps:
     @property
     def llm_lite_service(self):
         if self._llm_lite_service is None:
-            from app.tools.llm_service import LLMService
+            from app.tools.llm.llm_service import LLMService
             self._llm_lite_service = LLMService(
                 mock_mode=self.mock_mode,
                 lite=True,
@@ -136,35 +142,35 @@ class AgentDeps:
     @property
     def tavily_tool(self):
         if self._tavily_tool is None:
-            from app.tools.tavily_tool import TavilyTool
+            from app.tools.web.tavily_tool import TavilyTool
             self._tavily_tool = TavilyTool(mock_mode=self.mock_mode)
         return self._tavily_tool
 
     @property
     def rss_tool(self):
         if self._rss_tool is None:
-            from app.tools.rss_tool import RSSTool
+            from app.tools.web.rss_tool import RSSTool
             self._rss_tool = RSSTool(mock_mode=self.mock_mode)
         return self._rss_tool
 
     @property
     def apollo_tool(self):
         if self._apollo_tool is None:
-            from app.tools.apollo_tool import ApolloTool
+            from app.tools.crm.apollo_tool import ApolloTool
             self._apollo_tool = ApolloTool(mock_mode=self.mock_mode)
         return self._apollo_tool
 
     @property
     def hunter_tool(self):
         if self._hunter_tool is None:
-            from app.tools.hunter_tool import HunterTool
+            from app.tools.crm.hunter_tool import HunterTool
             self._hunter_tool = HunterTool(mock_mode=self.mock_mode)
         return self._hunter_tool
 
     @property
     def embedding_tool(self):
         if self._embedding_tool is None:
-            from app.tools.embeddings import EmbeddingTool
+            from app.tools.llm.embeddings import EmbeddingTool
             self._embedding_tool = EmbeddingTool()
         return self._embedding_tool
 
@@ -185,22 +191,28 @@ class AgentDeps:
     @property
     def company_bandit(self):
         if self._company_bandit is None:
-            from app.agents.company_relevance_bandit import CompanyRelevanceBandit
+            from app.learning.company_bandit import CompanyRelevanceBandit
             self._company_bandit = CompanyRelevanceBandit()
         return self._company_bandit
 
     @property
+    def meta_reasoner(self):
+        """Chain-of-thought reasoning layer — uses lite LLM for cost efficiency."""
+        if self._meta_reasoner is None:
+            from app.learning.meta_reasoner import MetaReasoner
+            self._meta_reasoner = MetaReasoner(
+                llm_service=self.llm_lite_service,
+                enabled=not self.mock_mode,
+            )
+        return self._meta_reasoner
+
+    @property
     def search_manager(self):
-        """Unified search manager — BM25 → SearXNG → DDG fallback chain."""
+        """Unified search manager — BM25 + DDG fallback chain."""
         if self._search_manager is None:
             try:
-                from app.search.manager import SearchManager
-                from app.config import get_settings
-                settings = get_settings()
-                self._search_manager = SearchManager(
-                    searxng_url=getattr(settings, "searxng_url", "http://localhost:8888"),
-                    searxng_enabled=getattr(settings, "searxng_enabled", False),
-                )
+                from app.tools.search import SearchManager
+                self._search_manager = SearchManager()
             except Exception as e:
                 logger.warning(f"SearchManager init failed: {e}")
         return self._search_manager
@@ -216,6 +228,71 @@ class AgentDeps:
         Returns the FallbackModel with cooldown-aware provider chain.
         Used by agents to override their placeholder model at runtime.
         """
-        from app.tools.provider_manager import ProviderManager
+        from app.tools.llm.providers import ProviderManager
         pm = ProviderManager(mock_mode=self.mock_mode)
         return pm.get_model()
+
+
+# ── Learning signals ─────────────────────────────────────────────────────────
+
+@dataclass
+class HopSignal:
+    """Quality signal for a single causal hop."""
+    hop: int
+    segment: str
+    lead_type: str
+    confidence: float
+    companies_found: int          # How many real companies KB returned
+    tool_calls: int               # How many tool calls the LLM agent made
+    mechanism_specificity: float  # OSS-like score for mechanism text (0-1)
+
+
+@dataclass
+class LearningSignal:
+    """
+    Per-run learning signal captured from all pipeline agents.
+
+    Feeds into:
+    - Weight auto-learner: uses oss_score as reward signal
+    - Source bandit (Thompson Sampling): maps article sources → quality via oss
+    - Trend memory: tracks oss improvement per semantic centroid across runs
+
+    Each field is deliberately measurable without LLM grading.
+    """
+    trend_title: str
+    event_type: str
+
+    # Synthesis quality (set from app/trends/specificity.py OSS computation)
+    oss_score: float = 0.0
+    synthesis_retries: int = 0
+
+    # Causal chain quality
+    hops_generated: int = 0
+    hop_signals: list[HopSignal] = field(default_factory=list)
+    causal_tool_calls: int = 0     # Total LLM tool calls across all hops
+    kb_hit_rate: float = 0.0       # Fraction of hops that found real KB companies
+
+    # Lead crystallization quality
+    leads_generated: int = 0
+    leads_with_companies: int = 0  # Leads with a real company from KB (not placeholder)
+    avg_lead_confidence: float = 0.0
+
+    # Source tracking (for source bandit feedback loop)
+    source_article_ids: list[str] = field(default_factory=list)
+
+    # Run metadata
+    run_id: str = ""
+    timestamp: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "trend_title": self.trend_title,
+            "event_type": self.event_type,
+            "oss_score": self.oss_score,
+            "hops_generated": self.hops_generated,
+            "causal_tool_calls": self.causal_tool_calls,
+            "kb_hit_rate": self.kb_hit_rate,
+            "leads_generated": self.leads_generated,
+            "leads_with_companies": self.leads_with_companies,
+            "avg_lead_confidence": self.avg_lead_confidence,
+        }

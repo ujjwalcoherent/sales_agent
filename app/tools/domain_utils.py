@@ -116,16 +116,16 @@ def is_valid_company_domain(domain: str) -> bool:
         if not extracted.domain or not extracted.suffix:
             return False
         
-        # Common valid TLDs for Indian companies
-        valid_tlds = {
-            "com", "in", "co.in", "io", "ai", "tech", "org", 
-            "net", "co", "app", "dev", "cloud", "software"
+        # Reject known non-company TLDs rather than whitelisting
+        invalid_tlds = {
+            "gov", "edu", "mil", "museum", "int",
+            "example", "test", "localhost", "invalid", "local",
         }
-        
-        # Allow any TLD for now, but log unusual ones
-        if extracted.suffix not in valid_tlds:
-            logger.debug(f"Unusual TLD for domain: {domain}")
-        
+
+        if extracted.suffix in invalid_tlds:
+            logger.debug(f"Rejected domain with non-company TLD: {domain}")
+            return False
+
         return True
     except Exception:
         return False
@@ -183,62 +183,3 @@ def extract_domain_from_company_name(company_name: str) -> Optional[str]:
     return potential_domains[0]  # Return most likely (.com)
 
 
-def normalize_domain(domain: str) -> str:
-    """
-    Normalize a domain to consistent format.
-    
-    Args:
-        domain: Domain to normalize
-        
-    Returns:
-        Normalized domain (lowercase, no www)
-    """
-    if not domain:
-        return ""
-    
-    domain = domain.lower().strip()
-    
-    # Remove protocol
-    domain = re.sub(r'^https?://', '', domain)
-    
-    # Remove www
-    if domain.startswith("www."):
-        domain = domain[4:]
-    
-    # Remove trailing slash and path
-    domain = domain.split("/")[0]
-    
-    return domain
-
-
-def extract_domains_from_text(text: str) -> list:
-    """
-    Extract all domains from a text block.
-    
-    Args:
-        text: Text that may contain domains
-        
-    Returns:
-        List of unique valid domains
-    """
-    if not text:
-        return []
-    
-    # Find all potential domains
-    domain_pattern = r'(?:https?://)?(?:www\.)?([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)+)'
-    matches = re.findall(domain_pattern, text)
-    
-    # Clean and validate
-    domains = []
-    seen = set()
-    
-    for match in matches:
-        domain = match.lower()
-        if domain.startswith("www."):
-            domain = domain[4:]
-        
-        if domain not in seen and is_valid_company_domain(domain):
-            seen.add(domain)
-            domains.append(domain)
-    
-    return domains

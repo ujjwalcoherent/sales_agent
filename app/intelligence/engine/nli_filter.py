@@ -241,6 +241,49 @@ def _load_model():
     return _model_instance
 
 
+def score_texts(
+    texts: List[str],
+    hypothesis: Optional[str] = None,
+    batch_size: int = 32,
+) -> List[float]:
+    """Score plain text strings with NLI entailment against a hypothesis.
+
+    Same as score_articles() but accepts raw strings — no Article objects needed.
+    Used by hypothesis_learner.py to validate hypothesis updates against the
+    auto-labeled dataset (Reuters-21578 / AG News / cluster signals).
+
+    Args:
+        texts: List of text strings to score (truncated to 400 chars internally).
+        hypothesis: Hypothesis string. None = load from config file.
+        batch_size: Inference batch size.
+
+    Returns:
+        List of entailment scores in [0.0, 1.0], one per text.
+        Returns 0.40 (ambiguous) on model failure.
+    """
+    if not texts:
+        return []
+
+    if hypothesis is None:
+        hypothesis = load_hypothesis()
+
+    pairs = [(t[:400], hypothesis) for t in texts]
+
+    try:
+        model = _load_model()
+        raw_logits = model.predict(pairs, batch_size=batch_size, show_progress_bar=False)
+        raw_logits = np.array(raw_logits)
+        if raw_logits.ndim == 1:
+            return [float(np.clip(s, 0.0, 1.0)) for s in raw_logits]
+        shifted = raw_logits - raw_logits.max(axis=1, keepdims=True)
+        exp_vals = np.exp(shifted)
+        probs = exp_vals / exp_vals.sum(axis=1, keepdims=True)
+        return probs[:, _ENTAILMENT_IDX].tolist()
+    except Exception as e:
+        logger.error(f"[nli] score_texts failed: {e}")
+        return [0.40] * len(texts)
+
+
 def nli_scores_by_source(
     articles: List[Any],
     scores: List[float],

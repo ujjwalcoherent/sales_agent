@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import {
   RefreshCw, Brain, Target, Gauge, Database, MessageSquare, Building2,
-  TrendingUp, TrendingDown, Minus, Info, Activity, Zap, Shield,
+  TrendingUp, Info, Activity, Zap, Shield, ChevronDown, ChevronUp,
+  BarChart2, Cpu, Clock,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { LearningStatus } from "@/lib/types";
@@ -29,7 +30,7 @@ export default function LearningPage() {
         <h1 className="font-display" style={{ fontSize: 19, color: "var(--text)", letterSpacing: "-0.02em" }}>
           Learning System
         </h1>
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>6 self-learning loops</span>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>8 self-learning loops</span>
         <button
           onClick={refresh}
           disabled={loading}
@@ -49,12 +50,13 @@ export default function LearningPage() {
             The learning system improves itself after every pipeline run. It tracks which news sources produce the best leads,
             which company segments respond best, and tunes signal weights automatically.
             <strong style={{ color: "var(--text)" }}> More pipeline runs = smarter system.</strong>
+            {" "}<span style={{ color: "var(--text-muted)" }}>Click any card header to expand technical details.</span>
           </div>
         </div>
 
         {!status ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
               <div key={i} className="card" style={{ padding: 20 }}>
                 <div className="skeleton" style={{ height: 14, width: "50%", marginBottom: 12 }} />
                 <div className="skeleton" style={{ height: 80, width: "100%" }} />
@@ -62,13 +64,15 @@ export default function LearningPage() {
             ))}
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
             <SourceBanditCard data={status.source_bandit} />
             <WeightLearnerCard data={status.weight_learner} />
             <CompanyBanditCard data={status.company_bandit} />
             <AdaptiveThresholdsCard data={status.adaptive_thresholds} />
             <TrendMemoryCard data={status.trend_memory} />
             <FeedbackCard data={status.feedback} />
+            <SignalBusCard data={status.signal_bus} />
+            <MetaReasonerCard data={status.meta_reasoner} />
           </div>
         )}
       </div>
@@ -86,6 +90,7 @@ function LoopCard({
   healthLabel,
   healthColor,
   children,
+  detail,
 }: {
   title: string;
   icon: React.ElementType;
@@ -94,10 +99,25 @@ function LoopCard({
   healthLabel?: string;
   healthColor?: string;
   children: React.ReactNode;
+  detail?: React.ReactNode;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+      {/* Header — clickable to expand if detail available */}
+      <div
+        onClick={detail ? () => setExpanded((v) => !v) : undefined}
+        style={{
+          padding: "12px 16px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: detail ? "pointer" : "default",
+          userSelect: "none",
+        }}
+      >
         <div style={{ width: 28, height: 28, borderRadius: 7, background: "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <Icon size={13} style={{ color: accent }} />
         </div>
@@ -110,8 +130,26 @@ function LoopCard({
             {healthLabel}
           </span>
         )}
+        {detail && (
+          <ChevronDown
+            size={13}
+            style={{ color: "var(--text-muted)", transition: "transform 200ms", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}
+          />
+        )}
       </div>
+
+      {/* Main body */}
       <div style={{ padding: "14px 16px" }}>{children}</div>
+
+      {/* Expanded detail panel */}
+      {detail && expanded && (
+        <div style={{ borderTop: "1px dashed var(--border)", padding: "14px 16px", background: "var(--surface-raised)" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.05em", marginBottom: 10 }}>
+            TECHNICAL DETAIL
+          </div>
+          {detail}
+        </div>
+      )}
     </div>
   );
 }
@@ -124,6 +162,52 @@ function SourceBanditCard({ data }: { data: LearningStatus["source_bandit"] }) {
   const topMean = sources.length > 0 ? sources[0].mean : 0;
   const health = totalArms > 30 ? "green" : totalArms > 10 ? "amber" : undefined;
   const healthLabel = totalArms > 30 ? "Exploring" : totalArms > 10 ? "Learning" : undefined;
+  const totalPulls = sources.reduce((s, x) => s + (x.pulls || 0), 0);
+
+  // Beta distribution std dev: sqrt(α*β / ((α+β)² * (α+β+1)))
+  function confidence(alpha: number, beta: number): number {
+    const a = alpha ?? 1, b = beta ?? 1;
+    const n = a + b;
+    return Math.sqrt((a * b) / (n * n * (n + 1)));
+  }
+
+  const detail = sources.length > 0 ? (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        <strong style={{ color: "var(--text)" }}>Thompson Sampling</strong> maintains a Beta(α, β) posterior for each source.
+        Higher α = more quality leads confirmed. Higher β = more misses.
+        The bandit samples from these distributions to choose sources with natural exploration.
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              {["Source", "α (wins)", "β (misses)", "Mean", "±CI"].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "4px 6px", color: "var(--text-xmuted)", fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((s, i) => {
+              const ci = confidence(s.alpha ?? 1, s.beta ?? 1);
+              return (
+                <tr key={s.source} style={{ borderBottom: "1px solid var(--border)", background: i === 0 ? "var(--green-light)" : "transparent" }}>
+                  <td style={{ padding: "4px 6px", color: i < 3 ? "var(--text)" : "var(--text-secondary)", fontWeight: i < 3 ? 500 : 400 }}>{s.source}</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--green)" }}>{(s.alpha ?? 1).toFixed(2)}</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--red)" }}>{(s.beta ?? 1).toFixed(2)}</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--text)" }}>{(s.mean * 100).toFixed(1)}%</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--text-muted)" }}>±{(ci * 100).toFixed(1)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: 8, fontSize: 10, color: "var(--text-xmuted)" }}>
+        CI = 95% credible interval width (Beta posterior std dev). Narrow CI = high confidence.
+      </div>
+    </div>
+  ) : undefined;
 
   return (
     <LoopCard
@@ -133,12 +217,12 @@ function SourceBanditCard({ data }: { data: LearningStatus["source_bandit"] }) {
       description="Ranks news sources by lead quality using Thompson Sampling"
       healthLabel={healthLabel || `${totalArms} arms`}
       healthColor={health}
+      detail={detail}
     >
-      {/* KPI row */}
       <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
         <KpiMini label="Sources tracked" value={totalArms} color="var(--accent)" />
         <KpiMini label="Top source score" value={`${(topMean * 100).toFixed(0)}%`} color="var(--green)" />
-        <KpiMini label="Total pulls" value={sources.reduce((s, x) => s + (x.pulls || 0), 0)} color="var(--text-secondary)" />
+        <KpiMini label="Total pulls" value={totalPulls} color="var(--text-secondary)" />
       </div>
 
       {sources.length > 0 ? (
@@ -148,9 +232,7 @@ function SourceBanditCard({ data }: { data: LearningStatus["source_bandit"] }) {
             const barWidth = topMean > 0 ? (s.mean / topMean) * 100 : 0;
             return (
               <div key={s.source} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="num" style={{ fontSize: 10, color: "var(--text-xmuted)", minWidth: 14, textAlign: "right" }}>
-                  {i + 1}.
-                </span>
+                <span className="num" style={{ fontSize: 10, color: "var(--text-xmuted)", minWidth: 14, textAlign: "right" }}>{i + 1}.</span>
                 <span style={{ fontSize: 11, color: i < 3 ? "var(--text)" : "var(--text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: i < 3 ? 500 : 400 }}>
                   {s.source}
                 </span>
@@ -180,7 +262,55 @@ function WeightLearnerCard({ data }: { data: LearningStatus["weight_learner"] })
   const weights = data.weights ?? {};
   const categories = Object.entries(weights);
   const dataCount = data.data_count ?? 0;
+  const lastUpdated = data.last_updated ?? "";
   const health = dataCount > 50 ? "green" : dataCount > 10 ? "amber" : undefined;
+
+  const detail = categories.length > 0 ? (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        <strong style={{ color: "var(--text)" }}>Composite quality score</strong> (40% KB hit-rate + 30% lead quality + 30% OSS).
+        Weights are updated using gradient descent after each pipeline run.
+        Higher weight = signal matters more when scoring trends.
+      </div>
+      {lastUpdated && (
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10, fontSize: 10, color: "var(--text-muted)" }}>
+          <Clock size={10} />
+          Last updated: {new Date(lastUpdated).toLocaleString()}
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {categories.map(([category, subWeights]) => {
+          if (typeof subWeights === "number") {
+            return (
+              <div key={category} style={{ display: "flex", justifyContent: "space-between", padding: "6px 8px", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-secondary)", textTransform: "capitalize" }}>{category.replace(/_/g, " ")}</span>
+                <span className="num" style={{ fontSize: 11, color: "var(--blue)" }}>{subWeights.toFixed(4)}</span>
+              </div>
+            );
+          }
+          const entries = Object.entries(subWeights as Record<string, number>);
+          return (
+            <div key={category}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                {category.replace(/_/g, " ")}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {entries.map(([key, val]) => (
+                  <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px", background: "var(--surface)", borderRadius: 5 }}>
+                    <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{key.replace(/_/g, " ")}</span>
+                    <span className="num" style={{ fontSize: 10, color: "var(--blue)" }}>{typeof val === "number" ? val.toFixed(4) : String(val)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 8, fontSize: 10, color: "var(--text-xmuted)" }}>
+        {dataCount} training samples used for last update.
+      </div>
+    </div>
+  ) : undefined;
 
   return (
     <LoopCard
@@ -190,6 +320,7 @@ function WeightLearnerCard({ data }: { data: LearningStatus["weight_learner"] })
       description="Tunes signal weights based on pipeline feedback"
       healthLabel={dataCount > 0 ? `${dataCount} samples` : undefined}
       healthColor={health}
+      detail={detail}
     >
       {categories.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -206,10 +337,9 @@ function WeightLearnerCard({ data }: { data: LearningStatus["weight_learner"] })
                     {category.replace(/_/g, " ")}
                   </span>
                   <span style={{ fontSize: 9, color: "var(--text-xmuted)" }}>
-                    ({entries.length} signals, total {total.toFixed(2)})
+                    ({entries.length} signals, Σ={total.toFixed(2)})
                   </span>
                 </div>
-                {/* Stacked bar for this category */}
                 <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6, background: "var(--border)" }}>
                   {entries.map(([key, val], idx) => {
                     const pct = total > 0 ? ((typeof val === "number" ? val : 0) / total) * 100 : 0;
@@ -223,7 +353,6 @@ function WeightLearnerCard({ data }: { data: LearningStatus["weight_learner"] })
                     );
                   })}
                 </div>
-                {/* Legend */}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {entries.map(([key, val], idx) => {
                     const colors = ["var(--blue)", "var(--accent)", "var(--green)", "var(--amber)", "var(--red)", "var(--text-muted)"];
@@ -271,6 +400,49 @@ function CompanyBanditCard({ data }: { data: LearningStatus["company_bandit"] })
   const totalArms = data.total_arms ?? 0;
   const topMean = arms.length > 0 ? arms[0].mean : 0;
 
+  function confidence(alpha: number, beta: number): number {
+    const a = alpha ?? 1, b = beta ?? 1;
+    const n = a + b;
+    return Math.sqrt((a * b) / (n * n * (n + 1)));
+  }
+
+  const detail = arms.length > 0 ? (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        Each <strong style={{ color: "var(--text)" }}>"arm"</strong> is a (company_size, event_type) combination.
+        The bandit tracks which combinations produce high-quality leads and preferentially targets them.
+        Arms with wide CI = few pulls so far (still being explored).
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              {["Arm (size · event)", "α", "β", "Win rate", "±CI"].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "4px 6px", color: "var(--text-xmuted)", fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {arms.map((a, i) => {
+              const ci = confidence(a.alpha ?? 1, a.beta ?? 1);
+              const parts = a.arm.split("_");
+              const displayArm = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" · ");
+              return (
+                <tr key={a.arm} style={{ borderBottom: "1px solid var(--border)", background: i === 0 ? "var(--green-light)" : "transparent" }}>
+                  <td style={{ padding: "4px 6px", color: i < 3 ? "var(--text)" : "var(--text-secondary)", fontWeight: i < 3 ? 500 : 400 }}>{displayArm}</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--green)" }}>{(a.alpha ?? 1).toFixed(2)}</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--red)" }}>{(a.beta ?? 1).toFixed(2)}</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--text)" }}>{(a.mean * 100).toFixed(1)}%</td>
+                  <td className="num" style={{ padding: "4px 6px", color: "var(--text-muted)" }}>±{(ci * 100).toFixed(1)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  ) : undefined;
+
   return (
     <LoopCard
       title="Company Bandit"
@@ -279,8 +451,8 @@ function CompanyBanditCard({ data }: { data: LearningStatus["company_bandit"] })
       description="Learns which company sizes + event types produce best leads"
       healthLabel={totalArms > 0 ? `${totalArms} arms` : undefined}
       healthColor={totalArms > 20 ? "green" : "amber"}
+      detail={detail}
     >
-      {/* KPI */}
       <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
         <KpiMini label="Segment arms" value={totalArms} color="var(--green)" />
         <KpiMini label="Top arm score" value={`${(topMean * 100).toFixed(0)}%`} color="var(--green)" />
@@ -291,7 +463,6 @@ function CompanyBanditCard({ data }: { data: LearningStatus["company_bandit"] })
           <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.05em", marginBottom: 2 }}>BEST (SIZE, EVENT) COMBINATIONS</div>
           {arms.slice(0, 8).map((a, i) => {
             const barWidth = topMean > 0 ? (a.mean / topMean) * 100 : 0;
-            // Parse arm name: "mid_regulation" → "Mid · Regulation"
             const parts = a.arm.split("_");
             const displayArm = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" · ");
             return (
@@ -301,7 +472,7 @@ function CompanyBanditCard({ data }: { data: LearningStatus["company_bandit"] })
                   {displayArm}
                 </span>
                 <div style={{ width: 80, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${barWidth}%`, background: i === 0 ? "var(--green)" : "var(--green)", opacity: i === 0 ? 1 : 0.6, borderRadius: 3 }} />
+                  <div style={{ height: "100%", width: `${barWidth}%`, background: "var(--green)", opacity: i === 0 ? 1 : 0.6, borderRadius: 3 }} />
                 </div>
                 <span className="num" style={{ fontSize: 10, color: i === 0 ? "var(--green)" : "var(--text-muted)", minWidth: 32, textAlign: "right" }}>
                   {(a.mean * 100).toFixed(1)}%
@@ -319,11 +490,31 @@ function CompanyBanditCard({ data }: { data: LearningStatus["company_bandit"] })
 
 // ── Adaptive Thresholds ─────────────────────────────────────────────────────
 
-const THRESHOLD_INFO: Record<string, { label: string; unit: string; ideal: string }> = {
-  coherence_min: { label: "Coherence minimum", unit: "", ideal: "0.40 - 0.60" },
-  merge_threshold: { label: "Cluster merge distance", unit: "", ideal: "0.70 - 0.85" },
-  min_synthesis_confidence: { label: "Synthesis confidence floor", unit: "", ideal: "0.35 - 0.50" },
-  min_signal_score: { label: "Signal score cutoff", unit: "", ideal: "0.30 - 0.50" },
+const THRESHOLD_INFO: Record<string, { label: string; unit: string; ideal: string; description: string }> = {
+  coherence_min: {
+    label: "Coherence minimum",
+    unit: "",
+    ideal: "0.40–0.60",
+    description: "Articles with embedding similarity below this are discarded before clustering.",
+  },
+  merge_threshold: {
+    label: "Cluster merge distance",
+    unit: "",
+    ideal: "0.70–0.85",
+    description: "Two clusters are merged if their centroid distance is below this value.",
+  },
+  min_synthesis_confidence: {
+    label: "Synthesis confidence floor",
+    unit: "",
+    ideal: "0.35–0.50",
+    description: "LLM-synthesized trends below this confidence are dropped from the output.",
+  },
+  min_signal_score: {
+    label: "Signal score cutoff",
+    unit: "",
+    ideal: "0.30–0.50",
+    description: "Signals (actionable trend summaries) must exceed this score to reach leads.",
+  },
 };
 
 function AdaptiveThresholdsCard({ data }: { data: LearningStatus["adaptive_thresholds"] }) {
@@ -331,21 +522,61 @@ function AdaptiveThresholdsCard({ data }: { data: LearningStatus["adaptive_thres
   const entries = Object.entries(thresholds);
   const updateCount = data.update_count ?? 0;
 
+  const detail = (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        <strong style={{ color: "var(--text)" }}>Exponential Moving Average (EMA)</strong> adjusts each threshold after every
+        pipeline run based on output quality. If too few trends pass a gate, the threshold relaxes.
+        If too many low-quality trends pass, it tightens. The system converges to the right balance automatically.
+      </div>
+      {entries.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {entries.map(([key, val]) => {
+            const info = THRESHOLD_INFO[key] || { label: key.replace(/_/g, " "), unit: "", ideal: "—", description: "" };
+            const numVal = typeof val === "number" ? val : 0;
+            return (
+              <div key={key} style={{ padding: "8px 10px", background: "var(--surface)", borderRadius: 7, border: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text)", textTransform: "capitalize" }}>{info.label}</span>
+                  <span className="num" style={{ fontSize: 12, color: "var(--amber)" }}>{numVal.toFixed(3)}</span>
+                </div>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>{info.description}</div>
+                <div style={{ fontSize: 9, color: "var(--text-xmuted)" }}>Ideal range: {info.ideal}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ padding: "10px 12px", background: "var(--surface)", borderRadius: 7, border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text)", marginBottom: 6 }}>4 thresholds waiting to adapt</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {Object.entries(THRESHOLD_INFO).map(([key, info]) => (
+              <div key={key} style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)" }}>
+                <span>{info.label}</span>
+                <span className="num" style={{ color: "var(--text-xmuted)" }}>default · ideal {info.ideal}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <LoopCard
       title="Adaptive Thresholds"
       icon={Shield}
       accent="var(--amber)"
       description="Auto-tunes quality gates based on pipeline outcomes"
-      healthLabel={updateCount > 0 ? `${updateCount} adjustments` : undefined}
+      healthLabel={updateCount > 0 ? `${updateCount} adjustments` : "Waiting"}
       healthColor={updateCount > 5 ? "green" : "amber"}
+      detail={detail}
     >
       {entries.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {entries.map(([key, val]) => {
-            const info = THRESHOLD_INFO[key] || { label: key.replace(/_/g, " "), unit: "", ideal: "—" };
+            const info = THRESHOLD_INFO[key] || { label: key.replace(/_/g, " "), unit: "", ideal: "—", description: "" };
             const numVal = typeof val === "number" ? val : 0;
-            // Visual: position on a 0-1 scale
             const pct = Math.min(numVal * 100, 100);
             return (
               <div key={key}>
@@ -364,7 +595,12 @@ function AdaptiveThresholdsCard({ data }: { data: LearningStatus["adaptive_thres
           })}
         </div>
       ) : (
-        <EmptyState>No threshold data yet</EmptyState>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
+          <Activity size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            No adjustments yet — thresholds activate after first pipeline run.
+          </span>
+        </div>
       )}
     </LoopCard>
   );
@@ -375,6 +611,29 @@ function AdaptiveThresholdsCard({ data }: { data: LearningStatus["adaptive_thres
 function TrendMemoryCard({ data }: { data: LearningStatus["trend_memory"] }) {
   const count = data.trend_count ?? 0;
   const isAvailable = data.status !== "unavailable";
+  const collectionName = data.collection ?? "trends";
+
+  const detail = isAvailable ? (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        <strong style={{ color: "var(--text)" }}>Semantic deduplication</strong> via ChromaDB vector store.
+        Each processed trend is embedded and stored. On the next run, incoming trends are compared
+        against stored embeddings — cosine similarity above ~0.85 triggers a "seen before" filter.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <DetailRow label="Collection" value={collectionName} />
+        <DetailRow label="Embedding model" value="NVIDIA / OpenAI text-embedding-3-large" />
+        <DetailRow label="Dimensions" value="1024" />
+        <DetailRow label="Similarity threshold" value="~0.85 cosine" />
+        <DetailRow label="Purpose" value="Prevent repeat trends across pipeline runs" />
+      </div>
+      {count === 0 && (
+        <div style={{ marginTop: 10, padding: "8px 10px", background: "var(--amber-light)", borderRadius: 6, border: "1px solid var(--amber)", fontSize: 10, color: "var(--amber)" }}>
+          Memory is empty — first pipeline run will seed the collection. Deduplication begins from run 2 onwards.
+        </div>
+      )}
+    </div>
+  ) : undefined;
 
   return (
     <LoopCard
@@ -384,17 +643,23 @@ function TrendMemoryCard({ data }: { data: LearningStatus["trend_memory"] }) {
       description="ChromaDB deduplication — prevents reporting same trends twice"
       healthLabel={isAvailable ? (count > 0 ? "Active" : "Empty") : "Offline"}
       healthColor={isAvailable && count > 0 ? "green" : "amber"}
+      detail={detail}
     >
       {isAvailable ? (
         <div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
-            <span className="num" style={{ fontSize: 36, color: "var(--text)", lineHeight: 1 }}>{count}</span>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>trends in memory</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span className="num" style={{ fontSize: 28, color: count > 0 ? "var(--text)" : "var(--text-muted)", lineHeight: 1 }}>{count}</span>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>trends in memory</div>
+              {count === 0 && <div style={{ fontSize: 10, color: "var(--text-xmuted)" }}>Seeded on first run</div>}
+            </div>
           </div>
           <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, padding: "8px 10px", background: "var(--surface-raised)", borderRadius: 7 }}>
             <Zap size={10} style={{ color: "var(--accent)", display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-            Each new pipeline run checks incoming trends against this memory. Duplicate or near-duplicate trends are filtered out,
-            ensuring only <strong>genuinely new</strong> market signals surface.
+            {count > 0
+              ? <>Each new pipeline run checks incoming trends against this memory. Only <strong>genuinely new</strong> market signals surface.</>
+              : <>After the first pipeline run, {count === 0 ? "trends" : count} trend embeddings will be stored here for future deduplication.</>
+            }
           </div>
         </div>
       ) : (
@@ -415,6 +680,51 @@ function FeedbackCard({ data }: { data: LearningStatus["feedback"] }) {
   const recent = data.recent_100;
   const total = data.total_records ?? 0;
 
+  const detail = (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        <strong style={{ color: "var(--text)" }}>Feedback cascade</strong>: human ratings flow to Source Bandit
+        (which source produced this lead?), Company Bandit (what segment?), and Weight Learner (overall quality signal).
+        Auto-feedback fires at pipeline end for every trend/lead with a system-scored quality metric.
+      </div>
+      {recent ? (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
+            <DetailRow label="Total feedback records" value={String(total)} />
+            <DetailRow label="Human ratings" value={String(recent.human)} />
+            <DetailRow label="Auto-generated" value={String(recent.auto)} />
+            <DetailRow label="Auto ratio" value={`${total > 0 ? Math.round((recent.auto / (recent.auto + recent.human || 1)) * 100) : 0}%`} />
+          </div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.05em", marginBottom: 6 }}>
+            RATING BREAKDOWN (last 100 records)
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {Object.entries(recent.by_rating)
+              .sort(([, a], [, b]) => b - a)
+              .map(([rating, count]) => {
+                const pct = Math.round((count / 100) * 100);
+                const ratingColor = rating === "good" || rating === "useful" ? "var(--green)" : rating === "bad" || rating === "irrelevant" ? "var(--red)" : "var(--text-muted)";
+                const label = rating === "good" ? "Good lead" : rating === "bad" ? "Bad lead" : rating === "useful" ? "Useful trend" : rating === "irrelevant" ? "Irrelevant" : rating;
+                return (
+                  <div key={rating} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 6px", background: "var(--surface)", borderRadius: 5 }}>
+                    <span style={{ fontSize: 10, color: ratingColor, minWidth: 72, fontWeight: 500 }}>{label}</span>
+                    <div style={{ flex: 1, height: 5, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: ratingColor, borderRadius: 3, opacity: 0.7 }} />
+                    </div>
+                    <span className="num" style={{ fontSize: 10, color: "var(--text-muted)", minWidth: 24, textAlign: "right" }}>{count}</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          No feedback records yet. Rate leads and trends to start the feedback loop.
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <LoopCard
       title="Feedback Loop"
@@ -423,10 +733,10 @@ function FeedbackCard({ data }: { data: LearningStatus["feedback"] }) {
       description="Human + auto ratings that guide all other learning loops"
       healthLabel={total > 0 ? `${total} records` : undefined}
       healthColor={total > 100 ? "green" : total > 0 ? "amber" : undefined}
+      detail={detail}
     >
       {recent ? (
         <div>
-          {/* Stats row */}
           <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
             <KpiMini label="Total" value={total} color="var(--text)" />
             <KpiMini label="Human" value={recent.human} color="var(--green)" />
@@ -438,7 +748,6 @@ function FeedbackCard({ data }: { data: LearningStatus["feedback"] }) {
             />
           </div>
 
-          {/* Rating breakdown */}
           {Object.entries(recent.by_rating).length > 0 && (
             <div>
               <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.05em", marginBottom: 6 }}>RATING DISTRIBUTION (last 100)</div>
@@ -450,15 +759,11 @@ function FeedbackCard({ data }: { data: LearningStatus["feedback"] }) {
                     const ratingColor = rating === "good" || rating === "useful" ? "var(--green)" : rating === "bad" || rating === "irrelevant" ? "var(--red)" : "var(--text-muted)";
                     return (
                       <div key={rating} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 11, color: "var(--text-secondary)", minWidth: 60, textTransform: "capitalize" }}>
-                          {rating}
-                        </span>
+                        <span style={{ fontSize: 11, color: "var(--text-secondary)", minWidth: 60, textTransform: "capitalize" }}>{rating}</span>
                         <div style={{ flex: 1, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: ratingColor, borderRadius: 3, opacity: 0.7 }} />
                         </div>
-                        <span className="num" style={{ fontSize: 10, color: "var(--text-muted)", minWidth: 24, textAlign: "right" }}>
-                          {count}
-                        </span>
+                        <span className="num" style={{ fontSize: 10, color: "var(--text-muted)", minWidth: 24, textAlign: "right" }}>{count}</span>
                       </div>
                     );
                   })}
@@ -468,6 +773,170 @@ function FeedbackCard({ data }: { data: LearningStatus["feedback"] }) {
         </div>
       ) : (
         <EmptyState>No feedback recorded yet</EmptyState>
+      )}
+    </LoopCard>
+  );
+}
+
+// ── Signal Bus ─────────────────────────────────────────────────────────
+
+function SignalBusCard({ data }: { data: LearningStatus["signal_bus"] }) {
+  if (!data) {
+    return (
+      <LoopCard
+        title="Signal Bus"
+        icon={Zap}
+        accent="var(--accent)"
+        description="Cross-loop communication backbone (3-phase protocol)"
+      >
+        <EmptyState>
+          Signal bus data not available from backend. The /api/v1/learning/status endpoint does not yet include signal_bus data.
+        </EmptyState>
+      </LoopCard>
+    );
+  }
+
+  const confidence = data.system_confidence ?? 0;
+  const budget = data.exploration_budget ?? 0;
+  const phase = data.phase ?? "unknown";
+  const signalCount = data.signal_count ?? 0;
+
+  const phaseColor = phase === "cross-pollinate" ? "var(--green)" : phase === "derive" ? "var(--blue)" : "var(--accent)";
+
+  const detail = (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        <strong style={{ color: "var(--text)" }}>3-phase protocol</strong>: publish (loops emit signals)
+        → derive (compute system_confidence + exploration_budget) → cross-pollinate (loops read derived values).
+        Persisted to <code style={{ fontSize: 10, background: "var(--surface)", padding: "1px 4px", borderRadius: 3 }}>data/signal_bus.json</code>.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <DetailRow label="Total signals" value={String(signalCount)} />
+        <DetailRow label="Current phase" value={phase} />
+        {data.last_updated && <DetailRow label="Last updated" value={new Date(data.last_updated).toLocaleString()} />}
+      </div>
+    </div>
+  );
+
+  return (
+    <LoopCard
+      title="Signal Bus"
+      icon={Zap}
+      accent="var(--accent)"
+      description="Cross-loop communication backbone (3-phase protocol)"
+      healthLabel={phase}
+      healthColor={signalCount > 0 ? "green" : "amber"}
+      detail={detail}
+    >
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <KpiMini label="Sys. confidence" value={`${(confidence * 100).toFixed(0)}%`} color="var(--accent)" />
+        <KpiMini label="Explore budget" value={`${(budget * 100).toFixed(0)}%`} color="var(--blue)" />
+        <KpiMini label="Signals" value={signalCount} color="var(--text-secondary)" />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* System confidence bar */}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+            <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>System Confidence</span>
+            <span className="num" style={{ fontSize: 14, color: "var(--accent)", lineHeight: 1 }}>{(confidence * 100).toFixed(1)}%</span>
+          </div>
+          <div style={{ width: "100%", height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${confidence * 100}%`, background: "var(--accent)", borderRadius: 3, transition: "width 300ms" }} />
+          </div>
+        </div>
+
+        {/* Exploration budget bar */}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+            <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>Exploration Budget</span>
+            <span className="num" style={{ fontSize: 14, color: "var(--blue)", lineHeight: 1 }}>{(budget * 100).toFixed(1)}%</span>
+          </div>
+          <div style={{ width: "100%", height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${budget * 100}%`, background: "var(--blue)", borderRadius: 3, transition: "width 300ms" }} />
+          </div>
+        </div>
+
+        {/* Phase indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "var(--surface-raised)", borderRadius: 7 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: phaseColor, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>Phase: <strong style={{ color: "var(--text)", textTransform: "capitalize" }}>{phase}</strong></span>
+        </div>
+      </div>
+    </LoopCard>
+  );
+}
+
+// ── MetaReasoner ─────────────────────────────────────────────────────────
+
+function MetaReasonerCard({ data }: { data: LearningStatus["meta_reasoner"] }) {
+  if (!data) {
+    return (
+      <LoopCard
+        title="MetaReasoner"
+        icon={Cpu}
+        accent="var(--blue)"
+        description="Chain-of-thought reasoning + retrospective analysis"
+      >
+        <EmptyState>
+          MetaReasoner data not available from backend. The /api/v1/learning/status endpoint does not yet include meta_reasoner data.
+        </EmptyState>
+      </LoopCard>
+    );
+  }
+
+  const traceCount = data.trace_count ?? 0;
+  const hypothesisCount = data.hypothesis_count ?? 0;
+  const hypotheses = data.latest_hypotheses ?? [];
+
+  const detail = (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
+        <strong style={{ color: "var(--text)" }}>MetaReasoner</strong> checkpoints after source_intel, analysis, and lead_gen.
+        Runs a full retrospective during learning_update. Generates improvement hypotheses and publishes to the signal bus.
+        Traces: <code style={{ fontSize: 10, background: "var(--surface)", padding: "1px 4px", borderRadius: 3 }}>data/reasoning_traces.jsonl</code>,
+        Hypotheses: <code style={{ fontSize: 10, background: "var(--surface)", padding: "1px 4px", borderRadius: 3 }}>data/improvement_hypotheses.json</code>.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <DetailRow label="Total traces" value={String(traceCount)} />
+        <DetailRow label="Hypotheses generated" value={String(hypothesisCount)} />
+        {data.last_run && <DetailRow label="Last run" value={new Date(data.last_run).toLocaleString()} />}
+      </div>
+    </div>
+  );
+
+  return (
+    <LoopCard
+      title="MetaReasoner"
+      icon={Cpu}
+      accent="var(--blue)"
+      description="Chain-of-thought reasoning + retrospective analysis"
+      healthLabel={traceCount > 0 ? `${traceCount} traces` : "Waiting"}
+      healthColor={traceCount > 3 ? "green" : "amber"}
+      detail={detail}
+    >
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <KpiMini label="Traces" value={traceCount} color="var(--blue)" />
+        <KpiMini label="Hypotheses" value={hypothesisCount} color="var(--accent)" />
+      </div>
+
+      {hypotheses.length > 0 ? (
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.05em", marginBottom: 6 }}>LATEST IMPROVEMENT HYPOTHESES</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {hypotheses.slice(0, 5).map((h, i) => {
+              // h can be a string OR an object {target, action, expected_impact, priority}
+              const label = typeof h === "string" ? h : `[${(h as Record<string, unknown>).priority ?? ""}] ${(h as Record<string, unknown>).target ?? ""}: ${(h as Record<string, unknown>).action ?? ""}`;
+              return (
+                <div key={i} style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, padding: "6px 10px", background: "var(--surface-raised)", borderRadius: 6, borderLeft: "2px solid var(--blue)" }}>
+                  {label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <EmptyState>No hypotheses yet — run the pipeline to generate reasoning traces</EmptyState>
       )}
     </LoopCard>
   );
@@ -486,8 +955,17 @@ function KpiMini({ label, value, color }: { label: string; value: number | strin
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ padding: "12px 0", fontSize: 12, color: "var(--text-xmuted)", fontStyle: "italic" }}>
+    <div style={{ fontSize: 12, color: "var(--text-xmuted)", fontStyle: "italic" }}>
       {children}
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, fontSize: 10 }}>
+      <span style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span className="num" style={{ color: "var(--text-secondary)", textAlign: "right" }}>{value}</span>
     </div>
   );
 }

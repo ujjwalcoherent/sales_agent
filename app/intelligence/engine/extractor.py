@@ -394,9 +394,12 @@ def _gliner_supplement_ner(articles: List[Any]) -> List[Any]:
 
     added_total = 0
     for article, preds in zip(articles, all_preds):
-        existing_names = set()
+        # Build existing names from BOTH sources: typed entities and entities_raw
+        existing_names: set = set()
         for ent in getattr(article, "entities", []):
             existing_names.add(getattr(ent, "text", "").lower().strip())
+        for raw_name in getattr(article, "entities_raw", []):
+            existing_names.add(raw_name.lower().strip())
 
         for pred in preds:
             label = pred.get("label", "")
@@ -409,22 +412,36 @@ def _gliner_supplement_ner(articles: List[Any]) -> List[Any]:
             if name.lower() in existing_names:
                 continue  # SpaCy already found this
 
-            # Add as new entity
-            try:
-                from app.schemas.news import Entity as EntityModel
-                new_ent = EntityModel(
-                    text=name,
-                    type=label_to_type[label],
-                    salience=round(score, 2),
-                )
-                article.entities.append(new_ent)
-                if label_to_type[label] in {"ORG", "PERSON", "PRODUCT"}:
-                    if hasattr(article, "entity_names"):
-                        article.entity_names.append(name)
-                added_total += 1
-                existing_names.add(name.lower())
-            except Exception:
-                pass  # Skip if entity model doesn't match
+            # Guard: only add if the entity name literally appears in the article text.
+            # GLiNER can extract phrase fragments from context windows that don't
+            # correspond to any literal span — those corrupt group membership invariants.
+            article_text = (
+                (getattr(article, "title", "") or "") + " " +
+                (getattr(article, "summary", "") or "")
+            ).lower()
+            if name.lower() not in article_text:
+                continue
+
+            # Write to entities_raw (always available) and typed entities if present.
+            # entities_raw is the universal field across all article model variants.
+            entities_raw = getattr(article, "entities_raw", None)
+            if entities_raw is not None:
+                entities_raw.append(name)
+            typed_entities = getattr(article, "entities", None)
+            if typed_entities is not None and not isinstance(typed_entities, list):
+                typed_entities = None
+            if typed_entities is not None:
+                try:
+                    from app.schemas.news import Entity as EntityModel
+                    typed_entities.append(EntityModel(
+                        text=name,
+                        type=label_to_type[label],
+                        salience=round(score, 2),
+                    ))
+                except Exception:
+                    pass
+            added_total += 1
+            existing_names.add(name.lower())
 
     if added_total > 0:
         logger.info(
@@ -524,6 +541,33 @@ def _collect_entity_article_mapping(
                 if cleaned and len(cleaned) >= MIN_ENTITY_NAME_LENGTH:
                     all_names.append(cleaned)
 
+        # Check for person-as-primary-subject pattern: if a PERSON is in the
+        # title, any ORG mentioned in the same sentence gets a salience boost.
+        # Handles "Harshil Mathur, CEO of Razorpay announces..." → Razorpay boosted.
+        title_persons = set()
+        title_lower = (getattr(article, "title", "") or "").lower()
+        for ent in entities:
+            if getattr(ent, "type", "") == "PERSON":
+                pname = _clean_entity_name(getattr(ent, "text", "").strip())
+                if pname and pname.lower() in title_lower:
+                    title_persons.add(pname)
+
+        # Find ORGs co-occurring with a title-person in the same sentence
+        person_affiliated_orgs: set = set()
+        if title_persons:
+            import re as _re
+            summary_text = (getattr(article, "summary", "") or "")
+            sentences = _re.split(r'[.!?]', summary_text)
+            for sent in sentences:
+                sent_lower = sent.lower()
+                has_title_person = any(p.lower() in sent_lower for p in title_persons)
+                if has_title_person:
+                    for ent in entities:
+                        if getattr(ent, "type", "") == "ORG":
+                            oname = _clean_entity_name(getattr(ent, "text", "").strip())
+                            if oname and oname.lower() in sent_lower:
+                                person_affiliated_orgs.add(oname)
+
         for ent in entities:
             ent_type = getattr(ent, "type", "")
             if ent_type not in GROUP_ENTITY_TYPES:
@@ -537,6 +581,12 @@ def _collect_entity_article_mapping(
 
             # Compute research-backed salience score
             salience = _compute_entity_salience(name, article, all_names)
+
+            # Person-affiliated ORG boost: company co-occurring with title-person
+            # gets +0.12 to cross the MIN_SEED_SALIENCE threshold
+            if name in person_affiliated_orgs:
+                salience = min(1.0, salience + 0.12)
+
             entity_articles[name].append(idx)
             entity_saliences[name].append(salience)
 
@@ -831,13 +881,38 @@ def _build_entity_groups(
     # Fixes "Man Toyota" problem: "Toyota" (12 articles) beats "Man Toyota" (1 article).
     # Containment grouping is correct (they belong together), but the canonical
     # should be the most-referenced variant, not the longest name.
+    #
+    # Tie-break: when article counts are equal (all variants appear in 1 article),
+    # pick the variant that appears LITERALLY in the most GROUP articles.
+    # "Quick Commerce" appears in 3 group articles; "Quick Commerce Heats" in 1.
     re_canonicalized: Dict[str, Dict] = {}
     for old_canonical, data in canonical_groups.items():
         counts = data["variant_article_counts"]
-        if counts:
-            best_name = max(counts, key=counts.get)
-        else:
-            best_name = old_canonical
+        if not counts:
+            re_canonicalized[old_canonical] = data
+            continue
+
+        # Primary: pick variant with highest COVERAGE (literal appearances in all group articles).
+        # "NBFC" appears in 3/3 articles; "NBFCs" appears in 2/3 → pick "NBFC".
+        # "Quick Commerce" appears in 3/3; "Quick Commerce Heats" in 1/3 → pick "Quick Commerce".
+        # Secondary: among equal coverage, pick the variant with most source articles.
+        # Tertiary: shortest name (most general form).
+        all_indices = data["article_indices"]
+
+        def _variant_score(variant_name: str):
+            vl = variant_name.lower()
+            coverage = sum(
+                1 for idx in all_indices
+                if idx < len(articles) and vl in (
+                    (getattr(articles[idx], "title", "") or "") + " " +
+                    (getattr(articles[idx], "summary", "") or "")
+                ).lower()
+            )
+            src_count = counts.get(variant_name, 0)
+            return (coverage, src_count, -len(variant_name))
+
+        best_name = max(counts, key=_variant_score)
+
         re_canonicalized[best_name] = data
     canonical_groups = re_canonicalized
 
@@ -950,7 +1025,19 @@ def _detect_entity_type(
                 type_counts[ent_type] += 1
 
     if type_counts:
-        return max(type_counts, key=type_counts.get)
+        majority = max(type_counts, key=type_counts.get)
+        # In B2B business news, an entity named like a company (not a product SKU)
+        # should resolve to ORG when SpaCy ambiguously votes PRODUCT.
+        # "NVIDIA" (company) vs "NVIDIA H100" (product SKU with number) differ here.
+        # Heuristic: PRODUCT wins only when it has a clear majority (>60%) AND
+        # the entity has no ORG votes at all. Otherwise prefer ORG.
+        if majority == "PRODUCT":
+            total_votes = sum(type_counts.values())
+            org_votes = type_counts.get("ORG", 0)
+            product_votes = type_counts.get("PRODUCT", 0)
+            if org_votes > 0 or (product_votes / total_votes) < 0.70:
+                return "ORG"
+        return majority
     return "ORG"  # Default assumption for business news
 
 
@@ -1392,10 +1479,25 @@ def _gliner_filter(
         names = [g.canonical_name for g in passed]
         classifications = classifier.classify_entity_names(names, contexts)
 
+        # Regex for product-specific tokens: numbers, version strings, model suffixes
+        # "NVIDIA H100" → PRODUCT ok; "NVIDIA" alone → keep ORG
+        _product_token_re = re.compile(r'[\d]|[A-Z]\d{2,}|\bv\d|\b(?:Gen|Pro|Plus|Max|Ultra|Mini)\b', re.IGNORECASE)
+
         for group, clf in zip(passed, classifications):
             if clf and clf.gliner_label in GLINER_LABEL_TO_SPACY_TYPE:
                 corrected_type = GLINER_LABEL_TO_SPACY_TYPE[clf.gliner_label]
                 if corrected_type != group.entity_type and corrected_type != "CONCEPT":
+                    # Guard: don't reclassify an entity to PRODUCT if its canonical name
+                    # looks like a company name (no numbers or product-SKU tokens).
+                    # "NVIDIA H100" has numbers → PRODUCT is correct.
+                    # "NVIDIA" alone → GLiNER saw product context but entity IS the company → keep ORG.
+                    if corrected_type == "PRODUCT" and group.entity_type == "ORG":
+                        if not _product_token_re.search(group.canonical_name):
+                            logger.debug(
+                                "Skipping PRODUCT reclassification for '%s' — name lacks product tokens",
+                                group.canonical_name,
+                            )
+                            continue
                     logger.debug(
                         "Type-corrected '%s': %s → %s (GLiNER=%s, score=%.2f)",
                         group.canonical_name, group.entity_type,

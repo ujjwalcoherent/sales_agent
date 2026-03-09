@@ -1,7 +1,7 @@
 """API response/request schemas -- designed for Next.js frontend consumption."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,9 +10,10 @@ from pydantic import BaseModel, Field
 
 class PipelineRunRequest(BaseModel):
     mock_mode: bool = False
+    country: Optional[str] = None
     max_trends: Optional[int] = None
-    replay_run_id: Optional[str] = None  # Replay a specific recording (mock_mode only)
-    disabled_providers: List[str] = Field(default_factory=list)  # Provider names to skip
+    replay_run_id: Optional[str] = None
+    disabled_providers: List[str] = Field(default_factory=list)
 
 
 class PipelineRunResponse(BaseModel):
@@ -143,9 +144,9 @@ class LeadListResponse(BaseModel):
 # -- Feedback --
 
 class FeedbackRequest(BaseModel):
-    feedback_type: str  # "trend" | "lead"
+    feedback_type: Literal["trend", "lead"]
     item_id: str
-    rating: str
+    rating: str  # Frontend sends: good/bad/known (leads), good/bad/ok (trends)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -178,10 +179,27 @@ class CompanySearchResult(BaseModel):
     domain: str = ""
     website: str = ""
     industry: str = ""
+    description: str = ""
+    headquarters: str = ""
+    employee_count: str = ""
+    founded_year: Optional[int] = None
+    stock_ticker: str = ""
+    ceo: str = ""
+    funding_stage: str = ""
     reason_relevant: str = ""
     article_count: int = 0
     recent_articles: List[Dict[str, Any]] = Field(default_factory=list)
     live_news: List[Dict[str, Any]] = Field(default_factory=list)
+    # Extended fields from company_enricher
+    sub_industries: List[str] = Field(default_factory=list)
+    key_people: List[Dict[str, Any]] = Field(default_factory=list)
+    products_services: List[str] = Field(default_factory=list)
+    competitors: List[str] = Field(default_factory=list)
+    revenue: str = ""
+    total_funding: str = ""
+    investors: List[str] = Field(default_factory=list)
+    tech_stack: List[str] = Field(default_factory=list)
+    validation_source: str = ""
 
 
 class CompanySearchRequest(BaseModel):
@@ -203,7 +221,9 @@ class GenerateLeadsRequest(BaseModel):
     company_name: str
     domain: str = ""
     industry: str = ""
+    description: str = ""
     mock_mode: bool = False
+    target_roles: List[str] = Field(default_factory=list)  # Frontend override
 
 
 class GenerateLeadsResponse(BaseModel):
@@ -212,6 +232,48 @@ class GenerateLeadsResponse(BaseModel):
     outreach_count: int = 0
     reasoning: str = ""
     duration_ms: int = 0
+
+
+class SavedCompanyResponse(BaseModel):
+    """A company saved from search — with optional generated contacts."""
+    id: str
+    company_name: str
+    domain: str = ""
+    website: str = ""
+    industry: str = ""
+    description: str = ""
+    headquarters: str = ""
+    employee_count: str = ""
+    founded_year: Optional[int] = None
+    stock_ticker: str = ""
+    ceo: str = ""
+    funding_stage: str = ""
+    wikidata_id: str = ""
+    reason_relevant: str = ""
+    article_count: int = 0
+    recent_articles: List[Dict[str, Any]] = Field(default_factory=list)
+    live_news: List[Dict[str, Any]] = Field(default_factory=list)
+    sub_industries: List[str] = Field(default_factory=list)
+    key_people: List[Dict[str, Any]] = Field(default_factory=list)
+    products_services: List[str] = Field(default_factory=list)
+    competitors: List[str] = Field(default_factory=list)
+    revenue: str = ""
+    total_funding: str = ""
+    investors: List[str] = Field(default_factory=list)
+    tech_stack: List[str] = Field(default_factory=list)
+    validation_source: str = ""
+    search_query: str = ""
+    search_type: str = "company"
+    contacts: List[Dict[str, Any]] = Field(default_factory=list)
+    contacts_reasoning: str = ""
+    contacts_generated_at: Optional[str] = None
+    last_searched_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class SavedCompanyListResponse(BaseModel):
+    companies: List[SavedCompanyResponse]
+    total: int
 
 
 # -- News Feed --
@@ -267,3 +329,5 @@ CompanySearchResponse.model_rebuild()
 GenerateLeadsResponse.model_rebuild()
 NewsListResponse.model_rebuild()
 FeedbackHistoryResponse.model_rebuild()
+SavedCompanyResponse.model_rebuild()
+SavedCompanyListResponse.model_rebuild()

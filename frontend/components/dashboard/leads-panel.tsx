@@ -2,32 +2,14 @@
 
 import { useState, useEffect } from "react";
 import {
-  Building2, ChevronRight, Star,
+  ChevronRight, Star,
   Target, Clock, Layers, MessageSquare, Sparkles, Newspaper, ExternalLink,
 } from "lucide-react";
+import { CompanyLogo } from "@/components/ui/company-logo";
 import { usePipelineContext } from "@/contexts/pipeline-context";
+import { confidenceColor, TYPE_CLASSES, cleanTriggerEvent, cleanOpeningLine, extractDomain } from "@/lib/utils";
+import { DetailSection } from "@/components/ui/detail-section";
 import type { LeadRecord, TrendData } from "@/lib/types";
-
-// ── Score color ────────────────────────────────────
-
-function confidenceColor(c: number): string {
-  if (c >= 0.75) return "var(--green)";
-  if (c >= 0.50) return "var(--accent)";
-  return "var(--text-muted)";
-}
-
-function confidenceBg(c: number): string {
-  if (c >= 0.75) return "var(--green-light)";
-  if (c >= 0.50) return "var(--amber-light)";
-  return "var(--surface-raised)";
-}
-
-const TYPE_CLASSES: Record<string, string> = {
-  pain: "badge-red",
-  opportunity: "badge-green",
-  risk: "badge-amber",
-  intelligence: "badge-blue",
-};
 
 // ── Lead row ───────────────────────────────────────
 
@@ -66,7 +48,7 @@ function LeadRow({
           width: 40,
           height: 40,
           borderRadius: 8,
-          background: confidenceBg(lead.confidence),
+          background: confidenceColor(lead.confidence).bg,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -78,7 +60,7 @@ function LeadRow({
           style={{
             fontSize: 14,
             fontWeight: 600,
-            color: confidenceColor(lead.confidence),
+            color: confidenceColor(lead.confidence).text,
             lineHeight: 1,
           }}
         >
@@ -130,33 +112,6 @@ function LeadRow({
 
 // ── Lead Detail Pane ──────────────────────────────
 
-/** Clean up trigger_event: remove if it's just the trend_title repeated/truncated */
-function cleanTriggerEvent(lead: LeadRecord): string | null {
-  if (!lead.trigger_event) return null;
-  const trigger = lead.trigger_event.trim();
-  const title = lead.trend_title.trim();
-  // Skip if trigger is just the title repeated (possibly with " — " separator and truncation)
-  if (trigger === title) return null;
-  if (trigger.startsWith(title + " — " + title.substring(0, 20))) return null;
-  if (trigger.startsWith(title + " —")) return null;
-  return trigger;
-}
-
-/** Clean up opening_line: fix common template issues */
-function cleanOpeningLine(line: string): string {
-  if (!line) return "";
-  let cleaned = line;
-  // Fix "Your" mid-sentence capitalization
-  cleaned = cleaned.replace(/ for Your /g, " for your ");
-  // Fix double periods
-  cleaned = cleaned.replace(/\.\./g, ".");
-  // Fix lowercase trend title at start — capitalize first letter after "The recent"
-  cleaned = cleaned.replace(/^"?The recent (.+?) creates/, (match, title) => {
-    const capitalized = title.charAt(0).toUpperCase() + title.slice(1);
-    return match.replace(title, capitalized);
-  });
-  return cleaned;
-}
 
 function LeadDetail({ lead }: { lead: LeadRecord }) {
   const { trends } = usePipelineContext();
@@ -164,6 +119,11 @@ function LeadDetail({ lead }: { lead: LeadRecord }) {
   const location = [lead.company_city, lead.company_state].filter(Boolean).join(", ");
   const triggerEvent = cleanTriggerEvent(lead);
   const openingLine = cleanOpeningLine(lead.opening_line);
+  // Effective contact data — fallback to people[0]
+  const _p0 = lead.people?.[0];
+  const effRole = lead.contact_role || _p0?.role || "";
+  const effName = lead.contact_name || _p0?.person_name || "";
+  const effEmail = lead.contact_email || _p0?.email || "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
@@ -175,20 +135,7 @@ function LeadDetail({ lead }: { lead: LeadRecord }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: "var(--surface-raised)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Building2 size={16} style={{ color: "var(--text-secondary)" }} />
-          </div>
+          <CompanyLogo domain={lead.company_domain} size={36} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
               {lead.company_name}
@@ -200,26 +147,40 @@ function LeadDetail({ lead }: { lead: LeadRecord }) {
           <div
             style={{
               marginLeft: "auto",
-              background: confidenceBg(lead.confidence),
+              background: confidenceColor(lead.confidence).bg,
               borderRadius: 8,
               padding: "4px 10px",
             }}
           >
             <span
               className="num"
-              style={{ fontSize: 20, color: confidenceColor(lead.confidence), lineHeight: 1 }}
+              style={{ fontSize: 20, color: confidenceColor(lead.confidence).text, lineHeight: 1 }}
             >
               {Math.round(lead.confidence * 100)}
             </span>
           </div>
         </div>
 
-        {/* Badges */}
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          <span className={`badge ${TYPE_CLASSES[lead.lead_type] ?? "badge-muted"}`}>{lead.lead_type}</span>
-          <span className="badge badge-blue">Hop {lead.hop}</span>
-          <span className="badge badge-muted">{lead.event_type}</span>
-          {lead.contact_role && <span className="badge badge-muted">{lead.contact_role}</span>}
+        {/* Badges + Full profile link */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            <span className={`badge ${TYPE_CLASSES[lead.lead_type] ?? "badge-muted"}`}>{lead.lead_type}</span>
+            <span className="badge badge-blue">Hop {lead.hop}</span>
+            <span className="badge badge-muted">{lead.event_type}</span>
+            {effRole && <span className="badge badge-muted">{effRole}</span>}
+          </div>
+          <a
+            href={`/leads/${lead.id ?? 0}`}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              fontSize: 11, fontWeight: 500, color: "var(--accent)",
+              textDecoration: "none", padding: "3px 8px", borderRadius: 5,
+              border: "1px solid var(--accent)33", background: "var(--accent-light)",
+              transition: "opacity 150ms",
+            }}
+          >
+            <ExternalLink size={10} /> Full Profile
+          </a>
         </div>
       </div>
 
@@ -264,11 +225,28 @@ function LeadDetail({ lead }: { lead: LeadRecord }) {
           </DetailSection>
         )}
 
+        {/* Contact preview */}
+        {(effName || effEmail) && (
+          <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.06em", marginBottom: 6 }}>CONTACT</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: "var(--green-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green)" }}>{(effName || "?").slice(0, 2).toUpperCase()}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {effName && <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{effName}</div>}
+                {effRole && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{effRole}</div>}
+              </div>
+              {effEmail && <span style={{ fontSize: 10, color: "var(--blue)", flexShrink: 0 }}>{effEmail}</span>}
+            </div>
+          </div>
+        )}
+
         {/* Scores */}
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12 }}>
           {[
-            { label: "Confidence", value: `${Math.round(lead.confidence * 100)}%`, color: confidenceColor(lead.confidence) },
-            { label: "OSS Score", value: lead.oss_score > 0 ? lead.oss_score.toFixed(2) : "—", color: "var(--blue)" },
+            { label: "Confidence", value: `${Math.round(lead.confidence * 100)}%`, color: confidenceColor(lead.confidence).text },
+            { label: "OSS Score", value: lead.oss_score > 0 ? lead.oss_score.toFixed(2) : matchedTrend?.oss_score ? matchedTrend.oss_score.toFixed(2) : "—", color: "var(--blue)" },
             { label: "Urgency", value: `${lead.urgency_weeks}w`, color: "var(--amber)" },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ flex: 1, padding: "8px 0", textAlign: "center" }}>
@@ -297,23 +275,6 @@ function LeadDetail({ lead }: { lead: LeadRecord }) {
   );
 }
 
-function DetailSection({ label, icon: Icon, children }: { label: string; icon: React.ElementType; children: React.ReactNode }) {
-  return (
-    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
-        <Icon size={11} style={{ color: "var(--text-xmuted)" }} />
-        <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.06em" }}>{label}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** Extract domain from URL */
-function extractDomain(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ""); }
-  catch { return url.substring(0, 40); }
-}
 
 /** Compact source articles for the inline detail pane */
 function InlineSourceArticles({ matchedTrend }: { matchedTrend?: TrendData | null }) {

@@ -1,0 +1,140 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Conflict in the Middle East disrupts critical supply routes affecting India's crude oil imports via the Strait of Hormuz and basmati rice exports from Northern India. This causes supply risks and price volatility for Indian refiners, who consider sourcing alternative crude like Russian oil. Simultaneously, basmati rice exporters face threats to their $6 billion export market. These first-order shocks ripple through logistics providers dealing with route changes and increased costs, and edible oil processors face cost pressures due to crude price hikes.",
+      "event_type": "geopolitical",
+      "reasoning": "The first-order impact is clearly on Indian crude oil refiners reliant on Middle East supply routes, notably the Strait of Hormuz, which is a chokepoint for 90% of India's crude oil imports. Mid-sized refiners like Nayara Energy's subsidiaries and companies like Balaji Petroleum face immediate supply risk and price volatility, necessitating alternative crude sourcing, an urgent issue with roughly 2 weeks to adapt.\n\nConcurrently, basmati rice exporters in Northern India face shipping disruptions ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size crude oil refiners in India (50-1000 employees)",
+          "lead_type": "pain",
+          "mechanism": "Disruption of crude oil shipping/routes through Strait of Hormuz leads to supply risks and elevated crude costs, straining refinery operations.",
+          "companies_found": [
+            "Nayara Energy (mid-size refinery subsidiary)",
+            "Balaji Petroleum Private Limited",
+            "IndTech Energy Services"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Northern India mid-size basmati rice exporters (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Export disruptions and shipping route uncertainties reduce market access and increase logistics costs for exporters, squeezing margins and threatening farmer incomes.",
+          "companies_found": [
+            "Rajesh Industries",
+            "Shiv Shakti International",
+            "MK Exports"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Indian regional logistics and freight forwarding companies serving Gulf shipping lanes (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Changes in shipping lanes and increased fuel costs raise operational expenses, causing cost pressure and delivery delays for regional logistics providers.",
+          "companies_found": [
+            "Delhivery (SME logistics division)",
+            "TruckBhejo (tech-based logistics SME)",
+            "Manipur Transport and Logistics Company"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "Titan Company Limited has launched a dedicated B2B ecommerce platform digitizing corporate rewards and bulk institutional buying in India. Simultaneously, Myntra's zero-commission model is accelerating growth of emerging Indian D2C fashion, beauty, and lifestyle brands by removing platform fees. These developments directly benefit mid-size Indian enterprises using corporate rewards (100-1000 employees) and emerging D2C brands (10-200 employees) on Myntra. This trend catalyzes operational efficiency and cost savings through digital platforms in corporate and retail sectors.",
+      "event_type": "consumer_shift",
+      "reasoning": "Step-by-step causal impact tracing of the news trend: \n1. Hop 1 identifies the primary beneficiaries directly mentioned: mid-size Indian enterprises adopting Titan's new B2B ecommerce corporate rewards platform for employee incentives and institutional buying. This is a clear opportunity with high confidence due to direct mention. \n2. Hop 2 traces companies supplying to these enterprises, specifically corporate gifting companies that prepare rewards and incentive merchandise. Gifting firms in Pu",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian enterprises (100-1000 employees) using Titan's B2B corporate rewards platform for employee incentives and bulk purchasing",
+          "lead_type": "opportunity",
+          "mechanism": "Titan's launch of a digitized B2B ecommerce platform for corporate rewards enables these enterprises to modernize and streamline their rewards systems, improving employee engagement and procurement efficiency.",
+          "companies_found": [
+            "Mid-size enterprises across India adopting Titan's platform (specific names not in news)"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Indian corporate gifting companies and suppliers to mid-size enterprises using digital rewards platforms (50-500 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "These gifting companies benefit from Titan-enabled digital corporate rewards platforms by expanding demand for customized and bulk corporate gifts as incentives and rewards.",
+          "companies_found": [
+            "Artbox Solutions Pune",
+            "MiGifting Pune",
+            "OffiNeeds India"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Logistics and packaging service providers specializing in last-mile delivery and sustainable packaging for D2C fashion, beauty, and lifestyle brands in India (50-500 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "The growth of emerging D2C brands on Myntra's zero-commission platform drives increased volumes for logistics and packaging suppliers supporting efficient fulfillment and brand presentation.",
+          "companies_found": [
+            "Blitz Last Mile Delivery",
+            "StoreSpace 3PL Services",
+            "Eco-Friendly E-Commerce Packaging Providers"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "In February 2026, Neysa raised a substantial $600 million Series B funding round, capturing about 43% of the $1.4 billion raised by Indian startups that month. Other startups like Inamo and RAS secured Series A and early-stage funds led by Dabur Ventures and Prime Venture Partners. This influx of capital is intensifying competition among mid-size Indian startups in AI, defence tech, D2C, and quick commerce, pushing these firms to scale quickly, innovate, and optimize operations.",
+      "event_type": "funding",
+      "reasoning": "Step 1: Hop 1 companies are directly mentioned in the news as recipients of large funding rounds: Neysa ($600M), Inamo ($8M), RAS ($7.5M), mostly AI infrastructure and quick commerce startups. Dabur Ventures is a key investor.\n\nStep 2: The funded startups buy from suppliers and service providers of AI infrastructure components (cloud, AI model operators), logistics tech for commerce, and software for operations. Mid-size companies like Sarvam AI and other regional mid-size tech firms supply thes",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Indian mid-size AI infrastructure startups like Neysa, Inamo, and RAS in Mumbai and Bengaluru, 50-5000 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Neysa's $600M funding surge and Dabur Ventures-led rounds increase capital availability, enabling these startups to expand operations, R&D, and market reach rapidly.",
+          "companies_found": [
+            "Neysa",
+            "Inamo",
+            "RAS"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Indian mid-size suppliers and service providers to AI infrastructure and quick commerce startups (cloud infrastructure, AI software tools, logistics & operations tech providers) in Bengaluru and Pune, 50-5000 employees",
+          "lead_type": "opportunity",
+          "mechanism": "These suppliers to well-funded startups like Neysa and Inamo face increased demand for their services, driven by the clients boosting product development and scaling fast after funding.",
+          "companies_found": [
+            "Sarvam AI",
+            "local cloud and AI software vendors",
+            "logistics tech SMEs"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Indian mid-size D2C and quick commerce startups competing for customer attention and additional rounds of funding, 50-5000 employees",
+          "lead_type": "pain",
+          "mechanism": "Heightened competition fueled by funding surge pressures these startups to innovate rapidly, improve operational efficiency, and accelerate scaling, straining resources and increasing risk of cash flow stress given uncertain continued capital availability.",
+          "companies_found": [
+            "Emerging D2C brands in Mumbai, Bengaluru, Delhi"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        }
+      ]
+    }
+  ],
+  "total_hops": 9,
+  "log_messages": []
+}
