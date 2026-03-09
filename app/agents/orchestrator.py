@@ -1842,26 +1842,41 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
     # Thread ID ties checkpointer snapshots to this pipeline run
     config = {"configurable": {"thread_id": run_id}}
 
+    final_state: dict = dict(initial_state)
+    stream_errors: list = []
+    node_name = "unknown"
+
     try:
         graph = create_pipeline_graph()
 
-        # stream_mode="updates" emits per-node output deltas  - avoids msgpack
-        # serialization of complex AgentDeps that crashes with "values" mode.
-        final_state: dict = dict(initial_state)
+        # stream_mode="updates" emits per-node output deltas — avoids the
+        # msgpack serialization of complex AgentDeps that crashes "values" mode.
         _last_step = "init"
 
-        async for node_output in graph.astream(initial_state, config, stream_mode="updates"):
-            for node_name, delta in node_output.items():
-                if isinstance(delta, dict):
-                    final_state.update(delta)
+        try:
+            async for node_output in graph.astream(initial_state, config, stream_mode="updates"):
+                for node_name, delta in node_output.items():
+                    if isinstance(delta, dict):
+                        final_state.update(delta)
 
-            new_step = final_state.get("current_step", "")
-            if new_step != _last_step:
-                msg = _format_step_progress(node_name, new_step, final_state, deps)
-                logger.info(msg)
-                if log_callback:
-                    log_callback(msg, "step")
-                _last_step = new_step
+                new_step = final_state.get("current_step", "")
+                if new_step != _last_step:
+                    msg = _format_step_progress(node_name, new_step, final_state, deps)
+                    logger.info(msg)
+                    if log_callback:
+                        log_callback(msg, "step")
+                    _last_step = new_step
+        except Exception as stream_err:
+            # LangGraph's InMemorySaver raises a msgpack serialization error at
+            # stream cleanup when AgentDeps (with model weights etc.) is in state.
+            # All pipeline nodes have already completed at this point — treat it
+            # as a checkpoint warning, not a pipeline failure.
+            err_str = str(stream_err)
+            if "msgpack" in err_str.lower() or "serializ" in err_str.lower():
+                logger.warning(f"Checkpoint serialization warning (non-fatal): {stream_err}")
+            else:
+                logger.error(f"Pipeline stream error: {stream_err}")
+                stream_errors.append(err_str)
 
         trends_count = len(final_state.get("trends", []))
         companies_count = len(final_state.get("companies", []))
@@ -1888,6 +1903,7 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
         logger.info(f"Output: {output_file}")
         logger.info("=" * 50)
 
+        all_errors = final_state.get("errors", []) + stream_errors
         return PipelineResult(
             status="success",
             leads_generated=outreach_count,
@@ -1895,7 +1911,7 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
             companies_found=companies_count,
             emails_found=emails_count,
             output_file=output_file,
-            errors=final_state.get("errors", []),
+            errors=all_errors,
             run_time_seconds=runtime,
         )
 

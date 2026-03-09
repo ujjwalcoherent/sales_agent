@@ -588,3 +588,5 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+    failed = sum(1 for _, ok, _ in _results if not ok)
+    sys.exit(1 if failed else 0)
