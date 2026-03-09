@@ -694,6 +694,7 @@ function NewsEmailTab({ health }: { health: HealthResponse | null }) {
   const emailMaxLen = useSetting("email_max_length", cfg.email_max_length, "300");
   const emailSending = useSetting("email_sending_enabled", cfg.email_sending_enabled, "false");
   const emailTestMode = useSetting("email_test_mode", cfg.email_test_mode, "true");
+  const emailTestRecipient = useSetting("email_test_recipient", cfg.email_test_recipient, "");
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px" }}>
@@ -766,6 +767,24 @@ function NewsEmailTab({ health }: { health: HealthResponse | null }) {
             <SaveCheck visible={emailTestMode.saved} />
           </div>
         </SettingRow>
+        {emailTestMode.value === "true" && (
+          <SettingRow label="Test recipient" description="All emails go to this address when test mode is on">
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                type="email"
+                value={emailTestRecipient.value}
+                onChange={(e) => emailTestRecipient.update(e.target.value)}
+                placeholder="test@example.com"
+                style={{
+                  padding: "6px 10px", borderRadius: 7, border: "1px solid var(--border)",
+                  background: "var(--surface)", fontSize: 12, color: "var(--text-secondary)",
+                  outline: "none", minWidth: 220,
+                }}
+              />
+              <SaveCheck visible={emailTestRecipient.saved} />
+            </div>
+          </SettingRow>
+        )}
       </div>
     </div>
   );

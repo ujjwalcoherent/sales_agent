@@ -57,6 +57,7 @@ class SettingsUpdateRequest(BaseModel):
     email_max_length: Optional[int] = Field(None, ge=50, le=1000)
     email_sending_enabled: Optional[bool] = None
     email_test_mode: Optional[bool] = None
+    email_test_recipient: Optional[str] = None
 
 
 class SettingsUpdateResponse(BaseModel):
@@ -151,6 +152,7 @@ async def health():
             "email_max_length": settings.email_max_length,
             "email_sending_enabled": settings.email_sending_enabled,
             "email_test_mode": settings.email_test_mode,
+            "email_test_recipient": settings.email_test_recipient,
         },
     }
 
