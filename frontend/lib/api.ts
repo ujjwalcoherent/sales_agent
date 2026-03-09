@@ -20,6 +20,9 @@ import type {
   CreateCampaignRequest,
   CampaignStreamEvent,
   PersonRecord,
+  UserProfile,
+  ProfileListResponse,
+  CreateProfileRequest,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -430,3 +433,38 @@ export const api = {
     };
   },
 };
+
+// ─── Profiles ────────────────────────────────────────────────────────────────
+
+export async function listProfiles(): Promise<ProfileListResponse> {
+  return apiFetch("/api/v1/profiles")
+}
+
+export async function createProfile(data: CreateProfileRequest): Promise<UserProfile> {
+  return apiFetch("/api/v1/profiles", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function getProfile(profileId: string): Promise<UserProfile> {
+  return apiFetch(`/api/v1/profiles/${profileId}`)
+}
+
+export async function updateProfile(profileId: string, data: Partial<CreateProfileRequest>): Promise<UserProfile> {
+  return apiFetch(`/api/v1/profiles/${profileId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function patchProfile(profileId: string, data: Partial<CreateProfileRequest>): Promise<UserProfile> {
+  return apiFetch(`/api/v1/profiles/${profileId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteProfile(profileId: string): Promise<void> {
+  return apiFetch(`/api/v1/profiles/${profileId}`, { method: "DELETE" })
+}
