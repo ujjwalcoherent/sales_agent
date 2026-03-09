@@ -184,8 +184,8 @@ function LeadsContent() {
       {/* Leads panel */}
       <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
         {loading ? (
-          <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {[0, 1, 2, 3, 4].map((i) => (
+          <div style={{ padding: "18px 24px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1rem" }}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="card" style={{ padding: "14px 16px" }}>
                 <div className="skeleton" style={{ height: 14, width: "50%", marginBottom: 8 }} />
                 <div className="skeleton" style={{ height: 12, width: "80%", marginBottom: 4 }} />
