@@ -121,9 +121,12 @@ export default function ProfileFormPanel({ profile, onClose, onSaved }: Props) {
   const [products, setProducts] = useState<ProductEntry[]>(
     profile?.own_products.length ? profile.own_products : []
   );
-  // Per-product: store target_roles and relevant_event_types as comma strings for editing
+  // Per-product: store target_roles, case_studies, and relevant_event_types as comma strings for editing
   const [productRolesText, setProductRolesText] = useState<string[]>(
     (profile?.own_products ?? []).map((p) => p.target_roles.join(", "))
+  );
+  const [productCaseStudiesText, setProductCaseStudiesText] = useState<string[]>(
+    (profile?.own_products ?? []).map((p) => p.case_studies.join(", "))
   );
   const [productEventTypesText, setProductEventTypesText] = useState<string[]>(
     (profile?.own_products ?? []).map((p) => p.relevant_event_types.join(", "))
@@ -155,12 +158,14 @@ export default function ProfileFormPanel({ profile, onClose, onSaved }: Props) {
   function addProduct() {
     setProducts((prev) => [...prev, emptyProduct()]);
     setProductRolesText((prev) => [...prev, ""]);
+    setProductCaseStudiesText((prev) => [...prev, ""]);
     setProductEventTypesText((prev) => [...prev, ""]);
   }
 
   function removeProduct(idx: number) {
     setProducts((prev) => prev.filter((_, i) => i !== idx));
     setProductRolesText((prev) => prev.filter((_, i) => i !== idx));
+    setProductCaseStudiesText((prev) => prev.filter((_, i) => i !== idx));
     setProductEventTypesText((prev) => prev.filter((_, i) => i !== idx));
   }
 
@@ -206,6 +211,7 @@ export default function ProfileFormPanel({ profile, onClose, onSaved }: Props) {
     // Merge comma-split fields back into product arrays
     const mergedProducts: ProductEntry[] = products.map((p, i) => ({
       ...p,
+      case_studies: (productCaseStudiesText[i] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
       target_roles: (productRolesText[i] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
       relevant_event_types: (productEventTypesText[i] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     }));
@@ -464,6 +470,20 @@ export default function ProfileFormPanel({ profile, onClose, onSaved }: Props) {
                 value={p.value_prop}
                 onChange={(e) => updateProduct(idx, { value_prop: e.target.value })}
                 placeholder="What problem does this solve and for whom?"
+              />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ ...labelStyle, marginBottom: 4 }}>Case Studies (comma-separated)</label>
+              <input
+                style={inputStyle}
+                type="text"
+                value={productCaseStudiesText[idx] ?? ""}
+                onChange={(e) => {
+                  const newArr = [...productCaseStudiesText];
+                  newArr[idx] = e.target.value;
+                  setProductCaseStudiesText(newArr);
+                }}
+                placeholder="e.g. Manipal Hospitals 2024, Sun Pharma rollout"
               />
             </div>
             <div style={{ marginBottom: 10 }}>
