@@ -309,9 +309,22 @@ _SPORTS_CELEBRITY_GOVT_SIGNALS = {
 
 
 def _has_noise_signal(article: Article) -> bool:
-    """Check whether an article's title/summary contains noise signals."""
+    """Check whether an article's title/summary contains noise signals.
+
+    Short signals (≤4 chars, e.g. "odi", "icc", "t20") use whole-word matching
+    to avoid false positives like "odi" matching "bodies", "icc" matching
+    "price" etc.  Longer signals use plain substring matching which is safe.
+    """
+    import re as _re
     combined = f"{article.title} {article.summary}".lower()
-    return any(sig in combined for sig in _SPORTS_CELEBRITY_GOVT_SIGNALS)
+    for sig in _SPORTS_CELEBRITY_GOVT_SIGNALS:
+        if len(sig) <= 4:
+            if _re.search(r'\b' + _re.escape(sig) + r'\b', combined):
+                return True
+        else:
+            if sig in combined:
+                return True
+    return False
 
 
 def _make_article(idx: int, title: str, summary: str) -> Article:
