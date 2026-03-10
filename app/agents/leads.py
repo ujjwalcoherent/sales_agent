@@ -729,8 +729,10 @@ async def run_lead_gen(deps: AgentDeps) -> tuple:
                 impacts=deps._impacts,
                 companies=deps._companies,
             )
+            from app.config import get_settings as _gs
+            _contact_timeout = _gs().lead_gen_timeout * 0.6  # 60% of lead_gen budget
             result = await asyncio.wait_for(
-                finder.find_contacts(state), timeout=180.0,
+                finder.find_contacts(state), timeout=_contact_timeout,
             )
             deps._contacts = result.contacts or []
             with_email = sum(1 for c in deps._contacts if getattr(c, "email", ""))

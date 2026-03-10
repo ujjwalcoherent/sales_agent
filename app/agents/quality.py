@@ -31,41 +31,46 @@ class QualityVerdict(BaseModel):
     reasoning: str = ""
 
 
-async def run_quality_check(deps, stage: str) -> QualityVerdict:
+async def run_quality_check(deps, stage: str, trends: list = None) -> QualityVerdict:
     """Deterministic quality gate — no LLM needed.
 
     Trends: quality = 0.40 * mean_coherence + 0.30 * (1 - noise_rate) + 0.30 * mean_oss
     Impacts: filter by council_confidence >= threshold
     """
     if stage == "trends":
-        return _check_trends(deps)
+        return _check_trends(deps, trends=trends)
     elif stage == "impacts":
         return _check_impacts(deps)
     else:
         return QualityVerdict(stage=stage, passed=True)
 
 
-def _check_trends(deps) -> QualityVerdict:
-    """Validate trend clustering quality using deterministic formula."""
-    tree = getattr(deps, "_trend_tree", None)
-    if tree is None:
-        return QualityVerdict(stage="trends", passed=True, reasoning="No trend tree")
+def _check_trends(deps, trends: list = None) -> QualityVerdict:
+    """Validate trend clustering quality using deterministic formula.
 
-    major = tree.to_major_trends()
-    if not major:
+    Uses IntelligenceResult for coherence/noise (most accurate source),
+    and the trends list for OSS scores.
+    """
+    # ── Coherence + noise from IntelligenceResult ────────────────────────────
+    intel = getattr(deps, "_intelligence_result", None)
+    if intel is None:
+        return QualityVerdict(stage="trends", passed=True, reasoning="No intelligence result")
+
+    clusters = getattr(intel, "clusters", []) or []
+    if not clusters:
         return QualityVerdict(
             stage="trends", passed=False, quality_score=0.0,
             issues=["Zero clusters found"], reasoning="FAIL: no clusters",
         )
 
-    # Compute signals from existing cluster data
-    coherences = [getattr(m, 'coherence_score', 0.5) for m in major]
-    mean_coh = sum(coherences) / max(len(coherences), 1)
+    coherences = [c.coherence_score for c in clusters if c.coherence_score > 0]
+    mean_coh = sum(coherences) / max(len(coherences), 1) if coherences else 0.0
     min_coh = min(coherences) if coherences else 0.0
+    noise_rate = getattr(intel, "noise_rate", 0.0)
 
-    pipeline = getattr(deps, "_pipeline", None)
-    noise_rate = getattr(pipeline, "_noise_rate", 0.0) if pipeline else 0.0
-    mean_oss = sum(getattr(m, 'oss_score', 0) for m in major) / max(len(major), 1)
+    # ── OSS from TrendData list ───────────────────────────────────────────────
+    trend_list = trends or []
+    mean_oss = sum(getattr(t, 'oss_score', 0.0) for t in trend_list) / max(len(trend_list), 1)
 
     # Deterministic quality formula (weights sum to 1.0)
     quality = round(

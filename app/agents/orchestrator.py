@@ -360,7 +360,7 @@ async def quality_validation_node(state: GraphState) -> dict:
     try:
         from .quality import run_quality_check
 
-        trend_verdict = await run_quality_check(deps, "trends")
+        trend_verdict = await run_quality_check(deps, "trends", trends=state.get("trends", []))
         logger.info(
             f"Quality (trends): passed={trend_verdict.passed}, "
             f"retry={trend_verdict.should_retry}, "
