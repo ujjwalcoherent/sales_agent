@@ -675,12 +675,27 @@ TARGET_COMPANY_SIZE = {
 
 # Blacklisted domains (not company domains)
 BLACKLISTED_DOMAINS = {
+    # Social / search / general
     "linkedin.com", "facebook.com", "twitter.com", "x.com",
     "google.com", "youtube.com", "wikipedia.org",
+    "github.com", "medium.com", "quora.com",
+    # Finance data & analytics
     "crunchbase.com", "bloomberg.com", "reuters.com",
+    # Indian business media
     "economictimes.com", "moneycontrol.com", "livemint.com",
     "businesstoday.in", "yourstory.com", "inc42.com",
-    "github.com", "medium.com", "quora.com"
+    "ndtv.com", "hindustantimes.com", "timesofindia.com",
+    "businessstandard.com", "thehindu.com", "thequint.com",
+    # International news media
+    "techcrunch.com", "theverge.com", "wired.com", "zdnet.com",
+    "venturebeat.com", "cnbc.com", "wsj.com", "ft.com",
+    "businessinsider.com", "forbes.com",
+    # Press release distribution (NOT company websites)
+    "prnewswire.com", "businesswire.com", "globenewswire.com",
+    "prnewswire.co.in", "businesswire.in", "accesswire.com",
+    "prweb.com", "einpresswire.com", "newswire.com",
+    # Conference & event sites (not company domains)
+    "eventbrite.com", "meetup.com",
 }
 
 # Company size keywords for classification

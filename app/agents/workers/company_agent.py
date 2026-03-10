@@ -376,9 +376,16 @@ Focus on:
                 domain = ""
                 if website:
                     domain = extract_clean_domain(website)
+                    # Reject domains that don't relate to the company (LLM may use article source URL)
+                    if domain and is_valid_company_domain(domain):
+                        name_norm = company_name.lower().replace(" ", "")
+                        dom_base = domain.split(".")[0].lower()
+                        if dom_base not in name_norm and name_norm not in dom_base and len(name_norm) > 4:
+                            domain = ""
+                            website = ""
                 if not domain:
                     domain = extract_domain_from_company_name(company_name)
-                
+
                 company_id = hashlib.md5(company_name.lower().encode()).hexdigest()[:12]
 
                 # Build reason with intent signal
@@ -549,6 +556,14 @@ RULES:
                 domain = ""
                 if website:
                     domain = extract_clean_domain(website)
+                    # Reject domains that don't relate to the company name
+                    # (LLM may extract the article source URL, e.g. prnewswire.com)
+                    if domain and is_valid_company_domain(domain):
+                        name_norm = company_name.lower().replace(" ", "")
+                        dom_base = domain.split(".")[0].lower()
+                        if dom_base not in name_norm and name_norm not in dom_base and len(name_norm) > 4:
+                            domain = ""
+                            website = ""
                 if not domain:
                     domain = extract_domain_from_company_name(company_name)
 
@@ -559,7 +574,7 @@ RULES:
 
                 intent = item.get("intent_signal", "")
                 reason = item.get("reason_relevant", "")
-                full_reason = f"📌 {intent}. {reason}" if intent else reason
+                full_reason = f"\U0001f4cc {intent}. {reason}" if intent else reason
 
                 companies.append(CompanyData(
                     id=company_id,
