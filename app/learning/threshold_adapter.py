@@ -231,7 +231,7 @@ class ThresholdAdapter:
                 json.dump({
                     "thresholds": self._thresholds,
                     "run_count": self._run_count,
-                    "alpha": self.alpha,
+                    # alpha is code-defined (_EMA_ALPHA=0.1) — not stored to prevent JSON drift
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }, f, indent=2)
         except Exception as exc:
