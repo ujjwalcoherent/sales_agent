@@ -22,11 +22,13 @@ When user feedback improves the hypothesis (via hypothesis_learner.py),
 the filter automatically gets better without any code changes.
 """
 
+import hashlib
 import json
 import logging
 import threading
+from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -66,6 +68,46 @@ _model_lock = threading.Lock()
 _model_instance = None
 _cached_hypothesis: Optional[str] = None
 
+# ── Score cache ────────────────────────────────────────────────────────────────
+# LRU cache keyed on hash(text_prefix + hypothesis) to avoid re-scoring the same
+# article text against the same hypothesis across multiple calls in one run.
+# Capacity 2048 covers ~2 pipeline runs worth of articles (367 articles * 2 pairs
+# * 2-3 hypotheses from industry classifier).  Thread-safe via _cache_lock.
+_SCORE_CACHE_MAX = 2048
+_score_cache: OrderedDict[str, float] = OrderedDict()
+_cache_lock = threading.Lock()
+
+
+def _cache_key(text: str, hypothesis: str) -> str:
+    """Build a short, collision-resistant cache key from text prefix + hypothesis."""
+    # Use first 500 chars of text — enough to distinguish articles, cheap to hash.
+    return hashlib.md5((text[:500] + "|||" + hypothesis).encode("utf-8")).hexdigest()
+
+
+def _cache_get(key: str) -> Optional[float]:
+    """Thread-safe LRU cache lookup. Returns None on miss."""
+    with _cache_lock:
+        if key in _score_cache:
+            _score_cache.move_to_end(key)  # refresh LRU position
+            return _score_cache[key]
+    return None
+
+
+def _cache_put(key: str, score: float) -> None:
+    """Thread-safe LRU cache insert with eviction."""
+    with _cache_lock:
+        _score_cache[key] = score
+        _score_cache.move_to_end(key)
+        while len(_score_cache) > _SCORE_CACHE_MAX:
+            _score_cache.popitem(last=False)
+
+
+def clear_score_cache() -> None:
+    """Clear the NLI score cache. Called at pipeline start alongside other resets."""
+    with _cache_lock:
+        _score_cache.clear()
+    logger.debug("[nli] Score cache cleared")
+
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -92,49 +134,137 @@ def score_articles(
     if hypothesis is None:
         hypothesis = load_hypothesis()
 
-    # Build text pairs: (article_text, hypothesis)
-    pairs = []
+    # Dual-score strategy: title-only + title+summary, take max.
+    # NLI entailment is premise-length sensitive (Yin et al. 2019): summary
+    # context words ("geopolitical turmoil", "AI-generated code flood") can
+    # shift the model toward contradiction even when the title clearly describes
+    # a B2B company action. Title-only catches strong signals; full text catches
+    # articles where the summary adds specificity.
+    # Empirical delta: "Anthropic launches code review tool" title=0.76, full=0.03.
+
+    # Build text pairs and check LRU cache for each.
+    # Pairs that are already cached skip the model entirely — saves ~50ms/article
+    # when industry_classifier re-scores the same articles with the same hypothesis,
+    # or when hypothesis_learner re-validates the same dataset.
+    n = len(articles)
+    title_texts: List[str] = []
+    full_texts: List[str] = []
+    title_keys: List[str] = []
+    full_keys: List[str] = []
+    cached_title_scores: List[Optional[float]] = []
+    cached_full_scores: List[Optional[float]] = []
+    uncached_pairs: List[Tuple[str, str]] = []       # pairs to send to model
+    uncached_pair_keys: List[str] = []                # parallel keys for cache insert
+
     for a in articles:
-        title = getattr(a, "title", "") or ""
+        title = (getattr(a, "title", "") or "").strip()
         summary = getattr(a, "summary", "") or ""
-        # DeBERTa context limit: use title + first 200 chars of summary
-        text = f"{title}. {summary[:200]}".strip()
-        pairs.append((text, hypothesis))
+        full_text = f"{title}. {summary[:200]}".strip()
+        title_texts.append(title)
+        full_texts.append(full_text)
+
+        tk = _cache_key(title, hypothesis)
+        fk = _cache_key(full_text, hypothesis)
+        title_keys.append(tk)
+        full_keys.append(fk)
+
+        t_cached = _cache_get(tk)
+        f_cached = _cache_get(fk)
+        cached_title_scores.append(t_cached)
+        cached_full_scores.append(f_cached)
+
+        if t_cached is None:
+            uncached_pairs.append((title, hypothesis))
+            uncached_pair_keys.append(tk)
+        if f_cached is None:
+            uncached_pairs.append((full_text, hypothesis))
+            uncached_pair_keys.append(fk)
+
+    cache_hits = 2 * n - len(uncached_pairs)
 
     try:
-        model = _load_model()
+        # Only call model if there are uncached pairs
+        if uncached_pairs:
+            model = _load_model()
+            raw_logits = model.predict(
+                uncached_pairs,
+                batch_size=batch_size,
+                show_progress_bar=False,
+            )
+            raw_logits = np.array(raw_logits)
+            if raw_logits.ndim == 1:
+                logger.warning("NLI model returned 1D output — unexpected for NLI task")
+                return [float(np.clip(s, 0.0, 1.0)) for s in raw_logits[:n]]
 
-        # predict() returns raw logits, shape: (n_samples, n_labels)
-        raw_logits = model.predict(
-            pairs,
-            batch_size=batch_size,
-            show_progress_bar=False,
-        )
+            # Softmax along classes axis
+            shifted = raw_logits - raw_logits.max(axis=1, keepdims=True)
+            exp_vals = np.exp(shifted)
+            probs = exp_vals / exp_vals.sum(axis=1, keepdims=True)
+            uncached_scores = probs[:, _ENTAILMENT_IDX].tolist()
 
-        # Apply softmax to convert logits → probabilities
-        raw_logits = np.array(raw_logits)
-        if raw_logits.ndim == 1:
-            # Some model versions return (n,) for single class — shouldn't happen
-            # but handle gracefully
-            logger.warning("NLI model returned 1D output — unexpected for NLI task")
-            return [float(np.clip(s, 0.0, 1.0)) for s in raw_logits]
+            # Insert uncached scores into cache
+            for key, score in zip(uncached_pair_keys, uncached_scores):
+                _cache_put(key, score)
+        else:
+            uncached_scores = []
 
-        # Softmax along classes axis
-        shifted = raw_logits - raw_logits.max(axis=1, keepdims=True)
-        exp_vals = np.exp(shifted)
-        probs = exp_vals / exp_vals.sum(axis=1, keepdims=True)
+        # Reassemble per-article title/full scores from cache + fresh results.
+        # Walk the uncached_scores list in order to fill gaps.
+        uc_idx = 0
+        title_scores_final = []
+        full_scores_final = []
+        for i in range(n):
+            if cached_title_scores[i] is not None:
+                title_scores_final.append(cached_title_scores[i])
+            else:
+                title_scores_final.append(uncached_scores[uc_idx])
+                uc_idx += 1
+            if cached_full_scores[i] is not None:
+                full_scores_final.append(cached_full_scores[i])
+            else:
+                full_scores_final.append(uncached_scores[uc_idx])
+                uc_idx += 1
 
-        entailment_scores = probs[:, _ENTAILMENT_IDX].tolist()
+        # Element-wise max: best of title-only vs full-text.
+        # This rescues real B2B articles where summary context dilutes the signal.
+        # Known tradeoff: some sports/celebrity articles with B2B-patterned titles
+        # ("PhonePe signs Rs 100 crore sponsorship") pass NLI auto-accept because
+        # the NLI model correctly detects [company + action + money]. These are
+        # caught by downstream stages: GLiNER won't extract "Mumbai Indians" as
+        # a B2B entity, and sports articles won't form coherent B2B clusters.
+        title_arr = np.array(title_scores_final)
+        full_arr = np.array(full_scores_final)
+        entailment_scores = np.maximum(title_arr, full_arr).tolist()
 
         mean_e = float(np.mean(entailment_scores))
         high_count = sum(1 for s in entailment_scores if s > 0.55)
         low_count = sum(1 for s in entailment_scores if s < 0.20)
+        boosted = int(np.sum(title_arr > full_arr))
+
+        # A4: NLI score distribution percentiles — tracks distribution shift
+        # across runs. If P50 drops >10% from previous run → trigger retraining.
+        scores_arr = np.array(entailment_scores)
+        if len(scores_arr) >= 10:
+            p10, p25, p50, p75, p90 = np.percentile(scores_arr, [10, 25, 50, 75, 90])
+            logger.info(
+                f"[nli] Distribution: P10={p10:.2f} P25={p25:.2f} P50={p50:.2f} "
+                f"P75={p75:.2f} P90={p90:.2f}"
+            )
+
+        # A2: KDE valley detection (Silverman 1986) — find natural threshold
+        # between B2B (high entailment) and noise (low entailment). Replaces
+        # fixed 0.88 when sufficient data exists. Logged for monitoring.
+        kde_threshold = _kde_valley_threshold(scores_arr)
+        if kde_threshold is not None:
+            logger.info(f"[nli] KDE valley threshold: {kde_threshold:.3f} (current fixed: 0.88)")
 
         logger.info(
-            f"[nli] Scored {len(articles)} articles: "
+            f"[nli] Scored {len(articles)} articles (dual-score): "
             f"mean_entailment={mean_e:.3f}, "
             f"high(>0.55)={high_count}, "
             f"low(<0.20)={low_count}, "
+            f"title_boosted={boosted}, "
+            f"cache_hits={cache_hits}/{2*n}, "
             f"hypothesis_len={len(hypothesis)}"
         )
 
@@ -267,21 +397,135 @@ def score_texts(
     if hypothesis is None:
         hypothesis = load_hypothesis()
 
-    pairs = [(t[:400], hypothesis) for t in texts]
+    # Check LRU cache — same mechanism as score_articles.
+    # hypothesis_learner calls score_texts with the same dataset against both
+    # current and candidate hypotheses; caching avoids redundant inference.
+    truncated = [t[:400] for t in texts]
+    keys = [_cache_key(t, hypothesis) for t in truncated]
+    cached: List[Optional[float]] = [_cache_get(k) for k in keys]
+
+    uncached_indices = [i for i, c in enumerate(cached) if c is None]
+    uncached_pairs = [(truncated[i], hypothesis) for i in uncached_indices]
 
     try:
-        model = _load_model()
-        raw_logits = model.predict(pairs, batch_size=batch_size, show_progress_bar=False)
-        raw_logits = np.array(raw_logits)
-        if raw_logits.ndim == 1:
-            return [float(np.clip(s, 0.0, 1.0)) for s in raw_logits]
-        shifted = raw_logits - raw_logits.max(axis=1, keepdims=True)
-        exp_vals = np.exp(shifted)
-        probs = exp_vals / exp_vals.sum(axis=1, keepdims=True)
-        return probs[:, _ENTAILMENT_IDX].tolist()
+        if uncached_pairs:
+            model = _load_model()
+            raw_logits = model.predict(uncached_pairs, batch_size=batch_size, show_progress_bar=False)
+            raw_logits = np.array(raw_logits)
+            if raw_logits.ndim == 1:
+                fresh_scores = [float(np.clip(s, 0.0, 1.0)) for s in raw_logits]
+            else:
+                shifted = raw_logits - raw_logits.max(axis=1, keepdims=True)
+                exp_vals = np.exp(shifted)
+                probs = exp_vals / exp_vals.sum(axis=1, keepdims=True)
+                fresh_scores = probs[:, _ENTAILMENT_IDX].tolist()
+
+            # Insert into cache
+            for idx, score in zip(uncached_indices, fresh_scores):
+                _cache_put(keys[idx], score)
+                cached[idx] = score
+
+        return [c if c is not None else 0.40 for c in cached]
     except Exception as e:
         logger.error(f"[nli] score_texts failed: {e}")
         return [0.40] * len(texts)
+
+
+def score_canary_set(
+    hypothesis: Optional[str] = None,
+    canary_path: Path = Path("data/canary_set.json"),
+    threshold: float = 0.55,
+) -> Optional[float]:
+    """Score frozen canary set and return accuracy.
+
+    Canary set is 50 frozen articles (25 positive B2B + 25 negative noise).
+    Positive articles should score >= threshold; negatives should score < threshold.
+    Accuracy = (TP + TN) / 50.
+
+    Returns None if canary set not found.
+    REF: V1 self-validation framework (catastrophic regression detection).
+    """
+    if not canary_path.exists():
+        return None
+
+    try:
+        with open(canary_path, "r", encoding="utf-8") as f:
+            canary = json.load(f)
+    except Exception as e:
+        logger.warning(f"[nli] Canary set load failed: {e}")
+        return None
+
+    positives = canary.get("positives", [])
+    negatives = canary.get("negatives", [])
+    if not positives and not negatives:
+        return None
+
+    pos_texts = [item["text"] for item in positives]
+    neg_texts = [item["text"] for item in negatives]
+
+    pos_scores = score_texts(pos_texts, hypothesis=hypothesis)
+    neg_scores = score_texts(neg_texts, hypothesis=hypothesis)
+
+    tp = sum(1 for s in pos_scores if s >= threshold)
+    tn = sum(1 for s in neg_scores if s < threshold)
+    total = len(pos_texts) + len(neg_texts)
+    accuracy = (tp + tn) / max(total, 1)
+
+    logger.info(
+        f"[nli] Canary set: accuracy={accuracy:.3f} "
+        f"TP={tp}/{len(pos_texts)} TN={tn}/{len(neg_texts)} "
+        f"(threshold={threshold})"
+    )
+    return round(accuracy, 4)
+
+
+def _kde_valley_threshold(scores: np.ndarray) -> Optional[float]:
+    """KDE valley detection for NLI auto-accept threshold (Silverman 1986).
+
+    Fits a kernel density estimate to the NLI score distribution and finds
+    the deepest valley (local minimum) between 0.3 and 0.95. This valley
+    separates the noise cluster (low entailment) from the B2B cluster (high).
+
+    Returns None if insufficient data or no clear valley exists.
+    Replaces Otsu's method (rejected: NLI distributions are not bimodal).
+
+    REF: Silverman (1986) "Density Estimation for Statistics and Data Analysis"
+         Chapter 2: bandwidth selection via Silverman's rule of thumb.
+    """
+    if len(scores) < 30:
+        return None
+    try:
+        from scipy.signal import argrelmin
+        from scipy.stats import gaussian_kde
+
+        # Filter to a reasonable range to avoid edge effects
+        valid = scores[(scores >= 0.05) & (scores <= 0.98)]
+        if len(valid) < 20:
+            return None
+
+        kde = gaussian_kde(valid, bw_method="silverman")
+        x = np.linspace(0.3, 0.95, 200)
+        density = kde(x)
+
+        # Find local minima (valleys) in the density
+        valleys = argrelmin(density, order=10)[0]
+        if len(valleys) == 0:
+            return None
+
+        # Select the valley closest to 0.88 (current default threshold)
+        valley_positions = x[valleys]
+        best_idx = np.argmin(np.abs(valley_positions - 0.88))
+        threshold = float(valley_positions[best_idx])
+
+        # Safety clamp: never go below 0.70 or above 0.95
+        return float(np.clip(threshold, 0.70, 0.95))
+
+    except ImportError:
+        logger.debug("[nli] scipy not available — KDE valley detection skipped")
+        return None
+    except Exception as e:
+        logger.debug(f"[nli] KDE valley detection failed: {e}")
+        return None
 
 
 def nli_scores_by_source(

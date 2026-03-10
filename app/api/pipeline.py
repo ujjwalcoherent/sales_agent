@@ -291,6 +291,9 @@ async def start_pipeline(
         background_tasks.add_task(
             _execute_pipeline, run, body.mock_mode, body.disabled_providers,
             country=body.country, max_trends=body.max_trends,
+            profile_id=body.profile_id, mode=body.mode,
+            companies=body.companies or [], industry=body.industry,
+            report_text=body.report_text,
         )
 
         return PipelineRunResponse(
@@ -347,21 +350,112 @@ _PIPELINE_LOGGERS = [
     "app.agents.orchestrator",
     "app.agents.source_intel",
     "app.agents.analysis",
-    "app.agents.market_impact",
-    "app.agents.quality",
-    "app.agents.lead_gen",
-    "app.agents.lead_crystallizer",
-    "app.agents.causal_council",
+    "app.agents.leads",
     "app.agents.workers.impact_agent",
-    "app.agents.workers.company_agent",
     "app.agents.workers.contact_agent",
     "app.agents.workers.email_agent",
-    "app.trends.engine",
-    "app.trends.synthesis",
-    "app.news.scraper",
-    "app.tools.llm_service",
-    "app.tools.providers",
+    "app.intelligence.pipeline",
+    "app.intelligence.filter",
+    "app.intelligence.cluster",
+    "app.tools.llm.llm_service",
+    "app.tools.llm.providers",
 ]
+
+
+def _build_scope(
+    request_scope,
+    profile_id: str | None,
+    mode: str | None,
+    companies: list[str] | None,
+    industry: str | None,
+    report_text: str | None,
+    country: str | None,
+):
+    """Build DiscoveryScope for the pipeline run.
+
+    Priority: request_scope (if provided) > profile_id (load from DB) > inline params.
+    Returns None if no scope can be built (pipeline falls back to settings defaults).
+    """
+    from app.intelligence.models import DiscoveryScope, DiscoveryMode
+    from app.config import get_settings
+
+    if request_scope is not None:
+        return request_scope
+
+    settings = get_settings()
+    region = country or settings.country_code or "IN"
+    hours = getattr(settings, "rss_hours_ago", 120)
+
+    # Profile-based scope (loads UserProfile from SQLite)
+    if profile_id:
+        try:
+            from app.database import get_database
+            db = get_database()
+            data = db.get_profile(profile_id)
+            if data:
+                from app.schemas.industry_profile import UserProfile
+                profile = UserProfile(**data)
+                region = profile.region.upper() if profile.region else region
+
+                # Determine mode from profile path_preference if not overridden
+                effective_mode = mode or profile.path_preference
+                if not effective_mode or effective_mode == "auto":
+                    # Auto-select based on what data is available
+                    if profile.account_list:
+                        effective_mode = "company_first"
+                    elif profile.target_industries:
+                        effective_mode = "industry_first"
+                    elif profile.report_summary:
+                        effective_mode = "report_driven"
+                    else:
+                        effective_mode = "industry_first"
+
+                if effective_mode == "company_first":
+                    return DiscoveryScope(
+                        mode=DiscoveryMode.COMPANY_FIRST,
+                        companies=profile.account_list,
+                        region=region, hours=hours,
+                        user_products=[p.name for p in profile.own_products],
+                    )
+                elif effective_mode == "report_driven":
+                    return DiscoveryScope(
+                        mode=DiscoveryMode.REPORT_DRIVEN,
+                        report_text=profile.report_summary,
+                        region=region, hours=hours,
+                        user_products=[p.name for p in profile.own_products],
+                    )
+                else:  # industry_first
+                    ind = ""
+                    if profile.target_industries:
+                        ind = profile.target_industries[0].display_name or profile.target_industries[0].industry_id
+                    return DiscoveryScope(
+                        mode=DiscoveryMode.INDUSTRY_FIRST,
+                        industry=ind,
+                        region=region, hours=hours,
+                        user_products=[p.name for p in profile.own_products],
+                    )
+        except Exception as exc:
+            logger.warning(f"[pipeline] Failed to load profile '{profile_id}': {exc}")
+
+    # Inline scope params
+    if mode or companies or industry or report_text:
+        dm = {
+            "company_first": DiscoveryMode.COMPANY_FIRST,
+            "industry_first": DiscoveryMode.INDUSTRY_FIRST,
+            "report_driven": DiscoveryMode.REPORT_DRIVEN,
+        }.get((mode or "").lower(), DiscoveryMode.INDUSTRY_FIRST)
+
+        return DiscoveryScope(
+            mode=dm,
+            companies=companies or [],
+            industry=industry or "",
+            report_text=report_text,
+            region=region,
+            hours=hours,
+        )
+
+    # No scope info — pipeline uses default (Industry-First, empty industry)
+    return None
 
 
 async def _execute_pipeline(
@@ -370,6 +464,11 @@ async def _execute_pipeline(
     disabled_providers: list[str] | None = None,
     country: str | None = None,
     max_trends: int | None = None,
+    profile_id: str | None = None,
+    mode: str | None = None,
+    companies: list[str] | None = None,
+    industry: str | None = None,
+    report_text: str | None = None,
 ):
     """Background task: run the LangGraph pipeline and emit SSE events."""
     from app.agents.orchestrator import create_pipeline_graph
@@ -396,7 +495,10 @@ async def _execute_pipeline(
         provider_health.reset_for_new_run()
         ProviderManager.reset_cooldowns()
         LLMService.clear_cache()
-        logger.info("Provider health + cooldowns + agent cache reset for new run")
+        # Clear NLI score cache so stale scores from a previous hypothesis don't persist.
+        from app.intelligence.engine.nli_filter import clear_score_cache
+        clear_score_cache()
+        logger.info("Provider health + cooldowns + agent cache + NLI cache reset for new run")
     except Exception as e:
         logger.warning(f"Provider reset failed: {e}")
 
@@ -419,11 +521,28 @@ async def _execute_pipeline(
         })
 
     import time as _time
+
+    # Build DiscoveryScope from profile or inline params.
+    # This drives which of the 3 pipeline paths runs:
+    #   Company-First:  companies list → fetch news for those companies
+    #   Industry-First: industry target → NLI-classify B2B articles by industry
+    #   Report-Driven:  report_text → extract companies/trends from analyst report
+    scope = _build_scope(
+        request_scope=None,
+        profile_id=profile_id,
+        mode=mode,
+        companies=companies,
+        industry=industry,
+        report_text=report_text,
+        country=country,
+    )
+
     deps = AgentDeps.create(
         mock_mode=mock_mode,
         log_callback=progress_callback,
         run_id=run.run_id,
         disabled_providers=disabled_providers or [],
+        scope=scope,
     )
     deps._pipeline_t0 = _time.time()
 
@@ -745,7 +864,7 @@ async def _replay_pipeline(run: PipelineRun, recording_dir: Path):
 
             # Update run state from recorded data
             run.current_step = step_name
-            run.progress_pct = STEP_PROGRESS.get(step_name, run.progress_pct)
+            run.progress_pct = max(run.progress_pct, STEP_PROGRESS.get(step_name, run.progress_pct))
 
             # Extract counts from recorded data
             if "trend_count" in step_data:
@@ -924,7 +1043,7 @@ async def get_result(run_id: str):
     """Get full pipeline results after completion."""
     run = run_manager.get_run(run_id)
     # If run is in memory but has no enrichment data, reload from recordings
-    if run and run.result and isinstance(run.result, dict) and not run.result.get("companies"):
+    if run and run.result and isinstance(run.result, dict) and not run.result.get("replay") and not run.result.get("companies"):
         logger.info(f"Result {run_id}: reloading from recordings (missing enrichment)")
         run = None  # Force recording reload
     if not run:

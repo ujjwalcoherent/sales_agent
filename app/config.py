@@ -206,10 +206,7 @@ class Settings(BaseSettings):
         default='{"coherence":0.28,"source_diversity":0.25,"event_agreement":0.17,"evidence_volume":0.12,"authority":0.18}',
         alias="CLUSTER_QUALITY_SCORE_WEIGHTS",
     )
-    source_credibility_weights: str = Field(
-        default='{"base_authority":0.40,"cross_citation":0.25,"originality":0.20,"agreement":0.15}',
-        alias="SOURCE_CREDIBILITY_WEIGHTS",
-    )
+    # source_credibility_weights — REMOVED (0 callers, March 2026 audit)
 
     # ── Council & Agent Thresholds ──
     cmi_auto_noise_threshold: float = Field(default=0.2, alias="CMI_AUTO_NOISE_THRESHOLD")
@@ -237,16 +234,10 @@ class Settings(BaseSettings):
     # Entity fingerprint dedup: min shared entities for cross-topic match
     dedup_entity_cross_topic_min: int = Field(default=4, alias="DEDUP_ENTITY_CROSS_TOPIC_MIN")
 
-    # ── Hybrid Similarity Weights (engine.py) ──
-    # Weights for blended similarity matrix used in Leiden graph construction
-    hybrid_w_semantic: float = Field(default=0.50, alias="HYBRID_W_SEMANTIC")
-    hybrid_w_lexical: float = Field(default=0.30, alias="HYBRID_W_LEXICAL")
-    hybrid_w_event: float = Field(default=0.15, alias="HYBRID_W_EVENT")
-    hybrid_w_temporal: float = Field(default=0.05, alias="HYBRID_W_TEMPORAL")
-    # Same-source penalty: multiply similarity by this for articles from same RSS feed
-    hybrid_same_source_penalty: float = Field(default=0.70, alias="HYBRID_SAME_SOURCE_PENALTY")
-    # Temporal decay half-life in hours (for exponential decay)
-    hybrid_temporal_decay_hours: float = Field(default=48.0, alias="HYBRID_TEMPORAL_DECAY_HOURS")
+    # hybrid_w_semantic/lexical/event/temporal — REMOVED (0 callers, March 2026 audit)
+    # hybrid_same_source_penalty — REMOVED (0 callers)
+    # hybrid_temporal_decay_hours — REMOVED (0 callers)
+    # Similarity weights now live in intelligence/config.py (ClusteringParams)
 
     # ── Embedding Augmentation (engine.py) ──
     # Event-type one-hot augmentation scale
@@ -381,14 +372,10 @@ class Settings(BaseSettings):
     # 300s = patient wait for GCP rate limit recovery (was 30s = too aggressive)
     llm_max_provider_wait: float = Field(default=300.0, alias="LLM_MAX_PROVIDER_WAIT")
 
-    # ── Coherence Grade Boundaries ──
-    coherence_grade_a: float = Field(default=0.70, alias="COHERENCE_GRADE_A")
-    coherence_grade_b: float = Field(default=0.55, alias="COHERENCE_GRADE_B")
-    coherence_grade_c: float = Field(default=0.40, alias="COHERENCE_GRADE_C")
-    coherence_grade_d: float = Field(default=0.25, alias="COHERENCE_GRADE_D")
+    # coherence_grade_a/b/c/d — REMOVED (defined but never referenced, March 2026 audit)
 
     # ── Enrichment (ScrapeGraphAI) ──
-    deep_enrichment_enabled: bool = Field(default=True, alias="DEEP_ENRICHMENT_ENABLED")
+    deep_enrichment_enabled: bool = Field(default=False, alias="DEEP_ENRICHMENT_ENABLED")
     scrapegraph_model: str = Field(default="openai/gpt-4.1-mini", alias="SCRAPEGRAPH_MODEL")
     scrapegraph_max_results: int = Field(default=3, alias="SCRAPEGRAPH_MAX_RESULTS")
     scrapegraph_timeout: int = Field(default=90, alias="SCRAPEGRAPH_TIMEOUT")
@@ -1696,45 +1683,10 @@ NEWS_SOURCES = {
         "country": "GLOBAL",
         "rate_limit_per_day": None
     },
-    "prnewswire_tech": {
-        "id": "prnewswire_tech",
-        "name": "PR Newswire Technology",
-        "source_type": "rss",
-        "tier": "tier_2",
-        "credibility_score": 0.84,
-        "url": "https://www.prnewswire.com",
-        "rss_url": "https://www.prnewswire.com/rss/news-releases/technology-latest-news.rss",
-        "categories": ["press_releases", "technology", "enterprise", "product_launch"],
-        "language": "en",
-        "country": "GLOBAL",
-        "rate_limit_per_day": None
-    },
-    "prnewswire_finance": {
-        "id": "prnewswire_finance",
-        "name": "PR Newswire Financial Services",
-        "source_type": "rss",
-        "tier": "tier_2",
-        "credibility_score": 0.84,
-        "url": "https://www.prnewswire.com",
-        "rss_url": "https://www.prnewswire.com/rss/news-releases/financial-services-latest-news.rss",
-        "categories": ["press_releases", "finance", "banking", "insurance"],
-        "language": "en",
-        "country": "GLOBAL",
-        "rate_limit_per_day": None
-    },
-    "prnewswire_ma": {
-        "id": "prnewswire_ma",
-        "name": "PR Newswire M&A",
-        "source_type": "rss",
-        "tier": "tier_2",
-        "credibility_score": 0.84,
-        "url": "https://www.prnewswire.com",
-        "rss_url": "https://www.prnewswire.com/rss/news-releases/mergers-and-acquisitions-latest-news.rss",
-        "categories": ["press_releases", "M&A", "corporate", "deals"],
-        "language": "en",
-        "country": "GLOBAL",
-        "rate_limit_per_day": None
-    },
+    # NOTE: PR Newswire category-specific feeds (/rss/news-releases/*-latest-news.rss)
+    # all return 404 as of 2026-03-10. Only the general feed works.
+    # prnewswire_tech, prnewswire_finance, prnewswire_ma removed — use prnewswire_india
+    # (which uses the working /rss/news-releases-list.rss URL) for press release coverage.
 
     # ─────────────────────────────────────────────────────────────────────────
     # GOVERNMENT/REGULATORY: US Federal (RSS — verified 2026-03-05)
@@ -1845,16 +1797,17 @@ NEWS_SOURCES = {
     },
 
     # ─────────────────────────────────────────────────────────────────────────
-    # NEW TIER 1: Reuters & AP (Global wire services — highly reliable)
+    # TIER 1: Reuters via Google News (feeds.reuters.com dead since 2020)
+    # Using Google News source:reuters filter as proxy — verified 2026-03-10
     # ─────────────────────────────────────────────────────────────────────────
     "reuters_business": {
         "id": "reuters_business",
-        "name": "Reuters Business",
+        "name": "Reuters Business (via Google News)",
         "source_type": "rss",
         "tier": "tier_1",
         "credibility_score": 0.97,
         "url": "https://www.reuters.com",
-        "rss_url": "https://feeds.reuters.com/reuters/businessNews",
+        "rss_url": "https://news.google.com/rss/search?q=source:reuters+business&hl=en-US&gl=US&ceid=US:en",
         "categories": ["business", "markets", "global", "corporate"],
         "language": "en",
         "country": "GLOBAL",
@@ -1862,12 +1815,12 @@ NEWS_SOURCES = {
     },
     "reuters_technology": {
         "id": "reuters_technology",
-        "name": "Reuters Technology",
+        "name": "Reuters Technology (via Google News)",
         "source_type": "rss",
         "tier": "tier_1",
         "credibility_score": 0.97,
         "url": "https://www.reuters.com",
-        "rss_url": "https://feeds.reuters.com/reuters/technologyNews",
+        "rss_url": "https://news.google.com/rss/search?q=source:reuters+technology&hl=en-US&gl=US&ceid=US:en",
         "categories": ["technology", "AI", "enterprise", "global"],
         "language": "en",
         "country": "GLOBAL",
@@ -1967,7 +1920,7 @@ NEWS_SOURCES = {
         "tier": "tier_2",
         "credibility_score": 0.88,
         "url": "https://www.businessinsider.com",
-        "rss_url": "https://www.businessinsider.com/sai/rss",
+        "rss_url": "https://feeds2.feedburner.com/businessinsider",
         "categories": ["business", "technology", "finance", "US"],
         "language": "en",
         "country": "US",
@@ -2152,8 +2105,8 @@ NEWS_SOURCES = {
     },
 
     # ─────────────────────────────────────────────────────────────────────────
-    # NEW TIER 2: Indian sources — alternate/corrected URLs
-    # Business Standard has section-level feeds with fewer bot blocks
+    # DEAD: Business Standard section feeds — ALL return 403 as of 2026-03-10
+    # Kept in NEWS_SOURCES for reference but removed from DEFAULT_ACTIVE_SOURCES
     # ─────────────────────────────────────────────────────────────────────────
     "bs_economy": {
         "id": "bs_economy",
@@ -2465,9 +2418,16 @@ TIER_2_SOURCES = [src for src in NEWS_SOURCES.values() if src["tier"] == "tier_2
 #   - theprint               : Intermittent silent failure (kept with low priority)
 #   - pib (original)         : 0 articles — empty response (replaced by pib_finance/pib_commerce)
 #   - business_standard      : 403 Forbidden (top-level feed) — replaced by section feeds
-#   - bs_companies           : 403 Forbidden — replaced by bs_economy/bs_finance/bs_tech
-#   - reuters_business       : 401 Unauthorized — requires auth since 2024 (removed 2026-03-05)
-#   - reuters_technology     : 401 Unauthorized — requires auth since 2024 (removed 2026-03-05)
+#   - bs_companies           : 403 Forbidden — all BS feeds bot-blocked
+#   - reuters_business       : feeds.reuters.com dead since 2020 — replaced with Google News proxy (2026-03-10)
+#   - reuters_technology     : feeds.reuters.com dead since 2020 — replaced with Google News proxy (2026-03-10)
+#   - bs_economy             : 403 Forbidden — all business-standard.com/rss/ feeds bot-blocked (2026-03-10)
+#   - bs_finance             : 403 Forbidden — all business-standard.com/rss/ feeds bot-blocked (2026-03-10)
+#   - bs_tech                : 403 Forbidden — all business-standard.com/rss/ feeds bot-blocked (2026-03-10)
+#   - prnewswire_tech        : 404 — category feeds removed by PR Newswire (2026-03-10)
+#   - prnewswire_finance     : 404 — category feeds removed by PR Newswire (2026-03-10)
+#   - prnewswire_ma          : 404 — category feeds removed by PR Newswire (2026-03-10)
+#   - business_insider (old) : /sai/rss 404 — replaced with feedburner feed (2026-03-10)
 #   - thewire_economy        : 0 articles — feed returns empty (removed 2026-03-05)
 # ─────────────────────────────────────────────────────────────────────────────
 DEFAULT_ACTIVE_SOURCES = [
@@ -2478,11 +2438,12 @@ DEFAULT_ACTIVE_SOURCES = [
     "cnbctv18", "cnbctv18_market",
     "hindu_business",
 
-    # ── Tier 1: Business Standard section feeds (less bot-blocked than homepage) ─
-    "bs_economy", "bs_finance", "bs_tech",
-
     # ── Tier 1: ET vertical portals ───────────────────────────────────────────
     "et_bfsi", "et_cio", "et_infra",
+
+    # ── Tier 1: Global Wire Services (via Google News proxy — verified 2026-03-10) ─
+    "reuters_business",       # Reuters Business (via Google News source:reuters)
+    "reuters_technology",     # Reuters Technology (via Google News source:reuters)
 
     # ── Tier 1: Global Business Publications (RSS — verified 2026-03-05) ─────
     "cnbc_world",             # CNBC World News (30 articles/fetch)
@@ -2529,11 +2490,8 @@ DEFAULT_ACTIVE_SOURCES = [
 
     # ── Tier 2: Press Release Aggregators (direct corporate news) ────────────
     "businesswire_tech", "businesswire_financial",
-    "prnewswire_india",
+    "prnewswire_india",       # General feed (category feeds 404 since 2026-03-10)
     "globe_newswire",         # GlobeNewswire (20 articles/fetch)
-    "prnewswire_tech",        # PR Newswire Technology
-    "prnewswire_finance",     # PR Newswire Financial Services
-    "prnewswire_ma",          # PR Newswire M&A
 
     # ── Tier 1: US-Specific Business Publications ─────────────────────────────
     "wsj_business",           # Wall Street Journal Business

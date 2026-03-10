@@ -1,273 +1,232 @@
 # app/learning/ — Self-Learning System
 
-7 learning loops that improve the pipeline between runs. All loops communicate via `signal_bus.py` exclusively — **no direct imports between loops**.
+5 active learning loops that improve the pipeline between runs. All loops communicate via `signal_bus.py` exclusively — no direct imports between loops.
 
 ```
 learning/
-├── signal_bus.py          # Cross-loop pub/sub backbone (persisted: data/signal_bus.json)
-├── source_bandit.py       # Loop 1: Thompson Sampling over 107 RSS source arms
+├── signal_bus.py          # Cross-loop pub/sub backbone (LearningSignalBus dataclass)
+├── source_bandit.py       # Loop 1: Thompson Sampling over RSS source arms
 ├── hypothesis_learner.py  # Loop 2: SetFit → updates NLI filter hypothesis
-├── weight_learner.py      # Loop 3: EWC dual-weight system for quality signal blending
-├── company_bandit.py      # Loop 4: Thompson Sampling over (company_size × event_type) arms
-├── contact_bandit.py      # Loop 5: Thompson Sampling over contact role × event_type arms
-├── threshold_adapter.py   # Loop 6: EMA-based coherence/merge/signal threshold adaptation
-├── dataset_enhancer.py    # Auto-labels articles → SetFit bootstrap
-├── path_router.py         # Q-Learning router: selects which discovery path to activate
-├── experiment_tracker.py  # Logs experiment variants to data/experiments.jsonl
+├── company_bandit.py      # Loop 3: Thompson Sampling over company-trend (size × event_type) arms
+├── contact_bandit.py      # Loop 4: Thompson Sampling over (role × event_type × company_size) arms
+├── threshold_adapter.py   # Loop 5: EMA-based threshold adaptation with CUSUM guard
+├── dataset_enhancer.py    # Auto-labels articles → SetFit bootstrap dataset
+├── experiment_tracker.py  # Logs experiment results; snapshot/restore for rollback
 ├── pipeline_metrics.py    # Metrics collector → data/pipeline_run_log.jsonl
-├── pipeline_validator.py  # Stage-by-stage pass/fail validation with consistency checks
-└── meta_reasoner.py       # Chain-of-thought retrospective + improvement hypotheses
+├── pipeline_validator.py  # Per-stage validation with in-run self-correction
+└── meta_reasoner.py       # GUTTED — all methods return empty, zero LLM calls
 ```
+
+**Removed/inactive:**
+- `weight_learner.py` — DELETED (EWC weight learning loop removed in March 2026 audit)
+- `path_router.py` — DELETED
+- `experience_library.py` — DELETED
+- `MetaReasoner` — all methods return empty `ReasoningTrace` / `Retrospective` stubs; `_enabled = False` always
 
 ---
 
-## Signal Bus — Cross-Loop Protocol
+## Signal Bus — `signal_bus.py`
 
-`signal_bus.py` implements a **three-phase no-circular-reads protocol**:
+`LearningSignalBus` is a plain dataclass. One instance per pipeline run. Loops write their section after updating, then read other loops' sections for cross-pollination.
 
-```mermaid
-flowchart LR
-    P1["Phase 1<br/>Each loop updates from<br/>THIS run's raw data<br/>Publishes summary to bus"] --> P2
-    P2["Phase 2<br/>Bus computes DERIVED signals<br/>e.g. quality × source overlap"] --> P3
-    P3["Phase 3<br/>Each loop reads OTHERS' summaries<br/>Applies small cross-loop adjustments"]
+**Three-phase protocol** prevents circular reads:
+1. Phase 1 — each loop publishes from THIS run's raw data
+2. Phase 2 — bus computes derived signals (`system_confidence`, `exploration_budget`)
+3. Phase 3 — each loop reads others' summaries, applies small adjustments
+
+**Publish methods:**
+```python
+bus.publish_source_bandit(posterior_means, previous_means)
+bus.publish_trend_memory(lifecycle_counts, avg_novelty, stale_pruned)
+bus.publish_company_bandit(arm_means)
+bus.publish_adaptive_thresholds(thresholds, anomalies, drift)
+bus.publish_auto_feedback(distribution, mean_quality)
+bus.publish_nli_filter(mean_entailment, rejection_rate, hypothesis_version, hypothesis_updated, scores_by_source)
+bus.publish_backward_signals(cluster_coherence_by_source, cluster_noise_rate, lead_quality_per_cluster)
+bus.publish_confusion_matrix(tp, fp, tn, fn)
 ```
 
-Published fields per run:
-- `nli_filter`: `{mean, rejection_rate, hypothesis_version, scores_by_source: Dict[str, float]}`
-- `clustering`: `{n_clusters, mean_coherence, entity_coverage, noise_rate}`
-- `source_bandit`: `{posteriors: Dict[str, {alpha, beta}]}`
-- `feedback`: `{total, positive, negative, recent_labels: List[str]}`
+**Published fields (key):**
+- Source Bandit section: `source_posterior_means`, `top_sources`, `source_diversity_index`, `source_exploration_rate`, `source_degraded`
+- NLI Filter section: `nli_mean_entailment`, `nli_rejection_rate`, `nli_hypothesis_version`, `nli_hypothesis_updated`, `nli_scores_by_source`
+- Clustering section (backward cascade): `cluster_coherence_by_source`, `cluster_noise_rate`, `lead_quality_per_cluster`
+- Confusion matrix: `filter_tp`, `filter_fp`, `filter_tn`, `filter_fn`
+- Derived: `system_confidence` = weighted mean of 5 stability signals; `exploration_budget = max(0.10, min(0.50, 1.0 - system_confidence))`
 
-Persisted to `data/signal_bus.json` (warm start). No inter-loop direct imports.
+**Persisted:** `data/signal_bus.json` (warm start across runs)
 
-**Research**: Collaborative Multi-Armed Bandits (Landgren et al., 2016); HEBO shared observation table (Cowen-Rivers et al., NeurIPS 2020).
+**Research:** Landgren et al. (2016) Collaborative Multi-Armed Bandits; Cowen-Rivers et al. (NeurIPS 2020) HEBO.
 
 ---
 
 ## Loop 1 — Source Bandit (`source_bandit.py`)
 
-**What it learns**: Which RSS sources produce B2B-signal articles worth clustering.
+**What it learns:** Which RSS sources produce B2B-signal articles worth clustering.
 
-**Algorithm**: Thompson Sampling over Beta(α, β) posteriors.
+**Algorithm:** Thompson Sampling over Beta(α, β) posteriors. One arm per source.
 
-**Thompson Sampling update rule**:
+**Reward formula** (weights sum to 1.0):
 ```
-For each article from source s:
-  if article passes NLI filter AND contributes to a passing cluster:
-    reward_s = 0.30 × nli_score          # NLI filter pass rate for this source
-           + 0.25 × cluster_quality     # mean coherence of clusters it contributed to
-           + 0.15 × uniqueness          # inverse dedup rate (high dedup = low uniqueness)
-           + 0.10 × entity_richness     # fraction of articles with ≥1 B2B entity
-           + 0.10 × content_quality     # full-text availability rate
-           + 0.10 × oss_score           # synthesis specificity of articles
-    α_s += reward_s              # success count
-    β_s += (1 - reward_s)        # failure count
-  else:
-    β_s += 1.0                   # pure failure
+reward = 0.30 × nli_score              # PRIMARY: mean NLI entailment for this source
+       + 0.20 × avg_cluster_quality    # cluster coherence of clusters source contributed to
+       + 0.15 × uniqueness             # 1 - dedup_rate (low dedup = high uniqueness)
+       + 0.10 × entity_richness        # min(1.0, raw_entity_richness / 5.0)
+       + 0.10 × content_score          # full-text availability rate
+       + 0.10 × backward_coherence     # cluster_coherence_by_source (cascade signal)
+       + 0.05 × avg_oss               # synthesis specificity score
 
-At fetch time:
-  for each source s:
-    θ_s ~ Beta(α_s, β_s)        # sample from posterior
-  Fetch sources in descending θ_s order
+n_obs = min(len(article_ids), 5)       # capped at 5 pseudo-observations per run
+α_s += reward × n_obs
+β_s += (1 - reward) × n_obs
 ```
 
-**Posterior mean** = α / (α + β) ≈ source quality estimate.
+**Posterior mean** = α / (α + β). Sample `θ_s ~ Beta(α_s, β_s)` at fetch time; fetch sources in descending `θ_s` order.
 
-**Informed priors** (Russo et al. 2018, arXiv:1707.02038):
-- B2B-tagged sources (ET, LiveMint, Inc42): Beta(3, 1) → prior mean 0.75
-- Noise-tagged sources (sports, entertainment): Beta(1, 3) → prior mean 0.25
+**Decay** (recency bias): `α = max(1.5, 1.0 + (α - 1.0) × 0.97)` per run before update.
+
+**Cap**: total α + β capped at 200 to prevent numerical instability.
+
+**Informed priors** (Russo et al. 2018):
+- B2B-tagged sources (funding/VC/startup/fintech tags): Beta(3, 1) → prior mean 0.75
+- Noise-tagged sources (geopolitical/macro/trade/aggregator tags): Beta(1, 3) → prior mean 0.25
 - Unknown sources: Beta(1, 1) → flat prior mean 0.50
 
-Why informed priors: Thompson Sampling converges in O(K log n) with uninformed priors vs O(K) with informed. At 107 sources, informed priors save ~4 runs of wasted fetches.
+`get_adaptive_credibility(source_id)` returns 50/50 blend of static credibility + posterior mean.
 
-**Real data** (after 5 runs):
-- ET Industry: α=1.12, β=2.28 → mean 0.329 (deprioritized, mostly opinion)
-- Google News Startup: α=3.44, β=2.11 → mean 0.620 (consistently B2B signals)
+**Persisted:** `data/source_bandit.json`
 
-**Persisted**: `data/source_bandit.json`
-
-**Research**: Chapelle & Li (2011) "An Empirical Evaluation of Thompson Sampling"; Russo et al. (2018) arXiv:1707.02038.
+**Research:** Chapelle & Li (2011) "An Empirical Evaluation of Thompson Sampling"; Russo et al. (2018) arXiv:1707.02038.
 
 ---
 
 ## Loop 2 — Hypothesis Learner (`hypothesis_learner.py`)
 
-**What it learns**: The NLI filter hypothesis text (what counts as B2B-relevant news).
+**What it learns:** The NLI filter hypothesis text (what counts as B2B-relevant news).
 
-**Algorithm**: SetFit (arXiv:2209.11055) — few-shot contrastive sentence-transformer fine-tuning.
+**Algorithm:** SetFit (arXiv:2209.11055) — few-shot contrastive sentence-transformer fine-tuning.
 
-**How SetFit works**:
+**Minimum threshold:** `N_MIN_EACH = 8` positive + 8 negative examples per class before training.
+
+**Base model:** `sentence-transformers/all-MiniLM-L6-v2`
+
+**Training data sources:**
+1. Human feedback `data/feedback.jsonl`: `good_trend`/`would_email` → POSITIVE; `bad_trend`/`bad_lead` → NEGATIVE
+2. `DatasetEnhancer.extract_labels_from_clusters()` results in `data/dynamic_dataset.jsonl`
+
+**Distribution shift trigger:** if mean NLI entailment drops > 10% from baseline → retrain even if feedback count < N_MIN_EACH.
+
+**2-gate validation before deployment:**
 ```
-1. Take N labeled examples (8 pos + 8 neg minimum)
-2. Generate K contrastive pairs: (pos_i, pos_j) → 1, (pos_i, neg_j) → 0
-   K = N × (N-1) / 2 × 2 ≈ 112 pairs from 8+8 examples
-3. Fine-tune: sentence-transformer classification head on pairs
-   Loss = CosineSimilarity(embed_i, embed_j) vs label (cosine contrastive)
-4. Classify ALL recent articles with updated embeddings
-5. Use updated scores to generate candidate hypothesis via LLM
-6. Validate candidate hypothesis on held-out Reuters/AG News examples
-7. Deploy if F1 improves ≥ 5% on validation set
-```
+Gate 1 (absolute):   new_hypothesis B2B_mean >= 0.55  (_ABSOLUTE_B2B_FLOOR)
+Gate 2 (relative):   regression vs current hypothesis <= 10% (_MAX_REGRESSION = 0.10)
+                     on held-out examples with confidence >= 0.85 (_VALIDATION_MIN_CONFIDENCE)
 
-**Why 8 examples ≈ 3000-example fine-tune**: SetFit leverages pre-trained sentence embeddings (already know what "raising capital" means). Fine-tuning only adjusts the classification head, not the full model. Result: 87.9% accuracy on sentence classification with 8 examples (Tunstall et al. 2022 Table 2).
-
-**Minimum threshold**: `N_MIN_EACH = 8` (positive + negative per class before training).
-
-**Training data sources** (priority order):
-1. Cluster articles with coherence > 0.70 → POSITIVE (math-confirmed B2B)
-2. NLI-rejected articles with score < 0.10 → NEGATIVE (high-confidence noise)
-3. Reuters-21578 earn/acq categories → POSITIVE (ground truth)
-4. AG News Business → POSITIVE; Sports/World → NEGATIVE
-
-**2-gate validation before deployment**:
-```
-Gate 1 (absolute): new_hypothesis B2B_mean ≥ 0.55     (absolute floor — prevents drift)
-Gate 2 (relative): regression vs current hypothesis ≤ 10% on production examples
-
-If either gate fails → reject candidate, keep current hypothesis
+Tier 2 anchor: always include 5 Tier 2 pos + 5 Tier 2 neg from Reuters/AG News
+               (_TIER2_ANCHOR_COUNT = 5) to prevent circular validation drift
 ```
 
-**Hypothesis grammar rules** (arXiv:1909.00161 §3 — violation causes model-wide low scores):
+**Hypothesis grammar rules** (violation causes near-zero entailment on ALL inputs):
 1. Structure: `"This article reports on a specific company named in the text that is [ACTION]..."` — NEVER change prefix
-2. NEVER add negation (NOT/except/unless) — NLI outputs near-zero entailment for negated hypotheses on ALL inputs
-3. NEVER use meta-descriptions ("business news report") — NLI trained on factual statements, not meta-labels
-4. Only extend the action verb list at end
+2. NEVER add negation (NOT/except/unless) — NLI outputs near-zero entailment for negated hypotheses
+3. NEVER use meta-descriptions ("business news report", "discusses") — NLI trained on factual assertions
+4. Only extend the action verb list at the end
 
-**Current hypothesis** (`data/filter_hypothesis.json`):
-```
-"This article reports on a specific company named in the text that is growing,
-raising capital, launching a product, releasing a model or technology, making
-an acquisition, facing a regulatory action, issuing a product recall, signing
-a major contract, filing for an IPO, entering a partnership, or making a
-strategic business move."
-```
+**Persisted:** `data/filter_hypothesis.json` (includes `previous_hypothesis` for in-run rollback)
 
-**Persisted**: `data/filter_hypothesis.json` (includes `previous_hypothesis` for in-run rollback).
-
-**Research**: Tunstall et al. (2022) arXiv:2209.11055; arXiv:2401.09555; arXiv:2502.12965.
+**Research:** Tunstall et al. (2022) arXiv:2209.11055; arXiv:1909.00161; arXiv:2401.09555; arXiv:2502.12965.
 
 ---
 
-## Loop 3 — Weight Learner (`weight_learner.py`)
+## Loop 3 — Company Bandit (`company_bandit.py`)
 
-**What it learns**: Quality signal blend weights for trend scoring (6 similarity signals).
+**What it learns:** Which company-trend pairings convert to actionable leads.
 
-**Algorithm**: EWC (Elastic Weight Consolidation) dual-weight system.
+**Algorithm:** Thompson Sampling on `company_id` arms. Arms are strings — either `"{company_size}_{event_type}"` for contextual scoring, or raw company IDs for per-company tracking.
 
-**Dual-weight update rule**:
+**Reward sources:**
+- `1.0` — company appeared in confirmed causal chain hop (lead sheet generated)
+- `0.5` — company appeared in impact analysis with high confidence
+- `0.0` — company discarded as too generic or not actionable
+
+**Update rule:** `α += reward; β += (1 - reward)`
+
+**Decay:** `α = max(1.0, 1.0 + (α - 1.0) × 0.97)` prevents Thompson variance collapse.
+
+**`compute_relevance()` formula:**
 ```
-Active weights W_a:  updated every run (fast adaptation, lr = base_lr / √n_feedback)
-Stable weights W_s:  updated every 10 runs (slow, conservative, lr = 0.1 × base_lr)
-
-KL divergence check:
-  if KL(W_a || W_s) > 0.15:
-    W_a = 0.70 × W_a + 0.30 × W_s    (blend back toward stable)
-
-Weight update from feedback signal f:
-  Δw_k = lr × f × (signal_k - mean_signals)      (gradient-free update)
-  w_k = clip(w_k + Δw_k, 0.02, 0.40)            (clamp to [0.02, 0.40])
-  W = W / sum(W)                                  (normalize to sum 1.0)
-```
-
-**EWC forgetting prevention** (Kirkpatrick et al. 2017):
-```
-L_EWC = L_task + λ × Σ_k  F_k × (w_k - w*_k)²
-
-Where:
-  w*_k    = stable weights (consolidated)
-  F_k     = Fisher information (estimate of weight importance)
-  λ       = 0.4 (regularization strength)
+score = 0.35 × bandit_score(company_size_event_type arm)
+      + 0.30 × industry_match        [0.0-1.0]
+      + 0.20 × intent_signal_strength [0.0-1.0]
+      + 0.15 × severity_mult          {high→1.0, medium→0.7, low→0.4}
 ```
 
-Fisher information is approximated as `mean(∂L/∂w_k)²` over recent feedback batches. Weights with high Fisher (consistent predictors of quality) are penalized more for deviating from stable values.
-
-**Priority**:
-1. Human feedback (50+ records) — 3× learning rate
-2. Outcome-based auto-learning (5+ runs) — uses cluster quality as proxy
-3. Default weights — cold start
-
-Default weights: semantic=0.35, entity=0.25, source=0.15, event=0.10, temporal=0.10, lexical=0.05.
-
-**Persisted**: `data/weight_learner.json`
-
-**Research**: Kirkpatrick et al. (2017) "Overcoming Catastrophic Forgetting in Neural Networks" (EWC).
+**Persisted:** `data/company_bandit.json`
 
 ---
 
-## Loop 4 — Company Bandit (`company_bandit.py`)
+## Loop 4 — Contact Bandit (`contact_bandit.py`)
 
-**What it learns**: Which (company_size × event_type) combinations convert to leads.
+**What it learns:** Which contact role to approach per (event_type × company_size) combination.
 
-**Algorithm**: Contextual Thompson Sampling.
+**Algorithm:** Thompson Sampling on `(role × event_type × company_size)` arms. `ContactArm` dataclass with Beta(α, β) posterior.
 
-```
-Arms: {company_size: smb|mid|enterprise} × {event_type: funding|expansion|product_launch|...}
-    = 3 × 7 = 21 contextual arms
-
-For each arm a:
-  θ_a ~ Beta(α_a, β_a)     # sample from posterior
-
-Reward after lead scoring:
-  if lead_score > threshold:
-    α_a += lead_score        # weighted success
-    β_a += (1 - lead_score)
-  else:
-    β_a += 1.0
+**Reward constants:**
+```python
+REWARD_EMAIL_OPEN      = 0.3    # weak positive
+REWARD_EMAIL_REPLY     = 1.0    # strong positive
+REWARD_EMAIL_BOUNCE    = 0.0    # neutral
+REWARD_LEAD_CONVERTED  = 1.5    # strongest signal
+REWARD_EMAIL_SKIPPED   = -0.1   # implicit negative
 ```
 
-**Persisted**: `data/company_bandit.json`
+**Update rule:** rewards > 1.0 are scaled to [0, 1] for α; β gets 0 penalty for full-success rewards.
+
+**Informed priors by role category:**
+| Role category | α | β | Prior mean |
+|--------------|---|---|-----------|
+| VP, Director | 3.0 | 1.0 | 0.75 |
+| Head of | 2.5 | 1.0 | 0.71 |
+| CISO, Founder | 2.5 | 1.5 | 0.63 |
+| CTO, CMO | 2.0 | 2.0 | 0.50 |
+| CEO (enterprise) | 1.5 | 4.5 | 0.25 |
+
+`rank_roles()` draws Thompson samples; `get_top_roles()` uses posterior mean (no sampling — for reporting only).
+
+**Persisted:** `data/contact_bandit.json`
+
+**Research:** Chapelle & Li (2011) arXiv:1111.1797; Li et al. (2010) LinUCB WWW 2010.
 
 ---
 
-## Loop 5 — Contact Bandit (`contact_bandit.py`)
+## Loop 5 — Threshold Adapter (`threshold_adapter.py`)
 
-**What it learns**: Which contact roles generate email engagement per event type.
+**What it learns:** Optimal thresholds for NLI filter, coherence validation, HDBSCAN noise, and pass rate gating.
 
-**Algorithm**: Thompson Sampling.
+**Algorithm:** Exponential Moving Average (EMA) with α = 0.10 (code constant `_EMA_ALPHA`).
 
+**EMA formula:**
 ```
-Arms: {contact_role} × {event_type}
-  e.g. (CTO, AI_adoption) vs (CFO, funding) vs (CEO, expansion)
-
-Rewards:
-  email_opened  → α += 0.5
-  email_replied → α += 1.0
-  email_bounced → β += 0.5
-  no_response   → β += 0.1 (weak implicit negative)
-
-Reward signal source:
-  → Brevo webhook (open/click events)
-  → IMAP reply polling (imaplib) for replies
+new_threshold = 0.10 × observed + 0.90 × current
 ```
 
-**Why Thompson vs UCB**: Thompson naturally handles cold-start arms (uncertain arms get explored proportionally to their uncertainty). UCB would over-explore all 21×N arms equally. With sparse email feedback, Thompson converges faster.
+**Thresholds adapted:**
+- `filter_auto_accept`: if accept_rate < 20% → lower by 0.02; if > 80% → raise by 0.02 (clamped [0.20, 0.50])
+- `val_coherence_min`: target = `0.85 × observed_coherence` (clamped [0.30, 0.65])
+- `val_composite_reject`: if pass_rate < 30% → lower by 0.03; if > 80% → raise by 0.03 (clamped [0.30, 0.70])
+- `hdbscan_soft_noise_threshold`: if noise_rate > 40% → lower by 0.01; if < 10% → raise by 0.01 (clamped [0.05, 0.20])
 
-**Persisted**: `data/contact_bandit.json`
-
----
-
-## Loop 6 — Threshold Adapter (`threshold_adapter.py`)
-
-**What it learns**: Optimal coherence, merge, and signal thresholds per article volume.
-
-**Algorithm**: Exponential Moving Average (EMA) per threshold.
-
+**CUSUM guard** (Page 1954) — freezes adaptation when quality degrades:
 ```
-EMA_t = α × observed_t + (1 − α) × EMA_{t-1}    α = 0.1
-
-Thresholds updated after each run:
-  coherence_threshold_t = EMA_coherence × 0.80    (80% of recent mean)
-  merge_threshold_t     = EMA_merge
-  min_community_size_t  = round(EMA_min_community)
-
-Stability gate — no update if:
-  |observed_t − EMA_{t-1}| < 0.02     (prevents micro-oscillations)
+deviations = [0.4 - q for q in quality_history[-5:]]
+if cusum_detect(deviations, threshold=0.3, drift=0.05):
+    _frozen = True   # adaptation suspended until quality_score >= 0.45
 ```
 
-EMA with α=0.1 gives ~9-run effective window (1/α − 1 = 9 runs at ≥50% weight).
-Conservative α=0.1 prevents a single anomalous run from drastically shifting thresholds.
+`cusum_detect()`: Page's cumulative sum change detection. Triggers if `s_pos > 2.0` or `s_neg > 2.0` (default threshold).
 
-**Persisted**: `data/adaptive_thresholds.json`
+**Persisted:** `data/adaptive_thresholds.json`
+
+**Research:** EMA standard practice per Sutton & Barto "Reinforcement Learning" Ch. 2; Page (1954) "Continuous Inspection Schemes" Biometrika.
 
 ---
 
@@ -275,108 +234,98 @@ Conservative α=0.1 prevents a single anomalous run from drastically shifting th
 
 Auto-builds the SetFit training set from run results — no human annotation.
 
+**Thresholds:**
+```python
+POSITIVE_COHERENCE_THRESHOLD = 0.70   # cluster coherence
+POSITIVE_NLI_THRESHOLD       = 0.85   # NLI entailment (dual-gate)
+NEGATIVE_COHERENCE_THRESHOLD = 0.25   # cluster coherence
+NEGATIVE_NLI_THRESHOLD       = 0.10   # NLI entailment
+N_RETRAIN_THRESHOLD          = 50     # total examples before triggering SetFit retrain
+MAX_CLASS_RATIO              = 2.0    # max positive:negative imbalance
+MAX_DATASET_SIZE             = 5000   # cap to prevent training blowup
+```
+
+**Labeling rules:**
+
 | Source | Label | Condition |
 |--------|-------|-----------|
-| Cluster articles (coherence > 0.70 AND NLI > 0.85) | POSITIVE | Both math gates — prevents noisy clusters becoming training data |
-| NLI-rejected articles (score < 0.10) | NEGATIVE | High-confidence noise (confidence = 1 − NLI_score) |
-| Cluster articles (coherence < 0.25) | NEGATIVE | Passed NLI but useless — fooled the filter |
-| Reuters-21578 earn/acq/corp categories | POSITIVE | Gold-standard business news labels |
-| Reuters-21578 grain/macro/dlr categories | NEGATIVE | Gold-standard macro/commodity noise |
-| AG News Business class | POSITIVE | Global business signal |
-| AG News Sports/World classes | NEGATIVE | Global non-business noise |
+| Cluster articles | POSITIVE | coherence > 0.70 AND NLI > 0.85 (dual gate) |
+| NLI-rejected articles | NEGATIVE | NLI score < 0.10 |
+| Cluster articles | NEGATIVE | coherence < 0.25 |
+| Reuters-21578 earn/acq/corp | POSITIVE | gold-standard |
+| Reuters-21578 grain/macro/dlr | NEGATIVE | gold-standard |
+| AG News Business class | POSITIVE | ground truth |
+| AG News Sports/World classes | NEGATIVE | ground truth |
 
-**Why dual gate for cluster positives** (coherence > 0.70 AND NLI > 0.85):
-- Coherence-only: topically coherent noise clusters (e.g. Jim Cramer commentary) would become positive training examples — wrong
-- NLI-only: an article that scored 0.60 (ambiguous zone) but appeared in a low-quality cluster should not reinforce the hypothesis
-- Both gates together confirm the article is genuinely a B2B signal
+**Why dual gate for positive cluster examples:** coherence-only would make topically similar non-B2B clusters (e.g. cricket commentary) positive training data. NLI-only would include articles in low-quality clusters. Both gates together confirm genuine B2B signal.
 
-Auto-deduplication: MD5 hash of text content.
-Class balancing: max 2:1 positive:negative ratio.
-Retraining trigger: ≥ 25 positive + ≥ 25 negative examples accumulated.
-
----
-
-## Path Router (`path_router.py`)
-
-**What it learns**: Which discovery path (Industry-First / Company-First / Report-Driven) to activate per context.
-
-**Algorithm**: Q-Learning with ε-greedy exploration.
-
-```
-State:  s = (industry_id, news_volume_band, account_list_active, urgency_flag)
-Action: a = path priority weights (3 floats summing to 1.0)
-
-Q-table update (Bellman):
-  Q(s, a) ← Q(s, a) + α × [R(s,a) + γ × max_a' Q(s', a') − Q(s, a)]
-
-Where:
-  α = 0.1         (learning rate)
-  γ = 0.9         (discount factor — future engagement matters)
-  R(s,a) = email_engagement_rate × lead_quality_score
-
-Exploration: ε-greedy with ε = 0.30 (explore 30% of runs initially)
-  ε decays linearly to 0.05 after 50 runs with feedback
-```
-
-Q-table stored in `data/path_router.json`. After 5+ consistent-feedback runs → measurable path preference shift visible in table.
+**Deduplication:** MD5 hash of text content. Stored in `data/dynamic_dataset.jsonl`.
 
 ---
 
 ## Pipeline Validator (`pipeline_validator.py`)
 
-Per-stage self-correction without human intervention.
+Per-stage self-correction without human intervention. Empirical baselines from 50+ pipeline runs.
 
-```mermaid
-flowchart LR
-    S1["Stage: Dedup<br/>validate_dedup()<br/>removal 3–50%?"] --> S2
-    S2["Stage: Filter<br/>validate_filter()<br/>pass_rate 1%+?<br/>hypothesis drift?"] --> S3
-    S3["Stage: NER<br/>validate_entity_extraction()<br/>grouping 10–95%?"] --> S4
-    S4["Stage: Clustering<br/>validate_clustering()<br/>pass rate?<br/>mean_coherence?"] --> S5
-    S5["Cross-Stage<br/>validate_pipeline_consistency()<br/>high pass + 0 clusters = noise leak?"]
+**Stage status values:** `PASS`, `WARN`, `FAIL`, `CORRECTED`
 
-    S2 -->|"pass_rate &lt; 1%"| R["apply_filter_rollback()<br/>swap to previous_hypothesis<br/>invalidate NLI cache<br/>rerun filter in-place"]
+**Empirical ranges:**
+```python
+_DEDUP_REMOVAL_RATE_RANGE   = (0.03, 0.50)   # 3%-50%
+_FILTER_PASS_RATE_RANGE     = (0.03, 0.60)   # 3%-60%
+_FILTER_NLI_MEAN_RANGE      = (0.25, 0.95)
+_ENTITY_GROUPING_RATE_RANGE = (0.10, 0.95)   # 10%-95%
+_CLUSTER_PASS_RATE_RANGE    = (0.30, 1.00)   # 30%-100%
+_CLUSTER_MIN_PASSED         = 1
 ```
 
-| Validator | Key checks | Auto-action |
-|-----------|-----------|-------------|
-| `validate_dedup(raw, deduped, pairs)` | removal rate 3-50% | WARN if out of range |
-| `validate_filter(in, kept, auto_accepted, auto_rejected, llm, nli_mean, fp)` | pass_rate ≥ 1%, hypothesis drift | `apply_filter_rollback()` if pass_rate < 1% |
-| `validate_entity_extraction(in, groups, grouped, ungrouped)` | grouping rate 10-95% | WARN if out of range |
-| `validate_clustering(in, total, passed, failed, noise, mean_coh)` | pass rate, coherence floor | WARN if regression |
-| `validate_pipeline_consistency(stage_results)` | cross-stage sanity | WARN on impossible combinations |
+**Validator functions:**
 
-`apply_filter_rollback()`:
+| Function | Key parameters | Auto-action |
+|----------|---------------|-------------|
+| `validate_dedup(raw_count, deduped_count, dedup_pairs)` | removal rate 3-50%; deduped_count >= 10 | WARN if out of range; FAIL if < 10 articles |
+| `validate_filter(input_count, kept_count, auto_accepted, auto_rejected, llm_classified, nli_mean, false_positives_found)` | pass_rate < 1% AND input >= 50 | FAIL + load rollback hypothesis; WARN if outside 3-60% |
+| `validate_entity_extraction(input_count, n_groups, grouped_count, ungrouped_count)` | grouping rate 10-95% | WARN if out of range |
+| `validate_clustering(input_count, total_clusters, passed, failed, noise_count, mean_coherence)` | pass_rate >= 30%, >= 1 cluster passed | WARN/FAIL |
+| `validate_pipeline_consistency(stage_results)` | cross-stage sanity (high filter pass + 0 clusters = noise leak) | WARN |
+
+**Filter rollback** (`apply_filter_rollback()`):
 1. Load `previous_hypothesis` from `data/filter_hypothesis.json`
-2. Swap hypothesis string in NLI filter
+2. Swap active hypothesis in NLI filter
 3. Invalidate NLI score cache (forces re-score)
-4. Rerun filter in same pipeline execution (no restart needed)
+4. Return corrective_params for orchestrator to retry filter in same pipeline execution
+
+**SPOC guard** (`should_correct(validation, confidence_threshold=0.75)`): only apply correction when `confidence_in_error >= 0.75` — prevents over-correction (research: arXiv:2506.06923).
+
+**StageAdvisory:** inter-stage communication dataclass (`from_stage`, `quality_level`, `metrics`, `suggested_adjustments`). Travels via `GraphState.stage_advisories` so downstream stages can adapt without LLM calls.
 
 ---
 
 ## Experiment Tracker (`experiment_tracker.py`)
 
-Snapshots experiment state for regression detection.
+Each pipeline run = one `ExperimentRecord` appended to `data/experiments.jsonl`.
 
-**Snapshot includes**:
-- `data/filter_hypothesis.json` (hypothesis text + version)
-- `data/nli_baseline.json` (baseline F1 scores)
-- Pipeline metrics (n_clusters, mean_coherence, pass_rate)
-
-**Regression rollback**:
-```
-If F1(new_hypothesis) < F1(baseline) − 0.05:     (5% regression threshold)
-    restore hypothesis from snapshot
-    log experiment as FAILED in data/experiments.jsonl
+**Snapshot files** (for regression rollback):
+```python
+_SNAPSHOT_FILES = [
+    "data/learned_weights.json",
+    "data/adaptive_thresholds.json",
+    "data/filter_hypothesis.json",   # hypothesis must roll back with other learning state
+    "data/nli_baseline.json",        # stale baseline triggers false retraining after rollback
+]
 ```
 
-Regression check uses Reuters-21578 test split as ground truth (fixed external dataset, not affected by hypothesis changes).
+**Snapshot directory:** `data/_learning_snapshot/`
+
+**ExperimentRecord fields:** `run_id`, `mean_oss`, `mean_coherence`, `noise_rate`, `actionable_rate`, `article_count`, `cluster_count`, `status` ("keep"/"discard"/"crash"), `learning_updates`.
 
 ---
 
 ## Key Invariants
 
 - Loops communicate via `signal_bus.py` ONLY — no direct cross-loop imports
-- All persistent state in `data/*.json` or `data/*.jsonl` — never in memory (restart-safe)
-- Every loop loads state on init, saves immediately after each update
-- Learning updates run in Phase 10 (final pipeline stage) via `asyncio.gather()` — parallel, non-blocking
-- `company_bandit.py` was `agents/company_relevance_bandit.py` pre-March 2026 — import from `app.learning.company_bandit`
+- All persistent state in `data/*.json` or `data/*.jsonl` — restart-safe
+- Every loop loads state on `__init__`, saves immediately after each update
+- Learning updates run in `learning_update_node` (final pipeline stage) — always executes even when no viable trends found
+- `MetaReasoner` is kept for type compatibility only — `_enabled = False`, no LLM calls ever
+- `WeightLearner`, `ExperienceLibrary`, `path_router` are DELETED — do not reference them

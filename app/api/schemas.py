@@ -15,6 +15,14 @@ class PipelineRunRequest(BaseModel):
     replay_run_id: Optional[str] = None
     disabled_providers: List[str] = Field(default_factory=list)
 
+    # Use-case scope — drives all 3 pipeline paths.
+    # Load by profile_id OR pass inline scope params.
+    profile_id: Optional[str] = None               # loads UserProfile from DB
+    mode: Optional[str] = None                      # "company_first" | "industry_first" | "report_driven"
+    companies: List[str] = Field(default_factory=list)   # Company-First: account list
+    industry: Optional[str] = None                  # Industry-First: "fintech_bfsi"
+    report_text: Optional[str] = None               # Report-Driven: analyst text
+
 
 class PipelineRunResponse(BaseModel):
     run_id: str
