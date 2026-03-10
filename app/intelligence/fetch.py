@@ -69,6 +69,15 @@ async def fetch_articles(
         for kw in keywords:
             tasks.append(_fetch_tavily_news(kw, cutoff))
 
+    # ── Report-Driven mode: extract key topics from report text ────────────────
+    # REF: Named entity + noun-phrase extraction primes Tavily for report corroboration.
+    if scope.report_text:
+        report_queries = _extract_report_queries(scope.report_text, region=scope.region)
+        for query in report_queries:
+            tasks.append(_fetch_tavily_news(query, cutoff))
+        if report_queries:
+            logger.info(f"[fetch] Report-Driven: +{len(report_queries)} queries from report")
+
     # ── AutoResearch: LLM-expanded queries for broader coverage ────────────
     if params.enable_query_expansion:
         try:
@@ -277,6 +286,61 @@ def _extract_domain(url: str) -> str:
     except Exception:
         return "unknown"
 
+
+
+def _extract_report_queries(report_text: str, region: str = "IN", max_queries: int = 4) -> List[str]:
+    """Extract Tavily search queries from analyst report text.
+
+    Uses simple NLP (regex noun-phrase + capitalized sequence extraction) to pull
+    company names, industry terms, and key topics from the report. Returns 2-4 query
+    strings suitable for Tavily news search.
+
+    No LLM call — fast, deterministic, runs before any model is loaded.
+    """
+    import re
+
+    queries = []
+    _STOPWORDS = {"india", "market", "sector", "company", "companies", "the", "and", "for",
+                  "their", "that", "this", "with", "from", "have", "which", "amid"}
+    # 1. Multi-word noun phrases: Title Case, CamelCase, or ALLCAPS + word combos
+    # Matches: "Tata Motors", "HDFC Bank", "BharatPe", "PhonePe", "Tata Consultancy Services"
+    caps_pattern = re.compile(
+        r'\b([A-Z]{2,}(?:\s+[A-Z][a-z]+)+|'   # ALLCAPS + Title: "HDFC Bank"
+        r'[A-Z][A-Za-z]*(?:[A-Z][a-z]+)+|'     # CamelCase: "BharatPe", "PhonePe"
+        r'[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'  # Multi-word Title: "Tata Motors"
+    )
+    caps_matches = caps_pattern.findall(report_text)
+    seen: set = set()
+    for m in caps_matches:
+        if m not in seen and len(m) >= 5 and m.lower() not in _STOPWORDS:
+            seen.add(m)
+            queries.append(m)
+        if len(queries) >= max_queries:
+            break
+
+    # 2. If not enough from proper nouns, extract key noun-phrases (industry, market, sector)
+    if len(queries) < 2:
+        phrase_pattern = re.compile(
+            r'\b([a-z]+ (?:sector|market|industry|technology|finance|startup|platform|service))\b', re.I
+        )
+        phrases = [m.group(0).strip() for m in phrase_pattern.finditer(report_text)]
+        for p in dict.fromkeys(phrases):  # dedup preserving order
+            if p not in queries:
+                queries.append(p)
+            if len(queries) >= max_queries:
+                break
+
+    # 3. Append region to at least one query for geographic grounding
+    if queries and region and region != "GLOBAL":
+        from app.intelligence.config import get_region
+        try:
+            region_cfg = get_region(region)
+            country_name = getattr(region_cfg, "display_name", region)
+        except Exception:
+            country_name = region
+        queries[0] = f"{queries[0]} {country_name}"
+
+    return queries[:max_queries]
 
 
 async def _expand_queries(scope: DiscoveryScope) -> List[str]:

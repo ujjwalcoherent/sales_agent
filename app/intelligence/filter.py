@@ -411,6 +411,12 @@ async def _classify_batch(
         for i, (art, _) in enumerate(batch)
     )
 
+    # REPORT_DRIVEN: inject analyst report context into LLM prompt for corroboration.
+    report_context = ""
+    if scope is not None and getattr(scope, "report_text", None):
+        _rt = scope.report_text.strip()[:300]  # First 300 chars — key claim
+        report_context = f"\nAnalyst report context (keep articles that corroborate this):\n\"{_rt}\"\n"
+
     if scope is not None and getattr(scope, "industry", None):
         industry = scope.industry
         try:
@@ -420,7 +426,7 @@ async def _classify_batch(
         except Exception:
             exclude_str = "sports, celebrity, crime, politics"
 
-        prompt = f"""You are a B2B sales intelligence filter for the {industry} industry.
+        prompt = f"""You are a B2B sales intelligence filter for the {industry} industry.{report_context}
 
 B2B ONLY: Keep articles relevant to BUSINESS-TO-BUSINESS events where companies sell
 to or partner with other businesses — NOT consumer-facing news.
@@ -452,8 +458,7 @@ Respond with a comma-separated list of KEEP or DROP in the same order.
 Example: KEEP, DROP, KEEP, KEEP, DROP"""
     else:
         targets_str = ", ".join(targets[:5]) if targets else "the target companies"
-        prompt = f"""You are a B2B sales intelligence filter.
-
+        prompt = f"""You are a B2B sales intelligence filter.{report_context}
 Target companies: {targets_str}
 
 Rule: KEEP only if a SPECIFIC NAMED COMPANY (not government/politician) is the primary actor.
