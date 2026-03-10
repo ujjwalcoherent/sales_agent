@@ -267,8 +267,8 @@ def test_strategic_score():
     print(f"  [PASS] test_strategic_score (M&A={high:.3f}, Commentary={low:.3f})")
 
 
-# ── Test 12: ExperienceLibrary ────────────────────────────────────
-def test_experience_library():
+# ── Test 12: ExperienceLibrary — REMOVED (experience_library.py deleted March 2026) ──
+def _disabled_experience_library():
     from app.learning.experience_library import ExperienceLibrary, ExperienceEntry
     from pathlib import Path
     import tempfile
@@ -448,8 +448,8 @@ def test_spoc_correction_threshold():
     print("  [PASS] test_spoc_correction_threshold")
 
 
-# ── Test 22: Experience library FIFO eviction ─────────────────────
-def test_experience_fifo():
+# ── Test 22: Experience library FIFO eviction — REMOVED (experience_library.py deleted) ──
+def _disabled_experience_fifo():
     from app.learning.experience_library import ExperienceLibrary, ExperienceEntry
     from pathlib import Path
     import tempfile
