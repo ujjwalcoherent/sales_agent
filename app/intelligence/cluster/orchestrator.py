@@ -6,6 +6,13 @@ Pipeline per entity group:
   HDBSCAN → groups with 50+ articles (soft membership vectors)
   Leiden  → ungrouped / discovery mode articles
 
+Embedding reuse: accepts precomputed embeddings from source_intel phase
+(stored in deps._embeddings) to avoid redundant API calls. Falls back to
+batch embedding via EmbeddingTool if not provided.
+
+Similarity matrix caching: computes per-group cosine similarity matrix once
+and passes it to HAC/HDBSCAN, avoiding redundant pairwise distance computations.
+
 ValidationAgent can signal ClusterAgent to re-cluster (max 2 retries).
 This is the bidirectional loop from the Blackboard pattern (Erman et al. 1980).
 """
@@ -40,8 +47,19 @@ async def cluster_and_validate(
     scope: DiscoveryScope,
     params: ClusteringParams,
     state: PipelineState,
+    precomputed_embeddings: Optional[np.ndarray] = None,
 ) -> Tuple[List[ClusterResult], List[str], List[str], List[ValidationResult], List[int]]:
     """Run similarity → cluster → validate loop.
+
+    Args:
+        articles: List of Article objects to cluster.
+        entity_groups: Entity groups from NER/extraction step.
+        scope: DiscoveryScope for the run.
+        params: ClusteringParams (adaptive or default).
+        state: PipelineState for thought logging and inter-agent communication.
+        precomputed_embeddings: Optional (N, D) numpy array of embeddings from
+            the source_intel phase (deps._embeddings). Avoids redundant embedding
+            API calls when the source_intel agent already computed them.
 
     Returns:
         (clusters, passed_ids, rejected_ids, validation_results, noise_indices)
@@ -55,7 +73,10 @@ async def cluster_and_validate(
             f"Clustering attempt {attempt + 1}/{_MAX_RECLUSTER_RETRIES + 1}",
         )
 
-        clusters, noise = await _run_clustering(articles, entity_groups, scope, params)
+        clusters, noise = await _run_clustering(
+            articles, entity_groups, scope, params,
+            precomputed_embeddings=precomputed_embeddings,
+        )
         passed, rejected, val_results = await _run_validation(
             clusters, articles, entity_groups, params
         )
@@ -94,8 +115,15 @@ async def _run_clustering(
     entity_groups: list,
     scope: DiscoveryScope,
     params: ClusteringParams,
+    precomputed_embeddings: Optional[np.ndarray] = None,
 ) -> Tuple[List[ClusterResult], List[int]]:
-    """Run native HAC/HDBSCAN/Leiden clustering on entity groups."""
+    """Run native HAC/HDBSCAN/Leiden clustering on entity groups.
+
+    Args:
+        precomputed_embeddings: Optional (N, D) numpy array from source_intel.
+            When provided, skips the embedding computation step entirely.
+            This saves one full batch embedding API call per pipeline run.
+    """
     from app.intelligence.cluster.algorithms import (
         cluster_hac,
         cluster_hdbscan_soft as cluster_hdbscan,
@@ -105,8 +133,20 @@ async def _run_clustering(
     if not articles:
         return [], []
 
-    # Step 1: compute embeddings for all articles (needed by HAC/HDBSCAN)
-    embeddings = await _get_embeddings(articles)
+    # Step 1: Reuse precomputed embeddings if available, else compute fresh.
+    # The source_intel phase stores embeddings in deps._embeddings; the caller
+    # can pass them here via precomputed_embeddings to avoid a redundant
+    # batch embedding API call (saves ~2-5s and one API round-trip).
+    if precomputed_embeddings is not None and len(precomputed_embeddings) == len(articles):
+        embeddings = np.asarray(precomputed_embeddings, dtype=np.float32)
+        logger.info("[cluster] Reusing %d precomputed embeddings from source_intel", len(embeddings))
+    else:
+        if precomputed_embeddings is not None:
+            logger.warning(
+                "[cluster] Precomputed embeddings size mismatch (%d vs %d articles), recomputing",
+                len(precomputed_embeddings), len(articles),
+            )
+        embeddings = await _get_embeddings(articles)
     n = len(articles)
 
     all_clusters: List[ClusterResult] = []
@@ -132,6 +172,11 @@ async def _run_clustering(
 
         group_embs = embeddings[valid_indices]
 
+        # Compute per-group cosine similarity matrix ONCE and pass to both
+        # HAC and HDBSCAN. This avoids redundant pairwise distance computation
+        # inside each algorithm (O(n^2) work saved per retry).
+        group_sim = _compute_cosine_similarity_matrix(group_embs)
+
         try:
             if len(valid_indices) >= _HDBSCAN_LARGE_GROUP_THRESHOLD:
                 clusters, noise_local, _ = cluster_hdbscan(
@@ -139,6 +184,7 @@ async def _run_clustering(
                     article_indices=valid_indices,
                     entity_name=group_name,
                     entity_group_id=group_id,
+                    similarity_matrix=group_sim,
                     params=params,
                 )
             else:
@@ -147,6 +193,7 @@ async def _run_clustering(
                     article_indices=valid_indices,
                     entity_name=group_name,
                     entity_group_id=group_id,
+                    similarity_matrix=group_sim,
                     params=params,
                 )
 
@@ -219,13 +266,24 @@ async def _run_validation(
         return [c.cluster_id for c in clusters], [], []
 
 
+def _compute_cosine_similarity_matrix(embeddings: np.ndarray) -> np.ndarray:
+    """Delegate to shared cosine_sim_matrix in similarity.py."""
+    from app.intelligence.engine.similarity import cosine_sim_matrix
+    return cosine_sim_matrix(embeddings)
+
+
 async def _get_embeddings(articles: list) -> np.ndarray:
     """Compute or retrieve embeddings for all articles.
 
-    Checks article.embedding first (may be pre-populated).
-    Falls back to batch embedding via LLMService.
+    Checks article.embedding first (may be pre-populated by NER/filter step).
+    Falls back to batch embedding via EmbeddingTool.
+
+    Note: prefer passing precomputed_embeddings to _run_clustering() instead
+    of relying on this function. The source_intel phase already computes
+    embeddings and stores them in deps._embeddings — reusing those avoids
+    a redundant API call.
     """
-    # Check if articles already have embeddings
+    # Check if articles already have embeddings (e.g. set by NER step)
     first = articles[0] if articles else None
     existing = getattr(first, "embedding", None) if first else None
     if existing and len(existing) > 0:
@@ -246,9 +304,9 @@ async def _get_embeddings(articles: list) -> np.ndarray:
         texts.append(f"{title}. {summary[:300]}" if summary else title)
 
     try:
-        from app.tools.llm.llm_service import LLMService
-        llm = LLMService()
-        embs = llm.embed_batch(texts)
+        from app.tools.llm.embeddings import EmbeddingTool
+        emb_tool = EmbeddingTool()
+        embs = emb_tool.embed_batch(texts)
         if embs and len(embs) == len(articles):
             return np.array(embs, dtype=np.float32)
     except Exception as exc:

@@ -618,19 +618,25 @@ Find 2-4 company types affected by 2+ trends simultaneously."""
         )
     
     def _get_roles_from_keywords(self, keywords: List[str]) -> List[str]:
-        """Determine target roles using TREND_ROLE_MAPPING keys directly.
+        """Determine target roles by scanning keywords for TREND_ROLE_MAPPING signals.
 
-        The LLM already classifies event types (regulation, funding, etc.)
-        which map directly to TREND_ROLE_MAPPING keys. No keyword matching
-        needed — just check if any keyword IS a known trend type.
+        Keywords are free-form strings from the LLM (e.g., "International Trade",
+        "AI Security"). We scan for substring matches against known mapping keys,
+        not just exact matches.
         """
         roles = set()
+        known_types = {k for k in TREND_ROLE_MAPPING if k != "default"}
 
-        known_types = set(TREND_ROLE_MAPPING.keys())
         for keyword in keywords:
-            keyword_lower = keyword.lower().strip()
-            if keyword_lower in known_types:
-                roles.update(TREND_ROLE_MAPPING[keyword_lower])
+            kw_lower = keyword.lower().strip()
+            # Exact match first
+            if kw_lower in known_types:
+                roles.update(TREND_ROLE_MAPPING[kw_lower])
+                continue
+            # Substring: check if any known type appears in the keyword
+            for key in known_types:
+                if key in kw_lower or kw_lower in key:
+                    roles.update(TREND_ROLE_MAPPING[key])
 
         if not roles:
             roles.update(TREND_ROLE_MAPPING.get("default", []))

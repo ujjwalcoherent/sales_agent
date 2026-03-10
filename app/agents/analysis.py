@@ -88,12 +88,16 @@ async def run_trend_pipeline(
     from app.intelligence.models import DiscoveryScope, DiscoveryMode
     from app.intelligence.config import load_adaptive_params
 
-    scope = DiscoveryScope(
-        mode=DiscoveryMode.INDUSTRY_FIRST,
-        industry=getattr(settings, "industry_focus", "Technology"),
-        region=settings.country_code or "IN",
-        hours=getattr(settings, "rss_hours_ago", 120),
-    )
+    # Use the CLI scope if available (preserves company-first mode + company list).
+    # Fall back to industry-first from settings only when no CLI scope was provided.
+    scope = getattr(ctx.deps, "scope", None)
+    if scope is None:
+        scope = DiscoveryScope(
+            mode=DiscoveryMode.INDUSTRY_FIRST,
+            industry=getattr(settings, "industry_focus", ""),
+            region=settings.country_code or "IN",
+            hours=getattr(settings, "rss_hours_ago", 120),
+        )
 
     params = load_adaptive_params()
     # Allow the agent's arguments to override adaptive defaults (for retry)
@@ -185,12 +189,14 @@ async def run_analysis(deps: AgentDeps) -> Any:
         from app.intelligence.models import DiscoveryScope, DiscoveryMode
         from app.intelligence.config import load_adaptive_params
         settings = get_settings()
-        scope = DiscoveryScope(
-            mode=DiscoveryMode.INDUSTRY_FIRST,
-            industry=getattr(settings, "industry_focus", "Technology"),
-            region=settings.country_code or "IN",
-            hours=getattr(settings, "rss_hours_ago", 120),
-        )
+        scope = getattr(deps, "scope", None)
+        if scope is None:
+            scope = DiscoveryScope(
+                mode=DiscoveryMode.INDUSTRY_FIRST,
+                industry=getattr(settings, "industry_focus", ""),
+                region=settings.country_code or "IN",
+                hours=getattr(settings, "rss_hours_ago", 120),
+            )
         intel = await intelligence_execute(scope, load_adaptive_params())
         deps._intelligence_result = intel
 

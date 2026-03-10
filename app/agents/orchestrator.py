@@ -19,7 +19,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import RetryPolicy
 
-from ..schemas import AgentState, PipelineResult
+from ..schemas import PipelineResult
 from ..schemas.sales import (
     TrendData, ImpactAnalysis, CompanyData, ContactData, OutreachEmail,
 )
@@ -27,6 +27,27 @@ from ..config import get_settings
 from ..database import get_database
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_oss(cluster) -> float:
+    """Operational Specificity Score — deterministic, no LLM.
+
+    Measures how actionable a cluster is for B2B sales outreach:
+      35% has named entity (company/person)
+      25% has action verb (launch, acquire, fund, etc.)
+      25% has quantitative data ($, %, year)
+      15% has industry classification
+    """
+    import re
+    text = f"{getattr(cluster, 'label', '')} {getattr(cluster, 'summary', '')}"
+    has_entity = bool(getattr(cluster, 'primary_entity', None) or getattr(cluster, 'entity_names', []))
+    has_numbers = bool(re.search(r'\$[\d.]+[BMK]?|\d+%|\d{4}', text))
+    has_action = bool(re.search(
+        r'\b(launch|acquir|rais|expand|partner|invest|hire|layoff|regulat|approv|fund|merge|deploy|integrat|adopt)\w*',
+        text, re.I,
+    ))
+    has_industry = bool(getattr(cluster, 'industry', None))
+    return round(0.35 * has_entity + 0.25 * has_action + 0.25 * has_numbers + 0.15 * has_industry, 3)
 
 
 # -- IntelligenceResult -> TrendData bridge ------------------------------------
@@ -38,10 +59,11 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
     Missing fields (actionable_insight, buying_intent, event_5w1h, causal_chain)
     are populated with defaults  - downstream impact_node fills them via LLM.
 
-    Severity heuristic:
-      coherence >= 0.70 -> HIGH (tight, focused cluster  - likely significant event)
-      coherence 0.50-0.70 -> MEDIUM
-      coherence < 0.50 -> LOW
+    Severity heuristic (uses strategic_score when available, else coherence):
+      strategic_score >= 0.50 -> HIGH (strategically valuable for B2B leads)
+      strategic_score 0.25-0.50 -> MEDIUM
+      strategic_score < 0.25 -> LOW
+      Fallback: coherence >= 0.70 -> HIGH, 0.50-0.70 -> MEDIUM, < 0.50 -> LOW
     """
     from ..schemas.sales import TrendData
     from ..schemas import Severity
@@ -50,31 +72,55 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
         return []
 
     clusters = getattr(intel, "clusters", []) or []
+    _none_like = {"none", "null", "n/a", "na", "undefined", "untitled", ""}
     trends = []
     for cluster in clusters:
         label = getattr(cluster, "label", "") or ""
         summary = getattr(cluster, "summary", "") or ""
+        # Guard against LLM returning literal "None" / "null" as a title
+        if label.strip().lower() in _none_like:
+            label = ""
         if not label and not summary:
             continue  # Skip unlabeled clusters
 
         coherence = getattr(cluster, "coherence_score", 0.5) or 0.5
-        if coherence >= 0.70:
-            severity = "high"
-        elif coherence >= 0.50:
-            severity = "medium"
-        else:
-            severity = "low"
+        strategic = getattr(cluster, "strategic_score", 0.0) or 0.0
 
-        industry = getattr(cluster, "industry", None)
-        industries_affected = []
-        if industry:
-            ind_str = getattr(industry, "industry", None) or str(industry)
-            industries_affected = [ind_str]
+        # Prefer strategic_score (B2B business value) over raw coherence
+        if strategic > 0.0:
+            if strategic >= 0.50:
+                severity = "high"
+            elif strategic >= 0.25:
+                severity = "medium"
+            else:
+                severity = "low"
+        else:
+            if coherence >= 0.70:
+                severity = "high"
+            elif coherence >= 0.50:
+                severity = "medium"
+            else:
+                severity = "low"
+
+        # Prefer cluster.industries (populated from article industry_label by pipeline step 8d)
+        # Fall back to cluster.industry (IndustryClassification object) if set
+        industries_affected = list(getattr(cluster, "industries", []) or [])
+        if not industries_affected:
+            industry = getattr(cluster, "industry", None)
+            if industry:
+                ind_str = getattr(industry, "industry", None) or str(industry)
+                industries_affected = [ind_str]
 
         entity = getattr(cluster, "primary_entity", None) or ""
         keywords = list(getattr(cluster, "keywords", []) or [])[:10]
         article_indices = getattr(cluster, "article_indices", []) or []
         source_names = list(getattr(cluster, "source_names", []) or [])[:5]
+
+        # Derive trend_type from cluster label/keywords using keyword scoring
+        # (same normalization as lead crystallizer) instead of hardcoding "intelligence"
+        from app.agents.leads import _normalize_event_type
+        _type_text = f"{label} {summary} {' '.join(keywords[:5])}"
+        trend_type = _normalize_event_type(_type_text)
 
         try:
             trends.append(TrendData(
@@ -85,7 +131,7 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
                 industries_affected=industries_affected,
                 source_links=[],
                 keywords=keywords,
-                trend_type="intelligence",
+                trend_type=trend_type,
                 actionable_insight="",
                 event_5w1h={},
                 causal_chain=[],
@@ -94,7 +140,7 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
                 affected_regions=[],
                 trend_score=coherence,
                 actionability_score=0.0,
-                oss_score=0.0,
+                oss_score=_compute_oss(cluster),
                 article_count=len(article_indices),
                 article_snippets=[],
                 evidence_snippets=(
@@ -128,6 +174,7 @@ class GraphState(TypedDict):
     current_step: str
     retry_counts: Dict[str, int]
     agent_reasoning: Dict[str, str]
+    stage_advisories: Annotated[List[Dict], operator.add]  # Inter-stage communication
 
 
 # -- Recording helper ----------------------------------------------------------
@@ -174,27 +221,7 @@ async def source_intel_node(state: GraphState) -> dict:
         errors.append(f"Source Intel: {e}")
         result = None
 
-    # -- MetaReasoner: reason about source quality ------------------
-    try:
-        reasoner = deps.meta_reasoner
-        reasoner._run_id = state.get("run_id", "")
-        articles_list = getattr(deps, "_articles", [])
-        source_stats = {}
-        for art in articles_list:
-            sid = getattr(art, "source_id", "unknown")
-            if sid not in source_stats:
-                source_stats[sid] = {"articles": 0, "noise_rate": 0.0, "avg_quality": 0.5}
-            source_stats[sid]["articles"] += 1
-        bandit_top = list(deps.source_bandit.get_quality_estimates().keys())[:5]
-        settings = get_settings()
-        await reasoner.reason_about_sources(
-            article_count=len(articles_list),
-            source_stats=source_stats,
-            bandit_top_sources=bandit_top,
-            hours_window=settings.rss_hours_ago,
-        )
-    except Exception as e:
-        logger.debug(f"MetaReasoner source checkpoint skipped: {e}")
+    # MetaReasoner source checkpoint — REMOVED (decorative)
 
     article_count = len(getattr(deps, "_articles", []))
     _record(deps, "source_intel_complete", {
@@ -256,32 +283,14 @@ async def analysis_node(state: GraphState) -> dict:
         trends = []
         result = None
 
-    # -- MetaReasoner: reason about trend quality -------------------
-    try:
-        reasoner = deps.meta_reasoner
-        pipeline = getattr(deps, "_pipeline", None)
-        noise_rate = 0.0
-        mean_coherence = 0.0
-        cluster_count = 0
-        if pipeline:
-            noise_rate = getattr(pipeline, "_noise_rate", 0.0)
-            cluster_count = getattr(pipeline, "_n_clusters", len(trends))
-            coherences = getattr(pipeline, "_coherence_scores", {})
-            if coherences:
-                mean_coherence = sum(coherences.values()) / max(len(coherences), 1)
-        mean_oss = sum(getattr(t, "oss_score", 0) for t in trends) / max(len(trends), 1)
-        await reasoner.reason_about_trends(
-            trends=trends,
-            cluster_count=cluster_count,
-            noise_rate=noise_rate,
-            mean_oss=mean_oss,
-            mean_coherence=mean_coherence,
-        )
-    except Exception as e:
-        logger.debug(f"MetaReasoner trend checkpoint skipped: {e}")
+    # MetaReasoner trend checkpoint — REMOVED (decorative)
 
     _record(deps, "analysis_complete", {
-        "trends": [t.model_dump() if hasattr(t, "model_dump") else {} for t in trends],
+        "trends": [
+            {"id": t.id, "title": t.trend_title, "type": t.trend_type,
+             "score": t.trend_score, "oss": t.oss_score, "articles": t.article_count}
+            for t in trends
+        ],
         "trend_count": len(trends),
     }, t0)
 
@@ -319,7 +328,11 @@ async def impact_node(state: GraphState) -> dict:
         result = None
 
     _record(deps, "impact_complete", {
-        "impacts": [i.model_dump() if hasattr(i, "model_dump") else {} for i in impacts],
+        "impacts": [
+            {"trend_id": i.trend_id, "title": i.trend_title,
+             "confidence": i.council_confidence, "pitch": i.pitch_angle[:100]}
+            for i in impacts
+        ],
         "impact_count": len(impacts),
     }, t0)
 
@@ -355,7 +368,18 @@ async def quality_validation_node(state: GraphState) -> dict:
         )
 
         retry_counts = state.get("retry_counts", {})
-        if trend_verdict.should_retry and retry_counts.get("analysis", 0) < 2:
+        # Skip retries when intelligence pipeline result is cached — the
+        # run_trend_pipeline tool guard returns cached results immediately,
+        # so retries produce identical output and waste 5-10 min each.
+        # The pipeline must be able to re-cluster with tighter params for
+        # retries to have any effect (future: clear cache + re-cluster only).
+        intel_cached = getattr(deps, "_intelligence_result", None) is not None
+        can_retry = (
+            trend_verdict.should_retry
+            and retry_counts.get("analysis", 0) < 2
+            and not intel_cached
+        )
+        if can_retry:
             logger.info("Quality gate: trend quality borderline, retrying analysis")
             retry_counts["analysis"] = retry_counts.get("analysis", 0) + 1
             return {
@@ -367,6 +391,11 @@ async def quality_validation_node(state: GraphState) -> dict:
                     "quality_trends": trend_verdict.reasoning,
                 },
             }
+        elif trend_verdict.should_retry and intel_cached:
+            logger.info(
+                "Quality gate: would retry but intelligence pipeline result is cached "
+                "(retries would produce identical output). Proceeding."
+            )
 
         impact_verdict = await run_quality_check(deps, "impacts")
         logger.info(
@@ -430,13 +459,20 @@ async def quality_validation_node(state: GraphState) -> dict:
 
 
 def quality_route(state: GraphState) -> str:
-    """Route: "analysis" (retry) or "lead_gen" (proceed).
+    """Route after quality validation.
 
-    Impact filtering is handled in quality_validation_node  - this function
-    is kept pure (no state mutation).
+    Returns:
+      "analysis"  — retry (trend quality borderline, not cached)
+      "lead_gen"  — proceed to causal council + lead generation
+      "end"       — skip lead gen entirely (0 viable impacts, go to learning)
     """
     if state.get("current_step") == "quality_retry_analysis":
         return "analysis"
+    # Skip lead gen when there are genuinely 0 impacts — avoids wasting
+    # causal council + lead gen time on an empty pipeline.
+    impacts = state.get("impacts", [])
+    if not impacts:
+        return "end"
     return "lead_gen"
 
 
@@ -449,7 +485,6 @@ async def lead_gen_node(state: GraphState) -> dict:
 
     deps = state["deps"]
     errors = []
-    from app.config import get_settings
     timeout = get_settings().lead_gen_timeout
 
     try:
@@ -475,27 +510,30 @@ async def lead_gen_node(state: GraphState) -> dict:
         companies, contacts, outreach = [], [], []
         result = None
 
-    # -- MetaReasoner: reason about lead quality --------------------
+    # MetaReasoner lead checkpoint — REMOVED (decorative)
+
+    # -- SPOC Verify: company enrichment + contacts quality check --------
+    lead_sheets = getattr(deps, "_lead_sheets", [])
     try:
-        reasoner = deps.meta_reasoner
-        lead_sheets = getattr(deps, "_lead_sheets", [])
-        lead_summaries = []
-        for ls in lead_sheets[:10]:
-            lead_summaries.append({
-                "company": getattr(ls, "company_name", "?"),
-                "contacts": getattr(ls, "contact_count", 0),
-                "confidence": getattr(ls, "confidence", 0.0),
-                "event_type": getattr(ls, "event_type", "?"),
-            })
-        await reasoner.reason_about_leads(
-            lead_count=len(lead_sheets),
-            company_count=len(companies or []),
-            contact_count=len(contacts or []),
-            email_count=len(outreach or []),
-            lead_summaries=lead_summaries,
+        from app.learning.pipeline_validator import (
+            verify_company_enrichment, verify_contacts,
         )
-    except Exception as e:
-        logger.debug(f"MetaReasoner lead checkpoint skipped: {e}")
+        if companies:
+            enrich_val, enrich_adv = verify_company_enrichment(companies, lead_sheets)
+            logger.info(f"[verify_enrichment] {enrich_val.message}")
+            # Remove triple-failure companies
+            if enrich_val.corrective_params.get("remove_triple_failures"):
+                bad_names = set(enrich_val.corrective_params.get("triple_failure_names", []))
+                pre = len(companies)
+                companies = [c for c in companies if (getattr(c, "name", "") or getattr(c, "company_name", "")) not in bad_names]
+                if pre - len(companies) > 0:
+                    logger.info(f"[verify_enrichment] Removed {pre - len(companies)} triple-failure companies")
+
+        if contacts:
+            contact_val, contact_adv = verify_contacts(contacts, lead_sheets)
+            logger.info(f"[verify_contacts] {contact_val.message}")
+    except Exception as exc:
+        logger.debug(f"Enrichment/contact verification skipped: {exc}")
 
     people = getattr(deps, "_person_profiles", [])
     _record(deps, "lead_gen_complete", {
@@ -580,62 +618,78 @@ async def causal_council_node(state: GraphState) -> dict:
         _max_impacts = getattr(settings, 'per_trend_max_impacts', 5)
         geo_label = settings.country
 
-        for impact in impacts[:_max_impacts]:
-            trend_title = impact.trend_title or ""
-            trend_summary = (
-                impact.detailed_reasoning
-                or " ".join(impact.direct_impact[:3])
-                or impact.pitch_angle
-                or ""
-            )
+        # Parallel causal council — run all impacts concurrently.
+        # Semaphore limits concurrency to avoid LLM rate limits.
+        import asyncio as _aio
+        _causal_sem = _aio.Semaphore(3)
 
-            td = trend_by_id.get(impact.trend_id)
-            event_type = (td.trend_type if td else "") or "general"
-            keywords = (td.keywords if td else []) or list(impact.midsize_pain_points[:5])
-            oss_score = (td.oss_score if td else 0.0) or 0.0
-            chain = await run_causal_council(
-                trend_title=trend_title,
-                trend_summary=trend_summary,
-                event_type=event_type,
-                keywords=keywords,
-                geo=geo_label,
-                provider_manager=pm,
-                search_manager=deps.search_manager,
-            )
-            causal_results.append(chain)
-
-            # Record per-trend quality metrics for the autonomous learning loop.
-            # kb_hit_rate = fraction of hops where the KB returned real company names  -
-            # a direct measure of how targetable this trend segment is.
-            hops_with_companies = sum(1 for h in chain.hops if h.companies_found)
-            hop_sigs = [
-                HopSignal(
-                    hop=h.hop,
-                    segment=h.segment,
-                    lead_type=h.lead_type,
-                    confidence=h.confidence,
-                    companies_found=len(h.companies_found),
-                    tool_calls=0,  # pydantic-ai doesn't expose call count; TODO: instrument
-                    mechanism_specificity=min(1.0, len(h.mechanism.split()) / 15.0),
+        async def _run_one_causal(impact):
+            async with _causal_sem:
+                trend_title = impact.trend_title or ""
+                trend_summary = (
+                    impact.detailed_reasoning
+                    or " ".join(impact.direct_impact[:3])
+                    or impact.pitch_angle
+                    or ""
                 )
-                for h in chain.hops
-            ]
-            sig = LearningSignal(
-                trend_title=trend_title,
-                event_type=event_type,
-                oss_score=oss_score,
-                hops_generated=len(chain.hops),
-                hop_signals=hop_sigs,
-                kb_hit_rate=hops_with_companies / len(chain.hops) if chain.hops else 0.0,
-                source_article_ids=[a.get("id", "") for a in articles[:20] if isinstance(a, dict)],
-                run_id=state.get("run_id", ""),
-            )
-            deps._signals.append(sig)
+                td = trend_by_id.get(impact.trend_id)
+                event_type = (td.trend_type if td else "") or "general"
+                keywords = (td.keywords if td else []) or list(impact.midsize_pain_points[:5])
+                oss_score = (td.oss_score if td else 0.0) or 0.0
 
-            logger.info(
-                f"  '{trend_title[:50]}' -> {len(chain.hops)} hops "
-                f"(kb_hit_rate={sig.kb_hit_rate:.0%}, oss={oss_score:.2f})"
-            )
+                chain = await run_causal_council(
+                    trend_title=trend_title,
+                    trend_summary=trend_summary,
+                    event_type=event_type,
+                    keywords=keywords,
+                    geo=geo_label,
+                    provider_manager=pm,
+                    search_manager=deps.search_manager,
+                )
+
+                # Record per-trend quality metrics for the learning loop
+                hops_with_companies = sum(1 for h in chain.hops if h.companies_found)
+                hop_sigs = [
+                    HopSignal(
+                        hop=h.hop,
+                        segment=h.segment,
+                        lead_type=h.lead_type,
+                        confidence=h.confidence,
+                        companies_found=len(h.companies_found),
+                        tool_calls=0,
+                        mechanism_specificity=min(1.0, len(h.mechanism.split()) / 15.0),
+                    )
+                    for h in chain.hops
+                ]
+                sig = LearningSignal(
+                    trend_title=trend_title,
+                    event_type=event_type,
+                    oss_score=oss_score,
+                    hops_generated=len(chain.hops),
+                    hop_signals=hop_sigs,
+                    kb_hit_rate=hops_with_companies / len(chain.hops) if chain.hops else 0.0,
+                    source_article_ids=[a.get("id", "") for a in articles[:20] if isinstance(a, dict)],
+                    run_id=state.get("run_id", ""),
+                )
+
+                logger.info(
+                    f"  '{trend_title[:50]}' -> {len(chain.hops)} hops "
+                    f"(kb_hit_rate={sig.kb_hit_rate:.0%}, oss={oss_score:.2f})"
+                )
+                return chain, sig
+
+        results = await _aio.gather(
+            *[_run_one_causal(imp) for imp in impacts[:_max_impacts]],
+            return_exceptions=True,
+        )
+        for r in results:
+            if isinstance(r, Exception):
+                logger.warning(f"Causal council failed for one impact: {r}")
+                errors.append(f"causal_council: {str(r)[:100]}")
+            else:
+                chain, sig = r
+                causal_results.append(chain)
+                deps._signals.append(sig)
 
         deps._causal_results = causal_results
         total_hops = sum(len(r.hops) for r in causal_results)
@@ -713,8 +767,9 @@ async def _resolve_companies_for_hops(deps, causal_results):
     """Resolve segment descriptions to real company names via web search + LLM.
 
     For each causal hop that has an empty companies_found list:
-    1. Search the web for real companies matching the segment
-    2. Feed search results to LLM for structured extraction
+    1. Deduplicate similar segments (avoids redundant searches)
+    2. Search via SearchManager (Tavily primary → DDG fallback)
+    3. Feed search results to LLM for structured extraction
     This grounds output in real web data instead of LLM hallucination.
     """
     llm = deps.llm_service
@@ -731,31 +786,62 @@ async def _resolve_companies_for_hops(deps, causal_results):
     if not segments_to_resolve:
         return  # All hops already have companies
 
-    # Step 1: Search for each segment concurrently
+    # Deduplicate similar segments to avoid redundant web searches.
+    # Segments like "IT services firms" and "IT service providers" are
+    # effectively the same — search once, reuse results.
+    segment_canonical = {}  # idx -> canonical idx (maps dupes to first occurrence)
+    canonical_segments = {}  # canonical_idx -> segment text
+    for i, seg in enumerate(segments_to_resolve):
+        seg_key = " ".join(sorted(seg.lower().split()[:5]))  # First 5 words, sorted
+        found = False
+        for ci_idx, cs_key in canonical_segments.items():
+            if seg_key == " ".join(sorted(cs_key.lower().split()[:5])):
+                segment_canonical[i] = ci_idx
+                found = True
+                break
+        if not found:
+            segment_canonical[i] = i
+            canonical_segments[i] = seg
+
+    unique_count = len(canonical_segments)
+    if unique_count < len(segments_to_resolve):
+        logger.info(
+            f"Company resolution: deduped {len(segments_to_resolve)} segments → {unique_count} unique"
+        )
+
     settings = get_settings()
     country = settings.country
     current_year = datetime.now().year
-    search_results = {}  # idx -> list of search results
+    search_results = {}  # canonical_idx -> list of search results
     sem = asyncio.Semaphore(5)
 
     async def _search_segment(idx: int, segment: str):
         async with sem:
             try:
-                query = f"{segment} company {country} {current_year}"
-                data = await search_mgr.web_search(query, max_results=5)
+                # Specific query format for better Tavily results
+                query = f"top {segment} companies {country} {current_year}"
+                data = await asyncio.wait_for(
+                    search_mgr.search(query, max_results=5),
+                    timeout=15.0,  # Hard timeout per segment search
+                )
                 search_results[idx] = data.get("results", [])
+            except asyncio.TimeoutError:
+                logger.debug(f"Search timeout for segment '{segment[:40]}'")
+                search_results[idx] = []
             except Exception as e:
                 logger.debug(f"Search for segment '{segment[:40]}' failed: {e}")
                 search_results[idx] = []
 
     await asyncio.gather(*[
-        _search_segment(i, seg) for i, seg in enumerate(segments_to_resolve)
+        _search_segment(i, seg) for i, seg in canonical_segments.items()
     ])
 
-    # Step 2: Build context from search results and make ONE batched LLM call
+    # Step 2: Build context from search results and make ONE batched LLM call.
+    # Use canonical search results for deduped segments.
     segment_blocks = []
     for i, seg in enumerate(segments_to_resolve):
-        results = search_results.get(i, [])
+        canonical_idx = segment_canonical[i]
+        results = search_results.get(canonical_idx, [])
         if results:
             snippets = "\n".join(
                 f"  - {r.get('title', '')}: {r.get('content', '')[:200]}"
@@ -804,18 +890,27 @@ Respond with the JSON array only."""
             companies = item.get("companies", [])
             if not isinstance(companies, list):
                 continue
+            from app.agents.leads import is_company_description as _is_desc
             names = []
             for c in companies[:3]:
                 if isinstance(c, dict):
                     name = c.get("name", "").strip()
                     if name and len(name) > 2:
+                        # Guard: reject names that are actually segment descriptions
+                        if _is_desc(name):
+                            logger.debug(f"Company resolution: rejected description-as-name: '{name[:80]}'")
+                            continue
                         names.append(name)
                         city = c.get("city", "")
                         state = c.get("state", "")
                         if city and not causal_results[ci].hops[hi].geo_hint:
                             causal_results[ci].hops[hi].geo_hint = f"{city}, {state}" if state else city
                 elif isinstance(c, str) and len(c.strip()) > 2:
-                    names.append(c.strip())
+                    c_stripped = c.strip()
+                    if _is_desc(c_stripped):
+                        logger.debug(f"Company resolution: rejected description-as-name: '{c_stripped[:80]}'")
+                        continue
+                    names.append(c_stripped)
             if names:
                 causal_results[ci].hops[hi].companies_found = names
                 resolved_count += len(names)
@@ -944,6 +1039,36 @@ async def lead_crystallize_node(state: GraphState) -> dict:
         except Exception as e:
             logger.debug(f"Company bandit ranking skipped: {e}")
 
+        # -- SPOC Verify-Then-Correct: lead quality check --
+        try:
+            from app.learning.pipeline_validator import (
+                verify_lead_crystallization, should_correct, StageStatus,
+            )
+            val, adv = verify_lead_crystallization(
+                lead_sheets=all_leads,
+                trend_count=len(state.get("trends", [])),
+            )
+            logger.info(f"[verify_leads] {val.message}")
+
+            if should_correct(val):
+                pre_count = len(all_leads)
+                # Remove description-as-name leads
+                if val.corrective_params.get("remove_description_leads"):
+                    from app.agents.leads import is_company_description
+                    all_leads = [
+                        l for l in all_leads
+                        if not is_company_description(getattr(l, "company_name", "") or "")
+                    ]
+                # Remove very low confidence leads
+                if val.corrective_params.get("remove_low_confidence"):
+                    all_leads = [l for l in all_leads if getattr(l, "confidence", 0.5) >= 0.20]
+                removed = pre_count - len(all_leads)
+                if removed:
+                    adv.quality_level = "corrected"
+                    logger.info(f"[verify_leads] SPOC correction: removed {removed} bad leads")
+        except Exception as exc:
+            logger.debug(f"Lead verification skipped: {exc}")
+
         deps._lead_sheets = all_leads
 
         logger.info(f"Lead crystallizer: {len(all_leads)} call sheets generated")
@@ -959,7 +1084,11 @@ async def lead_crystallize_node(state: GraphState) -> dict:
         errors.append(f"LeadCrystallizer: {e}")
 
     _record(deps, "lead_crystallize_complete", {
-        "lead_sheets": [ls.model_dump() if hasattr(ls, "model_dump") else {} for ls in all_leads],
+        "lead_sheets": [
+            {"company": ls.company_name, "type": ls.lead_type, "event": ls.event_type,
+             "role": ls.contact_role, "confidence": ls.confidence, "hop": ls.hop}
+            for ls in all_leads
+        ],
         "lead_count": len(all_leads),
     }, t0)
 
@@ -1017,7 +1146,7 @@ async def learning_update_node(state: GraphState) -> dict:
 
     # Check if any learning loop should be dampened based on history
     loop_dampen = {}
-    for loop_name in ["weight_learner", "threshold_adapter", "source_bandit", "company_bandit"]:
+    for loop_name in ["threshold_adapter", "source_bandit", "company_bandit"]:
         loop_dampen[loop_name] = tracker.should_dampen(loop_name)
         if loop_dampen[loop_name]:
             logger.info(f"Loop health: {loop_name} dampened (consistently hurting quality)")
@@ -1025,8 +1154,6 @@ async def learning_update_node(state: GraphState) -> dict:
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  PHASE 1: Each loop updates + publishes to bus                 ║
     # ╚══════════════════════════════════════════════════════════════════╝
-
-    learning_updates: dict = {}
 
     # -- 1. Source Bandit Update ------------------------------------------
     try:
@@ -1075,11 +1202,25 @@ async def learning_update_node(state: GraphState) -> dict:
                     cluster_oss[idx] = sig.oss_score
 
             if source_articles:
+                # NLI scores from filter → primary reward signal (30% weight).
+                intel = getattr(deps, "_intelligence_result", None)
+                _nli_by_source = getattr(intel, "nli_scores_by_source", {}) if intel else {}
+
+                # Backward cascade: previous run's cluster coherence per source.
+                # Run N's backward signal informs run N+1's source bandit reward.
+                # REF: Cascade learning (Rendle 2010 BPR).
+                _prev_coherence = (
+                    previous_bus.cluster_coherence_by_source
+                    if previous_bus else {}
+                )
+
                 updated = bandit.update_from_run(
                     source_articles=source_articles,
                     article_labels=article_labels,
                     cluster_quality=cluster_quality,
                     cluster_oss=cluster_oss,
+                    nli_scores_by_source=_nli_by_source or None,
+                    cluster_coherence_by_source=_prev_coherence or None,
                 )
                 top_sources = sorted(updated.items(), key=lambda x: -x[1])[:3]
                 top_str = ", ".join(f"{k}={v:.3f}" for k, v in top_sources)
@@ -1103,6 +1244,52 @@ async def learning_update_node(state: GraphState) -> dict:
                 logger.info(f"Logged {n_logged} cluster signal records for weight learning")
     except Exception as e:
         logger.debug(f"Cluster signal logging skipped: {e}")
+
+    # -- 1c. ThresholdAdapter: EMA-based threshold adaptation (was DEAD) ---
+    try:
+        from app.learning.threshold_adapter import get_threshold_adapter, ThresholdUpdate
+
+        # Gather observed metrics from this run
+        _filter_accept_rate = None
+        _mean_coherence = None
+        _cluster_pass_rate = None
+        _noise_rate = None
+
+        if pipeline:
+            _n_filtered = getattr(pipeline, "_n_filtered", 0)
+            _n_input = getattr(pipeline, "_n_input", 0)
+            if _n_input > 0:
+                _filter_accept_rate = _n_filtered / _n_input
+
+            coherences = getattr(pipeline, "_coherence_scores", {})
+            if coherences:
+                _mean_coherence = sum(coherences.values()) / max(len(coherences), 1)
+
+            _n_passed = getattr(pipeline, "_n_passed", 0)
+            _n_clusters = getattr(pipeline, "_n_clusters", 0)
+            if _n_clusters > 0:
+                _cluster_pass_rate = _n_passed / _n_clusters
+
+            _noise_rate = getattr(pipeline, "_noise_rate", None)
+
+        if not loop_dampen.get("threshold_adapter"):
+            adapter = get_threshold_adapter()
+            # CUSUM guard: record quality_score before updating thresholds.
+            # If sustained degradation detected, adapter.update() will no-op.
+            quality_score = state.get("quality_score", 0.0) or 0.0
+            adapter.record_quality(quality_score)
+            adapter.update(ThresholdUpdate(
+                observed_filter_accept_rate=_filter_accept_rate,
+                observed_coherence=_mean_coherence,
+                observed_pass_rate=_cluster_pass_rate,
+                observed_noise_rate=_noise_rate,
+                run_id=state.get("run_id", ""),
+            ))
+            logger.info("[threshold_adapter] Updated from run metrics")
+        else:
+            logger.info("[threshold_adapter] Dampened — skipping update")
+    except Exception as e:
+        logger.warning(f"ThresholdAdapter update failed: {e}")
 
     # -- 2. Trend Memory: publish lifecycle distribution to bus ----------
     stale_pruned = 0
@@ -1152,72 +1339,7 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as e:
         logger.warning(f"Trend memory publish failed: {e}")
 
-    # -- 3. Weight Learner: Compute + persist all 4 weight types ----------
-    all_learned = {}
-    try:
-        if signals:
-            from app.learning.weight_learner import (
-                compute_learned_weights, _save_persisted_weights,
-                maybe_update_stable_weights,
-            )
-            import json as _json
-
-            _settings = get_settings()
-            weight_types = {
-                "actionability": _json.loads(_settings.actionability_weights),
-                "trend_score": _json.loads(_settings.trend_score_weights),
-                "cluster_quality": _json.loads(_settings.cluster_quality_score_weights),
-                "confidence": {
-                    "temporal_novelty": 0.30, "cluster_quality": 0.25,
-                    "source_corroboration": 0.25, "evidence_specificity": 0.20,
-                },
-            }
-
-            for wt_name, defaults in weight_types.items():
-                all_learned[wt_name] = compute_learned_weights(wt_name, defaults)
-
-            _save_persisted_weights(all_learned)
-
-            # Check if stable weights need updating (every N runs)
-            stable_updated = maybe_update_stable_weights(all_learned)
-
-            # Invalidate composite.py weight cache so next scoring uses fresh weights
-            # Invalidate weight cache if it exists (legacy  - noop if not present)
-            try:
-                from app.trends.signals.composite import invalidate_weights_cache
-                invalidate_weights_cache()
-            except ImportError:
-                pass  # trends/ module removed  - cache invalidation handled by intelligence pipeline
-
-            mean_oss = sum(s.oss_score for s in signals) / len(signals)
-            logger.info(
-                f"Weight learner: updated all 4 weight types | "
-                f"{len(signals)} signals | mean OSS={mean_oss:.3f}"
-                f"{' | stable weights promoted' if stable_updated else ''}"
-            )
-
-            # PUBLISH to bus  - determine learning path and data count
-            learning_path = "default"
-            data_count = 0
-            try:
-                from app.tools.feedback_store import load_feedback
-                fb = load_feedback("trend") or []
-                human_fb = [f for f in fb if not f.get("metadata", {}).get("auto", False)]
-                if len(human_fb) >= 50:
-                    learning_path = "human"
-                    data_count = len(human_fb)
-                else:
-                    from app.learning.pipeline_metrics import load_cluster_signal_history
-                    cluster_data = load_cluster_signal_history(min_runs=3)
-                    if cluster_data:
-                        learning_path = "outcome"
-                        data_count = len(cluster_data)
-            except Exception:
-                pass
-
-            bus.publish_weight_learner(all_learned, weight_types, learning_path, data_count)
-    except Exception as e:
-        logger.warning(f"Weight learner update failed: {e}")
+    # Weight Learner — REMOVED (computed weights never loaded back by similarity.py)
 
     # -- 4. Persist learning signals to JSONL -----------------------------
     try:
@@ -1239,11 +1361,20 @@ async def learning_update_node(state: GraphState) -> dict:
         logger.warning(f"Learning signal persistence failed: {e}")
 
     # -- 5. Company Bandit: reward update from lead sheets (Loop 4) -------
+    # Backward cascade: previous run's lead quality per cluster modulates reward.
+    # If a company type consistently produces low-quality leads, it gets penalized.
+    # REF: Cascade learning — downstream lead quality → upstream company selection.
     try:
         lead_sheets = getattr(deps, "_lead_sheets", [])
         if lead_sheets:
             company_bandit = deps.company_bandit
             company_bandit.decay()
+
+            # Previous run's lead quality by cluster → backward penalty.
+            _prev_lead_quality = (
+                previous_bus.lead_quality_per_cluster if previous_bus else {}
+            )
+
             updated_arms = set()
             for lead in lead_sheets:
                 arm_id = f"{lead.company_size_band or 'mid'}_{lead.event_type or 'general'}"
@@ -1253,6 +1384,13 @@ async def learning_update_node(state: GraphState) -> dict:
                     reward = lead.confidence * 0.7
                 else:
                     reward = 0.1
+
+                # Backward cascade: if this arm's cluster had low lead quality
+                # last run, dampen this run's reward by 30%.
+                _cid = getattr(lead, "cluster_id", "")
+                if _cid and _prev_lead_quality.get(_cid, 1.0) < 0.3:
+                    reward *= 0.7  # Penalize arms associated with low-quality clusters
+
                 company_bandit.update(arm_id, reward)
                 updated_arms.add(arm_id)
             logger.info(f"Company bandit: updated {len(updated_arms)} arms from {len(lead_sheets)} leads")
@@ -1264,6 +1402,33 @@ async def learning_update_node(state: GraphState) -> dict:
                 pass
     except Exception as e:
         logger.debug(f"Company bandit update skipped: {e}")
+
+    # -- 5b. ContactBandit: reward update from lead sheets (was DEAD) -----
+    try:
+        lead_sheets = getattr(deps, "_lead_sheets", [])
+        if lead_sheets:
+            from app.learning.contact_bandit import ContactBandit
+            contact_bandit = ContactBandit.load()
+            cb_updated = 0
+            for lead in lead_sheets:
+                _role = getattr(lead, "contact_role", "") or ""
+                _etype = getattr(lead, "event_type", "") or "general"
+                _size = getattr(lead, "company_size_band", "") or "mid"
+                # Reward = confidence * 0.5 + 0.3 if CIN found (real company)
+                _reward = getattr(lead, "confidence", 0.3) * 0.5
+                if getattr(lead, "company_cin", ""):
+                    _reward += 0.3
+                if _role:
+                    contact_bandit.update(
+                        role=_role, event_type=_etype,
+                        company_size=_size, reward=_reward,
+                    )
+                    cb_updated += 1
+            contact_bandit.save()
+            if cb_updated:
+                logger.info(f"Contact bandit: updated {cb_updated} role-event pairs")
+    except Exception as e:
+        logger.debug(f"Contact bandit update skipped: {e}")
 
     # -- 6. Quality Feedback: auto-record for weight learner (Loop 5) --
     feedback_dist = {"good_trend": 0, "already_knew": 0, "bad_trend": 0}
@@ -1312,24 +1477,77 @@ async def learning_update_node(state: GraphState) -> dict:
 
     # -- 6b. Adaptive Thresholds: publish current state to bus ---------
     try:
-        from app.learning.pipeline_metrics import (
-            compute_adaptive_thresholds, detect_drift, detect_drift_ewma,
-        )
+        from app.learning.pipeline_metrics import compute_adaptive_thresholds, THRESHOLD_REGISTRY
         thresholds = compute_adaptive_thresholds()
-        drift_alerts = detect_drift({}) if not signals else []
-        ewma_drift = detect_drift_ewma({}) if not signals else []
-        all_drift = drift_alerts + ewma_drift
         anomaly_flags = []
-
-        # Check for threshold anomalies
-        from app.learning.pipeline_metrics import THRESHOLD_REGISTRY
         for name, at in THRESHOLD_REGISTRY.items():
             if name in thresholds and at.is_anomaly(thresholds[name]):
                 anomaly_flags.append(f"{name}={thresholds[name]:.3f}")
-
-        bus.publish_adaptive_thresholds(thresholds, anomaly_flags, all_drift)
+        # drift detection removed (detect_drift/detect_drift_ewma were called with empty dicts)
+        bus.publish_adaptive_thresholds(thresholds, anomaly_flags, [])
     except Exception as e:
         logger.debug(f"Adaptive thresholds publish skipped: {e}")
+
+    # ── Backward cascade signals ────────────────────────────────────────
+    # Propagate downstream quality (clusters, leads) back to upstream loops.
+    # REF: Cascade learning — downstream quality → upstream reward
+    # (Rendle 2010 BPR; Kulkarni et al. 2016 NIPS hierarchical RL).
+    try:
+        intel = getattr(deps, "_intelligence_result", None)
+        coherence_by_source: dict = {}
+        lead_quality_by_cluster: dict = {}
+
+        if intel and intel.clusters:
+            noise_rate = intel.noise_rate
+
+            # Compute cluster_coherence_by_source: for each source, what is
+            # the mean coherence of clusters containing that source's articles?
+            # This tells the source bandit whether a source's articles form
+            # tight, meaningful clusters or scatter into incoherent noise.
+            _source_coherences: dict = {}  # {source_name: [coherence, ...]}
+            filtered_articles = getattr(intel, "filtered_articles", []) or []
+            for cluster in intel.clusters:
+                coh = cluster.coherence_score or 0.0
+                for art_idx in cluster.article_indices:
+                    if 0 <= art_idx < len(filtered_articles):
+                        src = getattr(filtered_articles[art_idx], "source_name", "") or ""
+                        if src:
+                            _source_coherences.setdefault(src, []).append(coh)
+
+            coherence_by_source = {
+                src: round(sum(cohs) / len(cohs), 4)
+                for src, cohs in _source_coherences.items()
+                if cohs
+            }
+
+            # Compute lead_quality_per_cluster: for each cluster, what is the
+            # mean lead score? Low scores → company bandit should deprioritize
+            # the company types associated with those clusters.
+            lead_sheets = getattr(deps, "_lead_sheets", [])
+            if lead_sheets:
+                _cluster_lead_scores: dict = {}  # {cluster_id: [score, ...]}
+                for lead in lead_sheets:
+                    cid = getattr(lead, "cluster_id", "") or ""
+                    if cid and hasattr(lead, "confidence"):
+                        _cluster_lead_scores.setdefault(cid, []).append(lead.confidence)
+                lead_quality_by_cluster = {
+                    cid: round(sum(scores) / len(scores), 4)
+                    for cid, scores in _cluster_lead_scores.items()
+                    if scores
+                }
+
+            bus.publish_backward_signals(
+                cluster_coherence_by_source=coherence_by_source or None,
+                cluster_noise_rate=noise_rate,
+                lead_quality_per_cluster=lead_quality_by_cluster or None,
+            )
+            if coherence_by_source:
+                logger.info(
+                    f"Backward cascade: coherence_by_source for {len(coherence_by_source)} sources, "
+                    f"lead_quality for {len(lead_quality_by_cluster)} clusters"
+                )
+    except Exception as e:
+        logger.debug(f"Backward cascade signals skipped: {e}")
 
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  PHASE 2: Compute cross-loop derived signals                   ║
@@ -1386,104 +1604,12 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as e:
         logger.debug(f"Cross-loop company bandit modulation skipped: {e}")
 
-    # 3c. Apply previous MetaReasoner improvement hypotheses
-    try:
-        reasoner = deps.meta_reasoner
-        prev_hypotheses = reasoner.get_active_hypotheses()
-        applied_count = 0
-        for hyp in prev_hypotheses:
-            target = hyp.get("target", "")
-            action = hyp.get("action", "").lower()
-            priority = hyp.get("priority", "medium")
+    # 3c. Hypothesis dispatcher — REMOVED (parsed MetaReasoner output which is now gutted)
 
-            # Source-related hypotheses -> adjust exploration
-            if target in ("source_intel", "source_bandit", "sources"):
-                if "explor" in action and hasattr(deps, "source_bandit"):
-                    bandit = deps.source_bandit
-                    # Increase variance on uncertain arms
-                    for sid, p in bandit._posteriors.items():
-                        if 0.30 <= p["alpha"] / (p["alpha"] + p["beta"]) <= 0.70:
-                            nudge = 0.15 if priority == "high" else 0.08
-                            p["alpha"] += nudge
-                            p["beta"] += nudge
-                    bandit._save()
-                    applied_count += 1
-
-            # Weight-related hypotheses -> flag for conservative learning
-            elif target in ("weight_learner", "weights"):
-                if "conserv" in action or "slow" in action:
-                    # Already handled by signal bus lr_multiplier
-                    applied_count += 1
-
-        if applied_count:
-            logger.info(
-                f"Cross-loop: applied {applied_count}/{len(prev_hypotheses)} "
-                f"MetaReasoner hypotheses from previous run"
-            )
-    except Exception as e:
-        logger.debug(f"Cross-loop hypothesis application skipped: {e}")
-
-    # ╔══════════════════════════════════════════════════════════════════╗
-    # ║  PHASE 4: MetaReasoner retrospective + publish to bus           ║
-    # ╚══════════════════════════════════════════════════════════════════╝
-
+    # PHASE 4: MetaReasoner retrospective — REMOVED (decorative, output never consumed)
     avg_oss = sum(s.oss_score for s in signals) / len(signals) if signals else 0.0
     avg_kb_hit = sum(s.kb_hit_rate for s in signals) / len(signals) if signals else 0.0
     mean_quality = (quality_sum / max(len(signals), 1)) if signals else 0.0
-
-    retro = None
-    try:
-        reasoner = deps.meta_reasoner
-        total_duration = _time.time() - getattr(deps, "_pipeline_t0", _time.time())
-
-        # Load previous retrospective for comparison
-        prev_retro = None
-        try:
-            retro_path = Path("./data/reasoning_traces.jsonl")
-            if retro_path.exists():
-                lines = retro_path.read_text(encoding="utf-8").strip().split("\n")
-                for line in reversed(lines):
-                    data = json.loads(line)
-                    if data.get("step") == "retrospective" and data.get("run_id") != state.get("run_id", ""):
-                        prev_retro = data
-                        break
-        except Exception:
-            pass
-
-        retro = await reasoner.run_retrospective(
-            run_id=state.get("run_id", ""),
-            total_duration_s=total_duration,
-            trend_count=len(state.get("trends", [])),
-            lead_count=len(getattr(deps, "_lead_sheets", [])),
-            mean_oss=avg_oss,
-            mean_kb_hit=avg_kb_hit,
-            mean_quality=mean_quality,
-            signal_bus_summary={
-                "system_confidence": bus.system_confidence,
-                "exploration_budget": bus.exploration_budget,
-                "learning_path": bus.learning_path,
-                "source_degraded": bus.source_degraded,
-            },
-            previous_retrospective=prev_retro,
-        )
-
-        # Publish reasoning traces + retrospective to the signal bus
-        run_summary = reasoner.get_run_summary()
-        retro_dict = None
-        if retro and retro.run_grade:
-            from dataclasses import asdict as _asdict
-            retro_dict = _asdict(retro)
-        bus.publish_reasoning(run_summary, retro_dict)
-
-        # Re-compute derived signals with reasoning data included
-        bus.compute_derived_signals()
-
-        logger.info(
-            f"MetaReasoner retrospective complete: grade={retro.run_grade if retro else '?'}, "
-            f"reasoning_quality={run_summary.get('avg_reasoning_quality', 0):.2f}"
-        )
-    except Exception as e:
-        logger.debug(f"MetaReasoner retrospective skipped: {e}")
 
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  PHASE 4b: Dataset Enhancement  - auto-label from cluster signals ║
@@ -1539,6 +1665,8 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as exc:
         logger.warning(f"Dataset enhancement skipped: {exc}")
 
+    # PHASE 4c: Experience Library — REMOVED (write-only, find_proven_fix never called)
+
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  PHASE 5: Persist bus + finalize                               ║
     # ╚══════════════════════════════════════════════════════════════════╝
@@ -1563,13 +1691,9 @@ async def learning_update_node(state: GraphState) -> dict:
         "signal_bus": {
             "system_confidence": bus.system_confidence,
             "exploration_budget": bus.exploration_budget,
-            "learning_path": bus.learning_path,
-            "total_drift": bus.total_drift,
             "source_degraded": bus.source_degraded,
             "feedback_distribution": bus.feedback_distribution,
-            "reasoning_grade": bus.reasoning_run_grade,
-            "reasoning_quality": bus.reasoning_quality,
-            "strategy_adjustments": bus.reasoning_strategy_adjustments,
+            "nli_mean_entailment": bus.nli_mean_entailment,
         },
         "retrospective": {
             "grade": retro.run_grade if retro else "",
@@ -1606,7 +1730,7 @@ async def learning_update_node(state: GraphState) -> dict:
             actionable_rate=actionable_rate,
             article_count=len(articles),
             cluster_count=len(signals),
-            learning_updates=learning_updates,
+            learning_updates={},
         )
 
         if tracker.is_regression(experiment):
@@ -1791,7 +1915,10 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
     from ..tools.llm.providers import provider_health, ProviderManager
     provider_health.reset_for_new_run()
     ProviderManager.reset_cooldowns()
-    logger.info("Provider health + cooldowns reset for new run")
+    # Clear NLI score cache so stale scores from a previous hypothesis don't persist.
+    from ..intelligence.engine.nli_filter import clear_score_cache
+    clear_score_cache()
+    logger.info("Provider health + cooldowns + NLI cache reset for new run")
 
     from .deps import AgentDeps
     deps = AgentDeps.create(
@@ -1837,6 +1964,7 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
         "current_step": "init",
         "retry_counts": {},
         "agent_reasoning": {},
+        "stage_advisories": [],
     }
 
     # Thread ID ties checkpointer snapshots to this pipeline run
@@ -1948,8 +2076,6 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
         company = company_map.get(contact.company_id) if contact else None
         trend_id = company.trend_id if company else ""
         trend = trend_map.get(trend_id)
-        impact = impact_map.get(trend_id)
-
         imp = impact_map.get(trend_id) if trend_id else None
         lead = {
             "id": outreach.id,

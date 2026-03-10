@@ -109,11 +109,10 @@ def _heuristic_reject(name: str) -> str:
 
 # ── Data Sanitization ────────────────────────────────────────────────────
 
-_GARBAGE_PATTERNS = [
-    re.compile(r"(scan|download)\s+(qr|app|pdf)", re.I),
+# Patterns shared with _REJECT_PATTERNS are omitted (DRY).
+# These are specific to enrichment text sanitization (prices, web scraping).
+_GARBAGE_PATTERNS = _REJECT_PATTERNS + [
     re.compile(r"₹\s*\d+/|^\$?\d+(\.\d{2})?\s*(off|discount)", re.I),
-    re.compile(r"^(click|tap|subscribe|sign up|buy now|add to cart)", re.I),
-    re.compile(r"cookie|gdpr|privacy policy|terms of (service|use)", re.I),
     re.compile(r"loading\.\.\.|javascript|undefined", re.I),
 ]
 
@@ -1113,12 +1112,28 @@ async def _background_deep_enrichment(
         logger.debug(f"Background deep enrichment failed for {company_name}: {e}")
 
 
+# ── ScrapeGraphAI availability check (once at import time) ────────────────
+try:
+    from scrapegraphai.graphs import SmartScraperGraph as _SmartScraperGraph  # noqa: F401
+    _SCRAPEGRAPH_AVAILABLE = True
+except ImportError:
+    _SCRAPEGRAPH_AVAILABLE = False
+    logger.warning(
+        "scrapegraphai not installed — _deep_website_scrape will be unavailable. "
+        "Install with: pip install scrapegraphai"
+    )
+
+
 async def _deep_website_scrape(domain: str, company_name: str) -> dict:
     """Scrape company website pages using SmartScraperGraph for structured data.
 
     Targets homepage + common pages (/about, /products, /careers) for:
     products, leadership, job postings, tech signals.
     """
+    if not _SCRAPEGRAPH_AVAILABLE:
+        logger.debug("_deep_website_scrape skipped: scrapegraphai not installed")
+        return {}
+
     from app.config import get_settings
     settings = get_settings()
 
@@ -1178,6 +1193,9 @@ async def _deep_website_scrape(domain: str, company_name: str) -> dict:
                 if data.get("leaders"):
                     results.setdefault("key_people", data["leaders"])
 
+        except asyncio.TimeoutError:
+            logger.debug(f"SmartScraper timed out for {url} ({settings.scrapegraph_timeout}s)")
+            continue
         except Exception as e:
             logger.debug(f"SmartScraper failed for {url}: {e}")
             continue
@@ -1391,6 +1409,19 @@ async def enrich(
             # Extract structured fields from the AI answer
             if research.get("answer"):
                 await _extract_structured_fields(company, research["answer"])
+
+            # Fallback: if key fields still empty, extract from search result
+            # snippets. Covers cases where Apollo returns 403 and Tavily's AI
+            # answer was too brief for structured extraction.
+            key_empty = not company.industry and not company.headquarters and not company.employee_count
+            if key_empty and research.get("results"):
+                snippets = "\n".join(
+                    f"{r.get('title', '')}: {r.get('content', '')}"
+                    for r in research["results"][:5]
+                    if r.get("content")
+                )
+                if snippets and len(snippets) > 100:
+                    await _extract_structured_fields(company, snippets)
 
         except asyncio.TimeoutError:
             logger.debug(f"Tavily enrichment timed out for '{company_name}'")

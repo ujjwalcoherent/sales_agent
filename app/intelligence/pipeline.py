@@ -22,10 +22,11 @@ Code handles orchestration. LLM handles only synthesis reasoning.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from uuid import uuid4
 
 from app.intelligence.config import ClusteringParams, load_adaptive_params
@@ -82,15 +83,23 @@ async def execute(
                           f"(removed {dedup_result.removed_count})")
         logger.info(f"[dedup] {len(state.articles)} unique articles")
 
-        # ── Validate dedup ──────────────────────────────────────────────────
-        from app.learning.pipeline_validator import validate_dedup, log_pipeline_validation_report
-        _dedup_val = validate_dedup(
+        # ── Verify dedup (SPOC: verify + advisory for downstream) ──────────
+        from app.learning.pipeline_validator import (
+            verify_dedup, verify_filter, verify_entity_extraction,
+            verify_clustering, verify_synthesis,
+            log_pipeline_validation_report, validate_pipeline_consistency,
+            should_correct, StageAdvisory,
+        )
+        _dedup_val, _dedup_adv = verify_dedup(
             raw_count=len(state.raw_articles),
             deduped_count=len(state.articles),
             dedup_pairs=len(dedup_result.duplicate_pairs) if hasattr(dedup_result, 'duplicate_pairs') else 0,
+            articles=state.articles,
+            scope_hours=scope.hours,
         )
         _stage_results.append(_dedup_val)
-        logger.info(f"[validate:dedup] {_dedup_val.status} {_dedup_val.message}")
+        state.stage_advisories.append(_dedup_adv.to_dict())
+        logger.info(f"[verify:dedup] {_dedup_val.status} {_dedup_val.message}")
 
         # ── Step 3: Filter (NLI zero-shot + Gap 4) ───────────────────────────
         from app.intelligence.filter import filter_articles
@@ -106,22 +115,24 @@ async def execute(
                     f"hypothesis={filter_result.hypothesis_version}, "
                     f"Gap4 dropped: {state.gap4_dropped_companies}")
 
-        # ── Validate filter ───────────────────────────────────────────────────
-        from app.learning.pipeline_validator import validate_filter, apply_filter_rollback
-        _filter_val = validate_filter(
+        # ── Verify filter (SPOC: verify + advisory + correction) ─────────────
+        from app.learning.pipeline_validator import apply_filter_rollback
+        _filter_val, _filter_adv = verify_filter(
             input_count=len(state.articles),
             kept_count=len(state.filtered_articles),
             auto_accepted=getattr(filter_result, 'auto_accepted_count', 0),
             auto_rejected=getattr(filter_result, 'auto_rejected_count', 0),
             llm_classified=getattr(filter_result, 'llm_classified_count', 0),
             nli_mean=filter_result.nli_mean_entailment,
+            kept_articles=state.filtered_articles,
         )
         _stage_results.append(_filter_val)
+        state.stage_advisories.append(_filter_adv.to_dict())
         # Self-correction: if filter drifted, rollback hypothesis in-run
         if not _filter_val.is_ok() and _filter_val.corrective_params.get("rollback_hypothesis"):
             if apply_filter_rollback(_filter_val.corrective_params["rollback_hypothesis"]):
                 logger.warning("[pipeline] In-run NLI hypothesis rollback applied")
-        logger.info(f"[validate:filter] {_filter_val.status} {_filter_val.message}")
+        logger.info(f"[verify:filter] {_filter_val.status} {_filter_val.message}")
 
         if not state.filtered_articles:
             logger.warning("[pipeline] No articles survived filter. Returning empty result.")
@@ -137,36 +148,77 @@ async def execute(
                           f"{len(ungrouped)} ungrouped articles")
         logger.info(f"[extract] {len(state.entity_groups)} entity groups")
 
-        # ── Validate entity extraction ────────────────────────────────────────
-        from app.learning.pipeline_validator import validate_entity_extraction
+        # ── Verify entity extraction (SPOC: verify + correction) ─────────────
         grouped_count = sum(len(g.article_indices) for g in state.entity_groups if hasattr(g, 'article_indices'))
-        _entity_val = validate_entity_extraction(
+        _entity_val, _entity_adv = verify_entity_extraction(
             input_count=len(state.filtered_articles),
             group_count=len(state.entity_groups),
             grouped_article_count=grouped_count,
             ungrouped_count=len(ungrouped),
+            entity_groups=state.entity_groups,
         )
         _stage_results.append(_entity_val)
-        logger.info(f"[validate:entity] {_entity_val.status} {_entity_val.message}")
+        state.stage_advisories.append(_entity_adv.to_dict())
+
+        # SPOC correction: remove entity groups with bad names (descriptions, single chars).
+        # Their articles move to the ungrouped pool for Leiden discovery clustering.
+        bad_groups_removed = _entity_adv.suggested_adjustments.get("groups_to_remove", 0)
+        if bad_groups_removed > 0 and state.entity_groups:
+            valid_groups = []
+            try:
+                from app.agents.leads import is_company_description
+                for g in state.entity_groups:
+                    name = getattr(g, "canonical_name", "")
+                    if is_company_description(name) or len(name.strip()) <= 1 or name.strip().isdigit():
+                        # Move articles to ungrouped
+                        ungrouped.extend(getattr(g, "article_indices", []))
+                        logger.info(f"[verify:entity] Removed bad entity group: '{name}'")
+                    else:
+                        valid_groups.append(g)
+                state.entity_groups = valid_groups
+                _entity_val.corrections_applied.append(f"removed {bad_groups_removed} bad entity groups")
+            except ImportError:
+                pass
+
+        logger.info(f"[verify:entity] {_entity_val.status} {_entity_val.message}")
+
+        # ── Step 4b: Precompute embeddings (shared by clustering + synthesis) ───
+        # Computing once here avoids redundant embed_batch() calls inside each
+        # entity group's clustering step. The cluster orchestrator checks for
+        # precomputed_embeddings before falling back to its own computation.
+        from app.intelligence.cluster.orchestrator import _get_embeddings
+        precomputed_embs = await _get_embeddings(state.filtered_articles)
+        logger.info(f"[embed] Precomputed {precomputed_embs.shape} embeddings for clustering")
 
         # ── Steps 5-7: Similarity → Cluster → Validate ───────────────────────
-        # These use the existing clustering engine until Phase 6 migration
         from app.intelligence.cluster.orchestrator import cluster_and_validate
         state.clusters, state.passed_cluster_ids, state.rejected_cluster_ids, \
             state.validation_results, state.noise_article_indices = \
             await cluster_and_validate(
-                state.filtered_articles, state.entity_groups, scope, params, state
+                state.filtered_articles, state.entity_groups, scope, params, state,
+                precomputed_embeddings=precomputed_embs,
             )
         logger.info(f"[cluster] {len(state.passed_cluster_ids)} passed, "
                     f"{len(state.rejected_cluster_ids)} rejected, "
                     f"{len(state.noise_article_indices)} noise")
 
-        # ── Validate clustering ───────────────────────────────────────────────
-        from app.learning.pipeline_validator import validate_clustering, validate_pipeline_consistency
+        # ── Verify clustering (SPOC: verify + strategic score + correction) ───
         passed_clusters = state.passed_clusters()
         coherences = [c.coherence_score for c in passed_clusters if c.coherence_score > 0]
         mean_coh = sum(coherences) / max(len(coherences), 1)
-        _cluster_val = validate_clustering(
+
+        # Load source bandit means for strategic score computation
+        _source_bandit_means: Optional[Dict] = None
+        try:
+            from app.learning.source_bandit import SourceBandit
+            _source_bandit_means = SourceBandit().get_quality_estimates()
+        except Exception:
+            pass
+
+        # Reconstruct upstream advisories from state
+        _upstream_advisories = [StageAdvisory(**a) for a in state.stage_advisories]
+
+        _cluster_val, _cluster_adv = verify_clustering(
             input_count=len(state.filtered_articles),
             total_clusters=len(state.clusters),
             passed_count=len(state.passed_cluster_ids),
@@ -174,9 +226,36 @@ async def execute(
             noise_count=len(state.noise_article_indices),
             mean_coherence=mean_coh,
             coherences=coherences,
+            clusters=passed_clusters,
+            articles=state.filtered_articles,
+            upstream_advisories=_upstream_advisories,
+            source_bandit_means=_source_bandit_means,
+            scope_hours=scope.hours,
         )
         _stage_results.append(_cluster_val)
-        logger.info(f"[validate:cluster] {_cluster_val.status} {_cluster_val.message}")
+        state.stage_advisories.append(_cluster_adv.to_dict())
+
+        # SPOC correction: if all clusters failed, re-validate with lowered coherence
+        if should_correct(_cluster_val):
+            override = _cluster_val.corrective_params.get("val_coherence_override")
+            if override is not None:
+                logger.info(f"[verify:cluster] Re-validating with coherence override {override:.3f}")
+                from app.intelligence.cluster.orchestrator import _run_validation
+                _revalidated = await _run_validation(
+                    state.clusters, state.filtered_articles, state.entity_groups,
+                    params._replace(val_coherence_min=override) if hasattr(params, '_replace')
+                    else _with_coherence_override(params, override),
+                )
+                if _revalidated:
+                    new_passed, new_rejected, new_vals = _revalidated
+                    state.passed_cluster_ids = new_passed
+                    state.rejected_cluster_ids = new_rejected
+                    state.validation_results = new_vals
+                    _cluster_val.status = StageStatus.CORRECTED
+                    _cluster_val.corrections_applied.append(f"coherence override → {override:.3f}")
+
+        logger.info(f"[verify:cluster] {_cluster_val.status} {_cluster_val.message} "
+                    f"strategic_score_mean={_cluster_adv.metrics.get('mean_strategic_score', 0):.3f}")
 
         # Cross-stage consistency check + final report
         _consistency = validate_pipeline_consistency(_stage_results)
@@ -188,6 +267,14 @@ async def execute(
             state.passed_clusters(), state.filtered_articles, params
         )
         logger.info(f"[synthesis] {len(state.labeled_clusters)} labeled clusters")
+
+        # ── Verify synthesis (SPOC: label quality gate) ─────────────────────
+        _synth_val, _synth_adv = verify_synthesis(
+            state.labeled_clusters, state.filtered_articles,
+        )
+        _stage_results.append(_synth_val)
+        state.stage_advisories.append(_synth_adv.to_dict())
+        logger.info(f"[verify:synthesis] {_synth_val.status} {_synth_val.message}")
 
         # ── Step 8b: Critic Validation (AutoResearch quality gate) ─────────
         from app.intelligence.summarizer import critic_validate_clusters
@@ -202,6 +289,9 @@ async def execute(
             cluster.evidence_chain = build_evidence_chain(
                 cluster, state.filtered_articles
             )
+
+        # ── Step 8d: Populate cluster industries from article labels ─────────
+        _populate_cluster_industries(state.labeled_clusters, state.filtered_articles)
 
         # ── Step 9: Match Engine ──────────────────────────────────────────────
         if scope.user_products:
@@ -221,6 +311,17 @@ async def execute(
     return _build_result(state, diagnostics_dir)
 
 
+def _with_coherence_override(params: ClusteringParams, override: float) -> ClusteringParams:
+    """Create a copy of ClusteringParams with val_coherence_min overridden.
+
+    Used by SPOC correction when all clusters fail validation and we need
+    to re-validate with a lowered coherence threshold.
+    """
+    params_copy = copy.copy(params)
+    params_copy.val_coherence_min = override
+    return params_copy
+
+
 async def _extract_entities(
     articles: list,
     scope: DiscoveryScope,
@@ -235,6 +336,66 @@ async def _extract_entities(
     except Exception as exc:
         logger.warning(f"[pipeline] Entity extractor failed: {exc} — using empty groups")
         return [], list(range(len(articles)))
+
+
+def _populate_cluster_industries(
+    clusters: list,
+    articles: list,
+) -> None:
+    """Derive human-readable industry names for each cluster from member articles.
+
+    Each filtered article may have an industry_label set by the industry classifier
+    (e.g. "healthcare_pharma", "fintech_bfsi"). This function aggregates those
+    labels per cluster, converts to human-readable names, and stores them on
+    cluster.industries so downstream TrendData.industries_affected is populated.
+    """
+    # Map internal IDs to human-readable display names
+    _INDUSTRY_DISPLAY: dict = {
+        "healthcare_pharma": "Healthcare & Pharmaceuticals",
+        "fintech_bfsi": "Fintech & Financial Services",
+        "it_technology": "IT & Enterprise Software",
+        "manufacturing": "Manufacturing & Industrial",
+        "logistics_supply_chain": "Logistics & Supply Chain",
+        "retail_fmcg": "Retail & Consumer Goods",
+    }
+
+    if not clusters or not articles:
+        return
+
+    # Build article lookup by run_index
+    article_map = {}
+    for art in articles:
+        idx = getattr(art, "run_index", -1)
+        if idx >= 0:
+            article_map[idx] = art
+
+    populated = 0
+    for cluster in clusters:
+        # Collect industry labels from member articles
+        labels: dict = {}  # label -> count
+        for idx in getattr(cluster, "article_indices", []):
+            art = article_map.get(idx)
+            if art is None:
+                continue
+            label = getattr(art, "industry_label", None)
+            if label:
+                labels[label] = labels.get(label, 0) + 1
+
+        if not labels:
+            continue
+
+        # Sort by frequency (most common industry first), convert to display names
+        sorted_labels = sorted(labels.items(), key=lambda x: -x[1])
+        industries = []
+        for label, _count in sorted_labels:
+            display = _INDUSTRY_DISPLAY.get(label, label.replace("_", " ").title())
+            if display not in industries:
+                industries.append(display)
+
+        cluster.industries = industries
+        populated += 1
+
+    logger.info(f"[industries] Populated industries on {populated}/{len(clusters)} clusters")
 
 
 async def _update_learning_loops(
@@ -302,53 +463,11 @@ async def _update_learning_loops(
         except Exception as bus_exc:
             logger.debug(f"[pipeline] Signal bus NLI publish failed (non-fatal): {bus_exc}")
 
-        # ── Wire NLI scores into source bandit reward ─────────────────────────
-        # Research: Chapelle & Li (2011) Thompson Sampling — reward = mean NLI entailment
-        # Sources with high NLI entailment scores get prioritized in future runs.
-        if nli_scores_by_source:
-            try:
-                from app.learning.source_bandit import SourceBandit
-                bandit = SourceBandit()
-                # Build minimal cluster quality map from passed clusters
-                cluster_quality_map = {}
-                for cluster in passed:
-                    for idx in getattr(cluster, "article_indices", []):
-                        if idx < len(state.filtered_articles):
-                            src = getattr(state.filtered_articles[idx], "source_name", "")
-                            if src:
-                                cluster_quality_map[src] = cluster_quality_map.get(src, [])
-                                cluster_quality_map[src].append(cluster.coherence_score)
-
-                # Aggregate per-source quality
-                source_quality = {
-                    src: sum(scores) / len(scores)
-                    for src, scores in cluster_quality_map.items()
-                }
-
-                # Build source_articles: source_name → [article_ids from filtered set]
-                source_articles_map: Dict[str, list] = {}
-                for i, art in enumerate(state.filtered_articles):
-                    src = getattr(art, "source_name", "") or getattr(art, "source_id", "")
-                    if src:
-                        source_articles_map.setdefault(src, []).append(i)
-
-                # article_labels: article_index → cluster_id (for cluster quality)
-                article_labels_map: Dict[str, int] = {}
-                cluster_quality_map_final: Dict[int, float] = {}
-                for ci, cluster in enumerate(passed):
-                    cluster_quality_map_final[ci] = cluster.coherence_score
-                    for idx in getattr(cluster, "article_indices", []):
-                        article_labels_map[str(idx)] = ci
-
-                bandit.update_from_run(
-                    source_articles=source_articles_map,
-                    article_labels=article_labels_map,
-                    cluster_quality=cluster_quality_map_final,
-                    nli_scores_by_source=nli_scores_by_source,
-                )
-                logger.info(f"[pipeline] Source bandit updated: {len(nli_scores_by_source)} sources")
-            except Exception as bandit_exc:
-                logger.debug(f"[pipeline] Source bandit update failed (non-fatal): {bandit_exc}")
+        # NOTE: Source bandit update is now consolidated in orchestrator.py
+        # learning_update_node (single update per run, not double). NLI scores
+        # flow via IntelligenceResult.nli_scores_by_source → orchestrator.
+        # Store NLI scores on pipeline state for _build_result() to pick up.
+        state._nli_scores_by_source = nli_scores_by_source
 
         # ── Run HypothesisLearner if enough feedback ───────────────────────────
         # SetFit (arXiv:2209.11055): closes the human feedback → NLI filter loop.
@@ -399,6 +518,7 @@ def _build_result(state: PipelineState, diagnostics_dir: str) -> IntelligenceRes
         noise_rate=len(state.noise_article_indices) / max(len(state.filtered_articles), 1),
         mean_coherence=sum(coherence_scores) / max(len(coherence_scores), 1),
         mean_fit_score=sum(fit_scores) / max(len(fit_scores), 1),
+        nli_scores_by_source=getattr(state, "_nli_scores_by_source", {}),
         gap4_dropped_companies=state.gap4_dropped_companies,
         thought_log=state.thought_log,
         rounds_completed=state.round_number,

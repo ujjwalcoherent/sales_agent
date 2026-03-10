@@ -24,6 +24,7 @@ from app.tools.domain_utils import (
     is_valid_company_domain,
     extract_domain_from_company_name,
 )
+from app.agents.leads import is_company_description
 from ...config import get_settings, CMI_SERVICES
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,9 @@ class CompanyDiscovery:
         self.mock_mode = mock_mode or self.settings.mock_mode
         self._log_callback = log_callback
         self._deps = deps
+        # Session-level cache: skip re-enrichment for companies already processed
+        # in this pipeline run. Keyed by normalized company name.
+        self._enriched_cache: Dict[str, CompanyData] = {}
         if deps:
             self.llm_service = deps.llm_service
         else:
@@ -277,7 +281,7 @@ class CompanyDiscovery:
             else:
                 self._log("  No search results returned", "warning")
 
-        # Fallback chain when search returns 0: Company KB → DDG web search
+        # Fallback chain when search returns 0: web_intel (Tavily → DDG)
         if not companies and self._deps:
             companies = await self._fallback_search(impact, queries_to_run[:3], limit)
 
@@ -286,11 +290,11 @@ class CompanyDiscovery:
         return companies[:limit]
     
     async def _fallback_search(self, impact, queries: list, limit: int = 10) -> list:
-        """Fallback: web search (DDG) when primary search returns empty."""
+        """Fallback: web search (Tavily -> DDG) when primary search returns empty."""
         from app.schemas.sales import CompanyData, CompanySize
         companies = []
         from app.tools.web.web_intel import search
-        self._log("  Fallback: web search (ddgs)...")
+        self._log("  Fallback: web search (Tavily -> DDG)...")
         for query in queries[:3]:
             try:
                 results = await search(query, max_results=5)
@@ -491,6 +495,11 @@ RULES:
                 if not company_name:
                     continue
 
+                # Guard: reject names that are actually segment descriptions
+                if is_company_description(company_name):
+                    logger.debug(f"Skipping description-as-name in extraction: '{company_name[:80]}'")
+                    continue
+
                 raw_size = item.get("company_size", "mid").lower().strip()
 
                 # Contextual relevance scoring (replaces static blocklist)
@@ -574,12 +583,17 @@ RULES:
             return []
 
     def _deduplicate_companies(self, companies: List[CompanyData]) -> List[CompanyData]:
-        """Remove duplicate companies by name."""
+        """Remove duplicate companies by name and filter out description-as-name entries."""
         seen = set()
         unique = []
 
         for company in companies:
-            key = company.company_name.lower().strip()
+            name = company.company_name
+            # Guard: reject names that are segment descriptions, not real company names
+            if is_company_description(name):
+                logger.debug(f"Dedup filter: description-as-name '{name[:80]}'")
+                continue
+            key = name.lower().strip()
             if key not in seen:
                 seen.add(key)
                 unique.append(company)
@@ -633,95 +647,12 @@ RULES:
         companies: List[CompanyData],
         state: AgentState,
     ) -> List[CompanyData]:
+        """Stage C — Lead validation via SPOC verify_lead_crystallization.
+
+        Legacy LLM-based lead_validator removed (was never deployed).
+        Validation now happens in orchestrator via pipeline_validator.verify_lead_crystallization().
         """
-        V8: Stage C — AI council validates company-trend relevance.
-
-        For each company, validates:
-        - Is this company genuinely affected by the trend?
-        - Is the pitch angle defensible and specific?
-        - Which CMI service best fits?
-
-        Filters out irrelevant leads, improves pitch angles for kept leads.
-        """
-        if not companies:
-            return companies
-
-        try:
-            from .lead_validator import validate_lead
-        except ImportError:
-            logger.warning("Lead validator not available, skipping Stage C")
-            return companies
-
-        # Build impact lookup: trend_id → ImpactAnalysis
-        impact_map = {imp.trend_id: imp for imp in state.impacts}
-
-        semaphore = asyncio.Semaphore(5)
-        validated: List[CompanyData] = []
-        filtered_count = 0
-
-        async def _validate_one(company: CompanyData) -> Optional[CompanyData]:
-            nonlocal filtered_count
-            async with semaphore:
-                impact = impact_map.get(company.trend_id)
-                if not impact:
-                    return company  # No impact data → keep as-is
-
-                try:
-                    result = await validate_lead(
-                        company_name=company.company_name,
-                        company_description=company.description,
-                        company_industry=company.industry,
-                        trend_title=impact.trend_title,
-                        trend_summary=impact.detailed_reasoning,
-                        proposed_pitch=impact.pitch_angle,
-                        proposed_service=", ".join(impact.relevant_services[:2]) if impact.relevant_services else "",
-                        llm_service=self.llm_service,
-                    )
-
-                    if not result.is_relevant or result.relevance_score < self.settings.lead_relevance_threshold:
-                        filtered_count += 1
-                        logger.debug(
-                            f"Stage C filtered: {company.company_name} "
-                            f"(relevance={result.relevance_score:.2f}: {result.reasoning})"
-                        )
-                        return None
-
-                    # Improve reason_relevant with AI reasoning
-                    if result.improved_pitch:
-                        company.reason_relevant = result.improved_pitch
-                    elif result.reasoning:
-                        company.reason_relevant = (
-                            f"{company.reason_relevant} | AI: {result.reasoning}"
-                        )
-
-                    return company
-
-                except Exception as e:
-                    logger.debug(f"Lead validation failed for {company.company_name}: {e}")
-                    return company  # Keep on failure
-
-        self._log(f"  Stage C: Evaluating {len(companies)} leads concurrently (max 2 parallel)...")
-        tasks = [_validate_one(c) for c in companies]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        for result in results:
-            if isinstance(result, Exception):
-                continue
-            if result is not None:
-                validated.append(result)
-
-        self._log(
-            f"  Stage C Results: {len(validated)}/{len(companies)} leads approved "
-            f"({filtered_count} filtered as irrelevant)"
-        )
-        if validated:
-            sizes = {}
-            for c in validated:
-                sz = c.company_size.value if hasattr(c.company_size, 'value') else str(c.company_size)
-                sizes[sz] = sizes.get(sz, 0) + 1
-            size_str = ", ".join(f"{k}={v}" for k, v in sorted(sizes.items()))
-            self._log(f"  Company size distribution: {size_str}")
-        return validated
+        return companies
 
     # ══════════════════════════════════════════════════════════════════════════
     # V7: NER-BASED COMPANY HALLUCINATION GUARD
@@ -842,6 +773,15 @@ RULES:
                 elif enriched.description:
                     company.verification_confidence = max(company.verification_confidence, 0.6)
                     company.verification_source = company.verification_source or "enriched"
+                else:
+                    # Enrichment returned but without validation data or description.
+                    # Use the initial validate_entity() result — we know it passed
+                    # (otherwise we'd have returned at line 810).
+                    conf = getattr(validation, "confidence", 0.0) or 0.0
+                    company.verification_confidence = max(company.verification_confidence, conf, 0.5)
+                    company.verification_source = company.verification_source or getattr(validation, "validation_source", "") or "validated"
+                    if conf >= 0.7:
+                        company.ner_verified = True
 
                 return company
         except Exception as e:
@@ -895,8 +835,39 @@ RULES:
         min_confidence = self.settings.company_min_verification_confidence
 
         self._log(f"  V7: Running NER match + enrichment verification (concurrent)...")
+        # Bounded concurrency: avoid hammering Tavily/Apollo with 50+ parallel calls
+        verify_sem = asyncio.Semaphore(8)
+
+        async def _verify_bounded(c: CompanyData) -> CompanyData:
+            # Session cache: skip re-enrichment if already processed this run
+            cache_key = self._normalize_name(c.company_name)
+            if cache_key in self._enriched_cache:
+                cached = self._enriched_cache[cache_key]
+                # Copy enrichment data to this instance (may have different trend_id)
+                c.description = cached.description or c.description
+                c.industry = cached.industry or c.industry
+                c.domain = cached.domain or c.domain
+                c.website = cached.website or c.website
+                c.ner_verified = cached.ner_verified
+                c.verification_source = cached.verification_source
+                c.verification_confidence = cached.verification_confidence
+                return c
+            async with verify_sem:
+                try:
+                    # Per-company timeout: 8s max to prevent pipeline hangs
+                    result = await asyncio.wait_for(
+                        self._verify_company(c, source_entities), timeout=8.0,
+                    )
+                    self._enriched_cache[cache_key] = result
+                    return result
+                except asyncio.TimeoutError:
+                    logger.warning(f"  V7: Timeout verifying '{c.company_name}' (8s)")
+                    c.verification_source = "timeout"
+                    c.verification_confidence = 0.3
+                    return c
+
         verified_companies = await asyncio.gather(
-            *[self._verify_company(c, source_entities) for c in companies]
+            *[_verify_bounded(c) for c in companies]
         )
         for company in verified_companies:
             if company.verification_confidence >= min_confidence:

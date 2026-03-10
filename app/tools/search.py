@@ -127,9 +127,8 @@ class SearchManager:
 
     Priority chain:
     1. BM25 article index  — offline, free, instant
-    2. DuckDuckGo          — free, fragile (blocks after ~20 req), last resort
-
-    Primary web search (Tavily + DDG fallback) is in web_intel.py.
+    2. Tavily search       — primary web search (7 API keys, round-robin)
+    3. DuckDuckGo          — free, fragile (blocks after ~20 req), last resort
 
     Usage:
         mgr = SearchManager(articles=articles)
@@ -146,12 +145,7 @@ class SearchManager:
             self._init_bm25(articles)
 
     def _init_bm25(self, articles: list[dict[str, Any]]) -> None:
-        from .bm25_search import BM25Search
         self._bm25 = BM25Search(articles)
-
-    def update_articles(self, articles: list[dict[str, Any]]) -> None:
-        """Rebuild BM25 index with new articles (call at start of each pipeline run)."""
-        self._init_bm25(articles)
 
     async def search(
         self,
@@ -169,7 +163,23 @@ class SearchManager:
                 logger.info(f"BM25 returned {len(bm25_hits)} hits for '{query[:40]}'")
                 return {"results": bm25_hits, "answer": "", "source": "bm25"}
 
-        # 2. DuckDuckGo (free fallback — fragile, no auth needed)
+        # 2. Tavily (primary web search — 7 API keys, round-robin)
+        try:
+            from app.tools.web.tavily_tool import TavilyTool
+            tavily = TavilyTool()
+            raw = await tavily.search(query, max_results=min(max_results, 5))
+            tavily_hits = raw.get("results", []) if isinstance(raw, dict) else []
+            if tavily_hits:
+                results = [
+                    {"title": r.get("title", ""), "url": r.get("url", ""), "content": r.get("content", "")}
+                    for r in tavily_hits
+                ]
+                logger.info(f"Tavily returned {len(results)} results for '{query[:40]}'")
+                return {"results": results, "answer": raw.get("answer", ""), "source": "tavily"}
+        except Exception as e:
+            logger.debug(f"Tavily search failed: {e}")
+
+        # 3. DuckDuckGo (free fallback — fragile, no auth needed)
         try:
             from ddgs import DDGS
             with DDGS() as ddgs:
@@ -203,29 +213,52 @@ class SearchManager:
 
     async def web_search(self, query: str, max_results: int = 10) -> dict[str, Any]:
         """
-        Web search via DDG fallback. Async.
+        Web search via Tavily → DDG fallback chain. Async.
         Used by CausalCouncil tool calls when Company KB + BM25 insufficient.
-        Returns {"results": [...], "answer": "", "source": "ddg"|"none"}
+        Returns {"results": [...], "answer": "", "source": "tavily"|"ddg"|"none"}
         """
         return await self.search(query, max_results=max_results, bm25_first=False)
 
-    async def search_companies(
-        self,
-        segment: str,
-        geo: str = "",
-        size_band: str = "SME",
-        max_results: int = 10,
-    ) -> dict[str, Any]:
+    async def company_news_search(
+        self, company_name: str, months: int = 5, max_results: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Fetch recent news about a specific company.
+
+        Two-source strategy (BM25 instant + Tavily web):
+          1. BM25 over this run's articles — free, instant, high relevance
+          2. Tavily web search — broader coverage for news not in RSS feeds
+        Used by lead_crystallize_node to attach company-specific context to leads.
         """
-        Company-specific search with SME focus.
-        Builds query from segment + geo, excludes enterprise companies.
-        """
-        try:
-            from app.config import get_settings
-            blocklist = get_settings().enterprise_blocklist_set
-        except Exception:
-            blocklist = {"tata", "reliance", "infosys", "wipro", "hcl"}
-        enterprise_terms = " ".join(f"NOT {t.capitalize()}" for t in list(blocklist)[:8])
-        country = get_settings().country
-        query = f"{segment} {geo} company {size_band} {country} supplier {enterprise_terms}".strip()
-        return await self.search(query, max_results=max_results)
+        results = []
+
+        # BM25: check already-fetched articles for company mentions (instant, free)
+        if self._bm25 and self._bm25.is_ready:
+            bm25_hits = self._bm25.search(company_name, top_k=max_results)
+            for hit in bm25_hits:
+                results.append({
+                    "title": hit.get("title", ""),
+                    "url": hit.get("url", ""),
+                    "summary": (hit.get("summary") or hit.get("content", ""))[:300],
+                    "source": "bm25",
+                })
+
+        # Tavily/DDG: web search for broader news if BM25 didn't fill quota
+        if len(results) < max_results:
+            try:
+                web = await self.search(
+                    f"{company_name} news",
+                    max_results=max_results - len(results),
+                    bm25_first=False,
+                )
+                for r in web.get("results", []):
+                    results.append({
+                        "title": r.get("title", ""),
+                        "url": r.get("url", ""),
+                        "summary": (r.get("content") or "")[:300],
+                        "source": web.get("source", "web"),
+                    })
+            except Exception as e:
+                logger.debug(f"Company news web search for '{company_name}' failed: {e}")
+
+        return results[:max_results]
+

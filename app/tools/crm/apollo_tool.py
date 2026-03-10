@@ -272,8 +272,13 @@ class ApolloTool:
                             ApolloTool._org_cache[domain.lower().strip()] = company_enrichment
 
                         return {"people": people, "company": company_enrichment}
+                    else:
+                        logger.warning(
+                            f"Apollo people search HTTP {response.status_code} for {domain} "
+                            f"(roles={roles}). Response: {response.text[:200]}"
+                        )
         except Exception as e:
-            logger.error(f"Apollo people search error: {e}")
+            logger.error(f"Apollo people search error for {domain}: {e}")
 
         return {"people": [], "company": {}}
 

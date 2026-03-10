@@ -101,24 +101,40 @@ class RunRecorder:
             logger.warning(f"Failed to save recording manifest: {e}")
 
 
-def get_latest_recording() -> Optional[Path]:
-    """Find the most recent recording directory (by manifest timestamp)."""
+def get_latest_recording(min_steps: int = 6) -> Optional[Path]:
+    """Find the most recent *complete* recording directory.
+
+    Reads each manifest to check step_count and uses recorded_at timestamp
+    for sorting (immune to filesystem mtime drift).
+
+    Args:
+        min_steps: Minimum steps for a recording to be considered viable.
+    """
     if not RECORDINGS_DIR.exists():
         return None
 
-    manifests = []
+    candidates: list[tuple[str, Path]] = []
     for d in RECORDINGS_DIR.iterdir():
-        if d.is_dir():
-            m = d / "manifest.json"
-            if m.exists():
-                manifests.append(m)
+        if not d.is_dir():
+            continue
+        m = d / "manifest.json"
+        if not m.exists():
+            continue
+        try:
+            manifest = json.loads(m.read_text(encoding="utf-8"))
+            if manifest.get("step_count", 0) < min_steps:
+                continue
+            recorded_at = manifest.get("recorded_at", "")
+            candidates.append((recorded_at, d))
+        except Exception:
+            continue
 
-    if not manifests:
+    if not candidates:
         return None
 
-    # Sort by file modification time (most recent first)
-    manifests.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return manifests[0].parent
+    # Sort by recorded_at ISO timestamp (most recent first)
+    candidates.sort(key=lambda t: t[0], reverse=True)
+    return candidates[0][1]
 
 
 def get_recording(run_id: str) -> Optional[Path]:

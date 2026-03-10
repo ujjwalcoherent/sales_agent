@@ -1,23 +1,22 @@
 """
-Cross-Loop Learning Signal Bus — the neural pathways connecting all 6 learning loops.
+Cross-Loop Learning Signal Bus — shared data structure connecting 4 learning loops.
 
-Instead of swarm/agent routing (adds LLM cost + latency for routing decisions
-that are fully determined at design time), this uses a passive shared data structure.
-
-Each loop PUBLISHES summary statistics after updating.
-Each loop READS other loops' summaries before/during its computation.
-The bus computes DERIVED signals that no single loop can compute alone.
+Each loop PUBLISHES summary statistics after updating, READS other loops' summaries
+for cross-pollination. The bus computes DERIVED signals (system_confidence,
+exploration_budget) that no single loop produces alone.
 
 Three-phase protocol prevents circular reads:
-  Phase 1 — Each loop updates using THIS run's data, publishes to bus
+  Phase 1 — Each loop publishes using THIS run's data
   Phase 2 — Bus computes cross-loop derived signals
   Phase 3 — Each loop applies small cross-loop adjustments
+
+Active loops: Source Bandit, Company Bandit, Threshold Adapter, NLI Filter.
+Removed: WeightLearner (dead), MetaReasoner (decorative). See plan Phase A.
 
 Persisted to data/signal_bus.json between runs so next run starts warm.
 
 REF: Collaborative Multi-Armed Bandits (Landgren et al., 2016)
      HEBO shared observation table pattern (Cowen-Rivers et al., NeurIPS 2020)
-     Multi-task representation sharing (Du et al., NeurIPS 2021)
 """
 
 import json
@@ -55,13 +54,6 @@ class LearningSignalBus:
     lifecycle_counts: Dict[str, int] = field(default_factory=dict)
     stale_pruned_count: int = 0
 
-    # ── Weight Learner publishes ────────────────────────────────
-    weight_drift: Dict[str, float] = field(default_factory=dict)
-    # e.g. {"actionability": 0.03, "trend_score": -0.01, ...}
-    learning_path: str = "default"   # "human", "outcome", or "default"
-    weight_confidence: float = 0.0   # [0,1] how much data backs current weights
-    total_drift: float = 0.0         # sum of abs(drift) across all weight types
-
     # ── Company Bandit publishes ────────────────────────────────
     company_arm_means: Dict[str, float] = field(default_factory=dict)
     winning_company_types: List[str] = field(default_factory=list)
@@ -86,13 +78,22 @@ class LearningSignalBus:
     nli_scores_by_source: Dict[str, float] = field(default_factory=dict)
     # {source_name: mean_entailment} — used by source bandit reward calculation
 
-    # ── MetaReasoner publishes ───────────────────────────────────
-    reasoning_quality: float = 0.0         # Avg quality score across reasoning traces
-    reasoning_concerns: List[str] = field(default_factory=list)   # Top concerns
-    reasoning_hypotheses: List[str] = field(default_factory=list) # Top improvement ideas
-    reasoning_run_grade: str = ""          # Retrospective grade (A-F)
-    reasoning_improvement_plan: List[Dict[str, Any]] = field(default_factory=list)
-    reasoning_strategy_adjustments: Dict[str, Any] = field(default_factory=dict)
+    # ── Backward cascade signals (Phase D) ──────────────────────
+    # Downstream quality feeds back to upstream loops for cascade learning.
+    # REF: Cascade learning (Rendle 2010 BPR), backward reward (Kulkarni et al. 2016 NIPS).
+    cluster_coherence_by_source: Dict[str, float] = field(default_factory=dict)
+    # {source_name: mean_coherence_of_clusters_using_articles_from_source}
+    # Used by source bandit: secondary reward signal (NLI is primary).
+    cluster_noise_rate: float = 0.0
+    # If high → filter hypothesis too loose (passes articles that end up as noise).
+    lead_quality_per_cluster: Dict[str, float] = field(default_factory=dict)
+    # {cluster_id: mean_lead_score} → company bandit backward reward.
+
+    # ── Confusion matrix (A1) ──────────────────────────────────
+    filter_tp: int = 0
+    filter_fp: int = 0
+    filter_tn: int = 0
+    filter_fn: int = 0
 
     # ── Cross-loop derived signals (Phase 2) ────────────────────
     system_confidence: float = 0.5   # Overall system health [0,1]
@@ -151,31 +152,6 @@ class LearningSignalBus:
         self.avg_novelty = avg_novelty
         self.stale_pruned_count = stale_pruned
 
-    def publish_weight_learner(
-        self,
-        current_weights: Dict[str, Dict[str, float]],
-        default_weights: Dict[str, Dict[str, float]],
-        learning_path: str,
-        data_count: int,
-    ) -> None:
-        """Weight Learner publishes drift and confidence after update."""
-        self.learning_path = learning_path
-
-        # Compute per-type drift (total change from defaults)
-        total_drift = 0.0
-        per_type_drift: Dict[str, float] = {}
-        for wt_name, current in current_weights.items():
-            defaults = default_weights.get(wt_name, current)
-            drift = sum(abs(current.get(k, 0) - defaults.get(k, 0)) for k in defaults)
-            per_type_drift[wt_name] = round(drift, 4)
-            total_drift += drift
-
-        self.weight_drift = per_type_drift
-        self.total_drift = round(total_drift, 4)
-
-        # Confidence: how much data backs the weights (caps at 1.0 after 50 records)
-        self.weight_confidence = min(1.0, data_count / 50.0)
-
     def publish_company_bandit(
         self,
         arm_means: Dict[str, float],
@@ -230,26 +206,32 @@ class LearningSignalBus:
         self.nli_hypothesis_updated = hypothesis_updated
         self.nli_scores_by_source = scores_by_source or {}
 
-    def publish_reasoning(
+    def publish_backward_signals(
         self,
-        run_summary: Dict[str, Any],
-        retrospective: Optional[Dict[str, Any]] = None,
+        cluster_coherence_by_source: Optional[Dict[str, float]] = None,
+        cluster_noise_rate: float = 0.0,
+        lead_quality_per_cluster: Optional[Dict[str, float]] = None,
     ) -> None:
-        """MetaReasoner publishes reasoning insights for cross-loop learning.
+        """Publish cascade backward signals (Phase D).
 
-        Called after the retrospective. Provides:
-        - Quality assessments from each step to modulate system confidence
-        - Improvement hypotheses that other loops can act on
-        - Run grade as an overall signal
+        Called after clustering + lead scoring complete. Propagates downstream
+        quality back to upstream loops:
+        - cluster_coherence_by_source → source bandit secondary reward
+        - cluster_noise_rate → filter hypothesis quality check
+        - lead_quality_per_cluster → company bandit backward reward
         """
-        self.reasoning_quality = run_summary.get("avg_reasoning_quality", 0.0)
-        self.reasoning_concerns = run_summary.get("top_concerns", [])[:5]
-        self.reasoning_hypotheses = run_summary.get("top_hypotheses", [])[:5]
-        self.reasoning_strategy_adjustments = run_summary.get("strategy_adjustments", {})
+        if cluster_coherence_by_source:
+            self.cluster_coherence_by_source = cluster_coherence_by_source
+        self.cluster_noise_rate = cluster_noise_rate
+        if lead_quality_per_cluster:
+            self.lead_quality_per_cluster = lead_quality_per_cluster
 
-        if retrospective:
-            self.reasoning_run_grade = retrospective.get("run_grade", "")
-            self.reasoning_improvement_plan = retrospective.get("improvement_plan", [])[:5]
+    def publish_confusion_matrix(self, tp: int, fp: int, tn: int, fn: int) -> None:
+        """Publish proxy confusion matrix from filter (A1)."""
+        self.filter_tp = tp
+        self.filter_fp = fp
+        self.filter_tn = tn
+        self.filter_fn = fn
 
     # ──────────────────────────────────────────────────────────────
     # Phase 2: Compute derived cross-loop signals
@@ -259,15 +241,13 @@ class LearningSignalBus:
         """Compute aggregate signals that no single loop can produce alone.
 
         Must be called AFTER all loops have published (Phase 1 complete).
+        system_confidence: blend of source stability, quality, anomaly flags.
+        exploration_budget: inversely proportional to confidence.
         """
-        # System confidence: weighted blend of loop-level confidence metrics
         signals = []
 
         # Source stability: low exploration rate = high confidence in sources
         signals.append(1.0 - self.source_exploration_rate)
-
-        # Weight data backing: higher = more data behind learned weights
-        signals.append(self.weight_confidence)
 
         # No anomalies = stable system
         signals.append(1.0 if not self.anomaly_flags else 0.5)
@@ -282,16 +262,15 @@ class LearningSignalBus:
         degradation_penalty = min(0.5, len(self.source_degraded) * 0.15)
         signals.append(1.0 - degradation_penalty)
 
-        # MetaReasoner quality assessment (if available)
-        if self.reasoning_quality > 0:
-            signals.append(self.reasoning_quality)
+        # NLI filter quality — high entailment = filter is working
+        if self.nli_mean_entailment > 0:
+            signals.append(min(1.0, self.nli_mean_entailment / 0.7))
 
         self.system_confidence = round(
             sum(signals) / max(len(signals), 1), 4
         )
 
         # Exploration budget: inversely proportional to confidence
-        # High confidence → exploit what works. Low confidence → explore more.
         self.exploration_budget = round(
             max(0.10, min(0.50, 1.0 - self.system_confidence)), 4
         )
@@ -324,23 +303,6 @@ class LearningSignalBus:
             "system_confidence": self.system_confidence,
         }
 
-    def get_weight_learner_modulation(self) -> Dict[str, Any]:
-        """Signals for Weight Learner cross-pollination.
-
-        Weight Learner uses these to:
-        - Scale learning rate by system confidence (learn slower when uncertain)
-        - Factor in source diversity (biased data = conservative learning)
-        - Use feedback quality as additional signal
-        """
-        return {
-            "lr_multiplier": max(0.3, self.system_confidence),
-            # Low confidence → slower learning (0.3x). High → full speed (1.0x).
-            "source_diversity": self.source_diversity_index,
-            "company_exploration_high": self.company_exploration_rate > 0.40,
-            # High company exploration → lead quality signals are noisy
-            "composite_quality_mean": self.composite_quality_mean,
-        }
-
     def get_company_bandit_modulation(self) -> Dict[str, Any]:
         """Signals for Company Bandit cross-pollination.
 
@@ -357,15 +319,13 @@ class LearningSignalBus:
     def get_adaptive_threshold_modulation(self) -> Dict[str, Any]:
         """Signals for Adaptive Thresholds cross-pollination.
 
-        Adaptive Thresholds uses these to:
-        - Shift with weight drift (weight changes imply score distribution changes)
-        - Tighten when novelty is low (recycled trends need higher bar)
-        - Account for source diversity
+        Tighten when novelty is low (recycled trends need higher bar).
+        Account for source diversity (biased sources = conservative adaptation).
         """
         return {
-            "weight_drift": self.total_drift,
             "avg_novelty": self.avg_novelty,
             "source_diversity": self.source_diversity_index,
+            "nli_mean_entailment": self.nli_mean_entailment,
         }
 
     # ──────────────────────────────────────────────────────────────
@@ -406,16 +366,11 @@ class LearningSignalBus:
         parts = [
             f"confidence={self.system_confidence:.2f}",
             f"explore={self.exploration_budget:.2f}",
-            f"path={self.learning_path}",
-            f"drift={self.total_drift:.3f}",
             f"quality={self.composite_quality_mean:.3f}",
+            f"nli={self.nli_mean_entailment:.2f}",
         ]
-        if self.reasoning_run_grade:
-            parts.append(f"grade={self.reasoning_run_grade}")
         if self.source_degraded:
             parts.append(f"degraded={self.source_degraded}")
         if self.anomaly_flags:
             parts.append(f"anomalies={len(self.anomaly_flags)}")
-        if self.reasoning_strategy_adjustments:
-            parts.append(f"strategy_adjustments={len(self.reasoning_strategy_adjustments)} steps")
         return " | ".join(parts)

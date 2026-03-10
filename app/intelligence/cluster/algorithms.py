@@ -150,8 +150,13 @@ def cluster_hac(
         outlier_indices = []
 
     # Build ClusterResult objects
+    # Convert outlier indices from local (0..n-1) to global (article_indices[i])
+    # so that the returned noise_indices are in the same coordinate space as
+    # cluster.article_indices (global). HDBSCAN already does this correctly;
+    # HAC was previously returning local indices, causing noise tracking bugs
+    # when the orchestrator extended all_noise with these values.
     clusters = []
-    noise_indices = outlier_indices[:]
+    noise_indices = [article_indices[i] for i in outlier_indices]
 
     for cluster_label in sorted(set(best_labels)):
         member_mask = best_labels == cluster_label
@@ -160,7 +165,8 @@ def cluster_hac(
         # Filter out outliers from cluster membership
         local_clean = [i for i in local_indices if i not in outlier_indices]
         if len(local_clean) < params.hac_min_cluster_size:
-            noise_indices.extend(local_clean)
+            # Convert remaining small-cluster members to global indices
+            noise_indices.extend(article_indices[i] for i in local_clean)
             continue
 
         global_indices = [article_indices[i] for i in local_clean]
@@ -334,6 +340,19 @@ def cluster_hdbscan_soft(
             parent_entity_group=entity_group_id or None,
         ))
 
+    # A3: DBCV — Density-Based Clustering Validation (Moulavi et al. 2014, SDM).
+    # Only valid for HDBSCAN. Measures how well clusters respect the density
+    # structure of the data. Range: [-1, 1], higher is better.
+    dbcv_score = None
+    if n_clusters >= 2:
+        try:
+            from hdbscan.validity import validity_index
+            dbcv_score = round(float(validity_index(fit_data, labels, metric=metric)), 4)
+        except ImportError:
+            pass  # hdbscan.validity not available in all installations
+        except Exception as exc:
+            logger.debug(f"[cluster] DBCV failed for '{entity_name}': {exc}")
+
     metrics = {
         "algorithm": "hdbscan_soft",
         "n_articles": n,
@@ -343,11 +362,13 @@ def cluster_hdbscan_soft(
         "min_cluster_size": min_cluster_size,
         "min_samples": min_samples,
         "metric": metric,
+        "dbcv": dbcv_score,
     }
 
+    dbcv_str = f", DBCV={dbcv_score:.3f}" if dbcv_score is not None else ""
     logger.info(
-        "HDBSCAN-soft '%s': %d articles → %d clusters, %d noise (threshold=%.2f)",
-        entity_name, n, len(clusters), len(noise_global_indices), soft_threshold,
+        "HDBSCAN-soft '%s': %d articles → %d clusters, %d noise (threshold=%.2f%s)",
+        entity_name, n, len(clusters), len(noise_global_indices), soft_threshold, dbcv_str,
     )
     return clusters, noise_global_indices, metrics
 
@@ -372,25 +393,40 @@ def cluster_leiden(
     """
     try:
         from app.intelligence.engine.clusterer import cluster_discovery
-        clusters_raw, noise = cluster_discovery(embeddings, article_indices, params=params)
+        # cluster_discovery returns (List[ClusterResult], Dict[str, Any])
+        # where the second element is a metrics dict, NOT noise indices.
+        clusters_raw, discovery_metrics = cluster_discovery(embeddings, article_indices, params=params)
 
-        # Convert to intelligence models
+        # Convert to intelligence models (cluster_discovery already returns
+        # ClusterResult objects, but re-wrap to ensure consistent algorithm tag)
         clusters = []
+        clustered_global_indices: set = set()
         for c in clusters_raw:
+            indices = getattr(c, "article_indices", [])
             clusters.append(ClusterResult(
                 label=getattr(c, "label", "discovered_cluster"),
-                article_indices=getattr(c, "article_indices", []),
-                article_count=getattr(c, "article_count", 0),
+                article_indices=indices,
+                article_count=getattr(c, "article_count", len(indices)),
                 coherence_score=getattr(c, "coherence_score", 0.0),
                 algorithm="leiden",
                 is_entity_seeded=False,
             ))
+            clustered_global_indices.update(indices)
 
-        return clusters, noise or [], {"algorithm": "leiden", "n_clusters": len(clusters)}
+        # Derive noise indices: articles NOT assigned to any cluster.
+        # Previously this was incorrectly returning the metrics dict as noise,
+        # which would corrupt the noise_indices list with dict keys.
+        noise_indices = [i for i in article_indices if i not in clustered_global_indices]
+
+        metrics = {"algorithm": "leiden", "n_clusters": len(clusters)}
+        if isinstance(discovery_metrics, dict):
+            metrics.update(discovery_metrics)
+
+        return clusters, noise_indices, metrics
 
     except Exception as exc:
         logger.error(f"[cluster] Leiden failed: {exc}")
-        return [], article_indices, {"algorithm": "leiden", "error": str(exc)}
+        return [], list(article_indices), {"algorithm": "leiden", "error": str(exc)}
 
 
 def validate_clustering_math(
@@ -446,27 +482,6 @@ def _get_hdbscan_distance(
 
 
 def _mean_pairwise_cosine(embeddings: np.ndarray) -> float:
-    """Mean pairwise cosine similarity (coherence score)."""
-    if len(embeddings) < 2:
-        return 1.0
-    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-    norms = np.where(norms == 0, 1e-9, norms)
-    normed = embeddings / norms
-    sim = normed @ normed.T
-    mask = np.triu(np.ones_like(sim, dtype=bool), k=1)
-    return float(sim[mask].mean()) if mask.any() else 0.0
-
-
-# Expose for backwards compatibility
-try:
-    from app.intelligence.config import ClusteringParams as _OldParams
-    _HAVE_OLD_PARAMS = True
-except ImportError:
-    _HAVE_OLD_PARAMS = False
-
-# Re-export params fields mapping for bridge code
-_HAC_THRESHOLD_FIELD_MAP = {
-    "hac_threshold_min": "hac_threshold_min",
-    "hac_threshold_max": "hac_threshold_max",
-    "hac_threshold_step": "hac_threshold_step",
-}
+    """Delegate to shared mean_pairwise_cosine in similarity.py."""
+    from app.intelligence.engine.similarity import mean_pairwise_cosine
+    return mean_pairwise_cosine(embeddings)

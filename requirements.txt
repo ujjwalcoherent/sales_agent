@@ -72,3 +72,11 @@ optuna>=3.0                # Bayesian hyperparameter optimization for Leiden par
 # Entity normalization (optional, Level 3 fuzzy matching)
 rapidfuzz>=3.0.0           # Fast fuzzy string matching for entity normalization
 
+# Search fallback & entity extraction
+ddgs>=7.0.0                # DuckDuckGo search (free fallback when Tavily exhausted)
+rank-bm25>=0.2.2           # BM25 sparse retrieval for local article search
+gliner>=0.2.0              # Zero-shot NER for company/entity extraction in articles
+
+# Optional deep enrichment
+# scrapegraphai>=1.0.0  # Optional: deep company/person enrichment (30-80s latency, disabled by default)
+

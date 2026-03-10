@@ -329,8 +329,28 @@ def _ensure_list(val) -> list[str]:
 # Stage 2: Deep Person Enrichment (Background, ScrapeGraphAI)
 # ══════════════════════════════════════════════════════════════════
 
-# Semaphore for deep scraping (separate from Stage 1 — heavier operations)
-_DEEP_SEM = asyncio.Semaphore(2)
+# ── ScrapeGraphAI availability check (once at import time) ────────────────
+try:
+    from scrapegraphai.graphs import SmartScraperGraph as _SmartScraperGraph  # noqa: F401
+    _SCRAPEGRAPH_AVAILABLE = True
+except ImportError:
+    _SCRAPEGRAPH_AVAILABLE = False
+    logger.warning(
+        "scrapegraphai not installed — deep person enrichment (Stage 2) will be unavailable. "
+        "Install with: pip install scrapegraphai"
+    )
+
+# Semaphore for deep scraping (separate from Stage 1 — heavier operations).
+# Lazy-initialised to avoid creating a Semaphore before an event loop exists.
+_DEEP_SEM: Optional[asyncio.Semaphore] = None
+
+
+def _get_deep_sem() -> asyncio.Semaphore:
+    """Return (and lazily create) the deep-scrape concurrency semaphore."""
+    global _DEEP_SEM
+    if _DEEP_SEM is None:
+        _DEEP_SEM = asyncio.Semaphore(2)
+    return _DEEP_SEM
 
 
 def _categorize_urls(urls: list[str]) -> dict[str, list[str]]:
@@ -373,6 +393,10 @@ async def _scrape_url_with_scrapegraph(url: str, prompt: str, timeout: int = 60)
 
     Returns extracted dict or empty dict on failure.
     """
+    if not _SCRAPEGRAPH_AVAILABLE:
+        logger.debug("_scrape_url_with_scrapegraph skipped: scrapegraphai not installed")
+        return {}
+
     try:
         from app.config import get_settings
         settings = get_settings()
@@ -405,6 +429,9 @@ async def _scrape_url_with_scrapegraph(url: str, prompt: str, timeout: int = 60)
         )
         return result if isinstance(result, dict) else {}
 
+    except asyncio.TimeoutError:
+        logger.debug(f"SmartScraper timed out for {url} ({timeout}s)")
+        return {}
     except Exception as e:
         logger.debug(f"SmartScraper failed for {url}: {e}")
         return {}
@@ -500,7 +527,11 @@ async def _deep_person_scrape(
 
     This function never raises — all failures are logged and silently ignored.
     """
-    async with _DEEP_SEM:
+    if not _SCRAPEGRAPH_AVAILABLE:
+        logger.debug(f"Deep person scrape skipped for {ctx.person_name}: scrapegraphai not installed")
+        return
+
+    async with _get_deep_sem():
         try:
             from app.config import get_settings
             from datetime import datetime, timezone

@@ -35,7 +35,6 @@ REGION_SOURCES: Dict[str, Optional[List[str]]] = {
         "moneycontrol", "mc_topnews",
         "cnbctv18", "cnbctv18_market",
         "hindu_business",
-        "bs_economy", "bs_finance", "bs_tech",
         "et_bfsi", "et_cio", "et_infra",
         # ── Indian startup & tech ─────────────────────────────────────────────
         "yourstory", "inc42",
@@ -52,7 +51,8 @@ REGION_SOURCES: Dict[str, Optional[List[str]]] = {
         "finextra", "techcrunch_fintech", "techcrunch_ai",
         "venturebeat", "siliconangle",
         "businesswire_tech", "businesswire_financial",
-        "prnewswire_tech", "prnewswire_finance", "prnewswire_ma", "globe_newswire",
+        "prnewswire_india", "globe_newswire",
+        "reuters_business", "reuters_technology",
         # ── Asia-Pacific context ──────────────────────────────────────────────
         "techinasia", "channel_news_asia",
     ],
@@ -68,7 +68,8 @@ REGION_SOURCES: Dict[str, Optional[List[str]]] = {
         "yahoo_finance", "marketwatch", "seeking_alpha",
         "pymnts", "banking_dive", "finextra",
         "businesswire_tech", "businesswire_financial",
-        "prnewswire_tech", "prnewswire_finance", "prnewswire_ma", "globe_newswire",
+        "prnewswire_india", "globe_newswire",
+        "reuters_business", "reuters_technology",
         "google_news_us_business", "google_news_us_tech",
         "fed_reserve",
     ],
@@ -85,7 +86,7 @@ REGION_SOURCES: Dict[str, Optional[List[str]]] = {
     "SEA": [
         "channel_news_asia", "straits_times_biz", "asia_times", "techinasia",
         "finextra", "techcrunch_main",
-        "businesswire_tech", "businesswire_financial", "prnewswire_tech",
+        "businesswire_tech", "businesswire_financial", "prnewswire_india",
     ],
     "GLOBAL": None,  # None = use DEFAULT_ACTIVE_SOURCES (all active sources)
 }
@@ -483,11 +484,7 @@ class ClusteringParams:
     min_sources_per_cluster: int = 2
     source_merge_min_similarity: float = 0.4
 
-    # ── Entity weights (for entity signal in similarity matrix) ──────────────
-    entity_weight_org: float = 4.0
-    entity_weight_person: float = 1.3
-    entity_weight_product: float = 2.0
-    entity_weight_gpe: float = 4.0
+    # entity_weight_org/person/product/gpe — REMOVED (0 callers, March 2026 audit)
 
     # ── AutoResearch: query expansion + critic ─────────────────────────
     enable_query_expansion: bool = True  # LLM generates extra search queries
@@ -518,5 +515,6 @@ def load_adaptive_params() -> ClusteringParams:
             if hasattr(params, key):
                 setattr(params, key, value)
         return params
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).debug(f"Failed to load adaptive thresholds: {exc}")
         return DEFAULT_PARAMS

@@ -230,6 +230,9 @@ async def _call_llm(user_message: str) -> str:
         return resp.choices[0].message.content or ""
 
 
+_NONE_STRINGS = {"none", "null", "n/a", "na", "undefined", "untitled"}
+
+
 def _parse_llm_response(raw: str) -> Tuple[str, str]:
     """Parse LABEL: ... SUMMARY: ... from LLM response."""
     label = ""
@@ -241,6 +244,11 @@ def _parse_llm_response(raw: str) -> Tuple[str, str]:
             label = line[6:].strip()
         elif line.upper().startswith("SUMMARY:"):
             summary = line[8:].strip()
+
+    # Reject None-like labels at parse time so _validate_label sees empty string
+    if label.lower() in _NONE_STRINGS:
+        logger.debug(f"[synthesis] Parsed None-like label '{label}', treating as empty")
+        label = ""
 
     # If structured parsing failed, try to extract from free text
     if not label:
@@ -479,6 +487,10 @@ def _parse_critic_response(raw: str) -> CriticResult:
             reasoning = line[10:].strip()
         elif upper.startswith("REFINED_LABEL:"):
             refined_label = line[14:].strip()
+
+    # Reject None-like refined labels from critic
+    if refined_label.lower() in _NONE_STRINGS:
+        refined_label = ""
 
     return CriticResult(
         score=score,

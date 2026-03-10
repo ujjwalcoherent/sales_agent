@@ -11,7 +11,7 @@ Used by:
   - app/api/profiles.py (CRUD endpoints)
   - app/intelligence/industry_classifier.py (builds IndustrySpec from targets)
   - app/agents/workers/email_agent.py (personalization context)
-  - app/learning/path_router.py (Q-Learning state features)
+  - app/learning/threshold_adapter.py (industry-aware adaptation)
 """
 
 from typing import List, Optional

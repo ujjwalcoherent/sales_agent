@@ -106,19 +106,28 @@ class SourceBandit:
         content_quality: Optional[Dict[str, float]] = None,
         cluster_oss: Optional[Dict[int, float]] = None,
         nli_scores_by_source: Optional[Dict[str, float]] = None,
+        cluster_coherence_by_source: Optional[Dict[str, float]] = None,
         decay_gamma: float = 0.97,
     ) -> Dict[str, float]:
         """Update posteriors from a pipeline run.
 
-        Reward blends pre-clustering signals (uniqueness, entity richness,
-        content quality, NLI entailment), post-clustering signals (cluster
-        quality), and cross-level OSS (synthesis specificity).
+        Reward = blend of forward signals (NLI, uniqueness, entity richness)
+        and backward cascade signal (cluster_coherence_by_source).
 
-        NLI entailment score (arXiv:1909.00161) is the PRIMARY quality signal:
-        - Sources producing business-relevant articles → high NLI entailment → reward
-        - ET Industry (politics) → low entailment → Thompson Sampling deprioritizes
-        - TechCrunch (tech funding) → high entailment → prioritized by TS
-        This is a self-improving loop: filter quality → bandit reward → fetch quality.
+        Forward signals (computed during this run):
+          - NLI entailment (30%): does this source produce B2B articles?
+          - Cluster quality (20%): do articles form meaningful clusters?
+          - Uniqueness (15%): low duplicate rate
+          - Entity richness (10%): named entities per article
+          - Content quality (10%): article text quality
+          - OSS (5%): synthesis specificity
+
+        Backward cascade signal (from downstream):
+          - cluster_coherence_by_source (10%): mean coherence of clusters
+            containing this source's articles. Low coherence → articles scatter
+            into noise → penalize source. This completes the feedback loop:
+            source → filter → cluster → coherence → source reward.
+            REF: Cascade learning (Rendle 2010 BPR).
 
         Returns {source_id: posterior_mean} after update.
         """
@@ -127,6 +136,7 @@ class SourceBandit:
         content_quality = content_quality or {}
         cluster_oss = cluster_oss or {}
         nli_scores_by_source = nli_scores_by_source or {}
+        cluster_coherence_by_source = cluster_coherence_by_source or {}
 
         # Decay posteriors toward prior (recency bias, floor 1.5 prevents collapse)
         for source_id in self._posteriors:
@@ -145,13 +155,9 @@ class SourceBandit:
             ent_score = min(1.0, raw_richness / 5.0)
             content_score = content_quality.get(source_id, 0.5)
 
-            # NLI relevance score: mean entailment for this source's articles
-            # This is the core self-improving signal: sources that consistently
-            # produce business-relevant articles get higher posterior estimates.
-            # REF: Chapelle & Li (2011) Thompson Sampling — correct mechanism,
-            # updated to use NLI entailment as the reward signal.
+            # NLI relevance: mean entailment for this source's articles.
+            # PRIMARY signal — sources with high B2B entailment get rewarded.
             nli_score = nli_scores_by_source.get(source_id, 0.40)
-            # 0.40 is the neutral/ambiguous fallback (not penalized, not rewarded)
 
             # Post-clustering signals
             labels = [article_labels.get(aid, -1) for aid in article_ids]
@@ -163,7 +169,7 @@ class SourceBandit:
             else:
                 avg_quality = 0.0
 
-            # Cross-level OSS signal (synthesis specificity)
+            # OSS (synthesis specificity)
             if cluster_oss and cluster_ids:
                 source_oss_scores = [
                     cluster_oss.get(cid, 0.0) for cid in cluster_ids
@@ -176,16 +182,19 @@ class SourceBandit:
             else:
                 avg_oss = 0.0
 
-            # Composite reward: NLI is the primary signal (30%), supplemented by
-            # clustering quality (25%), uniqueness (15%), entity richness (10%),
-            # content quality (10%), synthesis specificity (10%).
+            # Backward cascade: cluster coherence for this source's articles.
+            # If articles scatter into incoherent clusters → low reward.
+            backward_coh = cluster_coherence_by_source.get(source_id, 0.50)
+
+            # Composite reward (weights sum to 1.0)
             reward = (
-                0.30 * nli_score          # PRIMARY: Is this source producing B2B news?
+                0.30 * nli_score          # PRIMARY: B2B relevance
+                + 0.20 * avg_quality      # Cluster quality (forward)
                 + 0.15 * uniqueness       # Deduplication quality
                 + 0.10 * ent_score        # Entity richness
                 + 0.10 * content_score    # Content quality
-                + 0.25 * avg_quality      # Cluster quality (post-NLI signal)
-                + 0.10 * avg_oss          # Synthesis specificity
+                + 0.10 * backward_coh    # BACKWARD CASCADE: cluster coherence
+                + 0.05 * avg_oss          # Synthesis specificity
             )
 
             # Update Beta posterior (capped at 5 pseudo-observations per run)

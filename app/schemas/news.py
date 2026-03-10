@@ -114,6 +114,7 @@ class NewsArticle(BaseModel):
     # Embeddings for similarity (populated by embedding model)
     title_embedding: Optional[List[float]] = None
     content_embedding: Optional[List[float]] = None
+    embedding: Optional[List[float]] = None  # Combined embedding (title+content), set by source_intel
 
     # Clustering
     similarity_to_cluster: float = 0.0

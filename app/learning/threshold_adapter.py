@@ -57,11 +57,32 @@ class ThresholdUpdate:
     source: str = "auto"   # "auto" or "human_feedback"
 
 
+def cusum_detect(values: list, threshold: float = 2.0, drift: float = 0.5) -> bool:
+    """Page's CUSUM change detection (Page 1954).
+
+    Detects sustained drift in a quality metric. Returns True if the
+    cumulative sum of deviations exceeds the threshold, indicating
+    persistent degradation (not just noise).
+
+    REF: Page (1954) "Continuous Inspection Schemes", Biometrika.
+    """
+    s_pos, s_neg = 0.0, 0.0
+    for x in values:
+        s_pos = max(0.0, s_pos + x - drift)
+        s_neg = max(0.0, s_neg - x - drift)
+        if s_pos > threshold or s_neg > threshold:
+            return True
+    return False
+
+
 class ThresholdAdapter:
     """EMA-based threshold adaptation for all pipeline thresholds.
 
     Called after each pipeline run with observed quality metrics.
     Gradually shifts thresholds toward values that produce better outputs.
+
+    CUSUM guard: if quality_score drops below 0.4 for 3+ consecutive runs,
+    threshold adaptation freezes until recovery (prevents cascading drift).
     """
 
     def __init__(self, path: Path = _PATH, alpha: float = _EMA_ALPHA):
@@ -69,18 +90,59 @@ class ThresholdAdapter:
         self.alpha = alpha
         self._thresholds: Dict[str, float] = {}
         self._run_count: int = 0
+        self._quality_history: list = []  # Recent quality scores for CUSUM
+        self._frozen: bool = False  # CUSUM freeze flag
         self._load()
 
     def get(self, key: str, default: float) -> float:
         """Get current adapted threshold (or default if not yet learned)."""
         return self._thresholds.get(key, default)
 
+    def record_quality(self, quality_score: float) -> None:
+        """Record quality_score for CUSUM monitoring.
+
+        Call after quality gate runs. If CUSUM detects sustained degradation
+        (quality below 0.4 for 3+ runs), freezes threshold adaptation.
+        """
+        self._quality_history.append(quality_score)
+        # Keep last 10 runs for CUSUM window
+        if len(self._quality_history) > 10:
+            self._quality_history = self._quality_history[-10:]
+
+        # Recovery check FIRST: if frozen and current run shows good quality, unfreeze.
+        # Must check before CUSUM, which would still trigger from old history values.
+        if self._frozen and quality_score >= 0.45:
+            logger.info("[threshold_adapter] Quality recovered — unfreezing adaptation")
+            self._frozen = False
+            return
+
+        # CUSUM degradation detection: subtract 0.4 baseline so positive deviations
+        # indicate below-threshold quality. drift=0.05: marginal quality (0.38) doesn't
+        # accumulate. threshold=0.3: triggers after ~4 runs of q=0.25 or 3 of q=0.15.
+        deviations = [0.4 - q for q in self._quality_history[-5:]]
+        if len(deviations) >= 3 and cusum_detect(deviations, threshold=0.3, drift=0.05):
+            if not self._frozen:
+                logger.warning(
+                    "[threshold_adapter] CUSUM triggered: quality below 0.4 for sustained period. "
+                    "Freezing threshold adaptation until recovery."
+                )
+                self._frozen = True
+
     def update(self, update: ThresholdUpdate) -> None:
         """Apply EMA update from one pipeline run.
 
         Only updates thresholds where we have a meaningful observed signal.
+        Skipped if CUSUM freeze is active (quality degradation detected).
         """
         self._run_count += 1
+
+        if self._frozen:
+            logger.info(
+                f"[threshold_adapter] Run #{self._run_count}: FROZEN — "
+                f"skipping adaptation (CUSUM guard active)"
+            )
+            return
+
         changed = False
 
         # ── Filter thresholds ─────────────────────────────────────────────────

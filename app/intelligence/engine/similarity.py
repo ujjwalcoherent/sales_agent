@@ -98,16 +98,51 @@ def compute_decomposed_similarity(
     return signals
 
 
-def _compute_semantic(embeddings: np.ndarray) -> np.ndarray:
-    """Cosine similarity matrix from embeddings."""
-    # L2 normalize for cosine via dot product
+def cosine_sim_pair(a: np.ndarray, b: np.ndarray) -> float:
+    """Cosine similarity between two vectors. Shared across all modules.
+
+    Returns 0.0 for zero-norm vectors. Used by: validator.py, match.py, embeddings.py.
+    """
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
+    if norm_a < 1e-8 or norm_b < 1e-8:
+        return 0.0
+    return float(np.dot(a, b) / (norm_a * norm_b))
+
+
+def cosine_sim_matrix(embeddings: np.ndarray) -> np.ndarray:
+    """Cosine similarity (N, N) matrix from embeddings. Shared across all modules.
+
+    L2-normalizes then computes dot product. Clips to [0, 1].
+    Used by: similarity.py (semantic signal), cluster/orchestrator.py.
+    """
     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
     norms = np.where(norms == 0, 1.0, norms)
     normalized = embeddings / norms
     sim = normalized @ normalized.T
-    # Clamp to [0, 1]
     np.clip(sim, 0.0, 1.0, out=sim)
     return sim
+
+
+def mean_pairwise_cosine(embeddings: np.ndarray) -> float:
+    """Mean pairwise cosine similarity (coherence score). Shared across all modules.
+
+    Returns 1.0 for single embeddings, mean of upper triangle for 2+.
+    Used by: algorithms.py, clusterer.py, embeddings.py.
+    """
+    if len(embeddings) < 2:
+        return 1.0
+    try:
+        sim = cosine_sim_matrix(embeddings)
+        mask = np.triu(np.ones_like(sim, dtype=bool), k=1)
+        return float(sim[mask].mean()) if mask.any() else 0.0
+    except Exception:
+        return 0.0
+
+
+def _compute_semantic(embeddings: np.ndarray) -> np.ndarray:
+    """Cosine similarity matrix from embeddings (internal alias)."""
+    return cosine_sim_matrix(embeddings)
 
 
 def _compute_entity_overlap(articles: Optional[List[Any]], n: int) -> np.ndarray:

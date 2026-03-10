@@ -29,9 +29,7 @@ import json
 import logging
 import os
 import re
-from typing import Dict, List, Optional, Tuple
-
-from dataclasses import dataclass, field
+from typing import List, Optional, Tuple
 
 from app.intelligence.config import ClusteringParams, DEFAULT_PARAMS
 from app.intelligence.models import ClusterResult, MatchResult, Product, ProductCatalog
@@ -169,13 +167,8 @@ def _cosine_similarity(emb_a: List[float], emb_b: List[float]) -> float:
         return 0.0
     try:
         import numpy as np
-        a = np.array(emb_a, dtype=np.float32)
-        b = np.array(emb_b, dtype=np.float32)
-        norm_a = float(np.linalg.norm(a))
-        norm_b = float(np.linalg.norm(b))
-        if norm_a < 1e-9 or norm_b < 1e-9:
-            return 0.0
-        return float(np.dot(a / norm_a, b / norm_b))
+        from app.intelligence.engine.similarity import cosine_sim_pair
+        return cosine_sim_pair(np.array(emb_a, dtype=np.float32), np.array(emb_b, dtype=np.float32))
     except Exception:
         return 0.0
 
@@ -252,113 +245,6 @@ def _generate_why(
     return f"{company} → {product.name} (indirect match, review recommended)"
 
 
-@dataclass
-class AccountMatch:
-    """A cluster matched to a tracked account (Path 2 — Company-First).
-
-    Separate from MatchResult (product catalog) — different pipeline path.
-    """
-    cluster_id: str
-    matched_account: str          # The account name from the user's list
-    matched_entity: str           # The entity name extracted from the cluster
-    similarity_score: float       # difflib ratio 0-1
-    cluster_label: str = ""
-    cluster_summary: str = ""
-    entity_names: List[str] = field(default_factory=list)
-    event_type: str = ""
-    industry_label: str = ""
-    industry_order: int = 1
-    granularity: str = "major"    # EventGranularity.MAJOR/SUB/NANO
-
-
-# Minimum fuzzy-match ratio to consider a cluster entity as belonging to a target account
-_ACCOUNT_MATCH_THRESHOLD = 0.75
-
-
-def match_account_list(
-    clusters: List[ClusterResult],
-    account_list: List[str],
-) -> Dict[str, List[AccountMatch]]:
-    """Match clusters to a tracked account list using fuzzy string similarity.
-
-    Path 2 (Company-First): given a user's account list, find which clusters
-    contain news about those accounts. Uses difflib.SequenceMatcher so variations
-    like "Apollo Hospitals" vs "Apollo Hospitals India Ltd" still match.
-
-    Args:
-        clusters: validated clusters from the intelligence pipeline
-        account_list: company names the user wants to track
-
-    Returns:
-        Dict mapping account_name → list of AccountMatch objects (sorted by similarity desc)
-    """
-    if not clusters or not account_list:
-        return {}
-
-    from difflib import SequenceMatcher
-
-    results: Dict[str, List[AccountMatch]] = {acc: [] for acc in account_list}
-
-    for cluster in clusters:
-        entities = cluster.entity_names or []
-        if cluster.primary_entity:
-            # Primary entity first — highest weight
-            entities = [cluster.primary_entity] + [e for e in entities if e != cluster.primary_entity]
-
-        for account in account_list:
-            account_lower = account.lower()
-            best_ratio = 0.0
-            best_entity = ""
-
-            for entity in entities:
-                entity_lower = entity.lower()
-                ratio = SequenceMatcher(None, account_lower, entity_lower).ratio()
-
-                # Also check if one is a substring of the other (handles "Apollo" → "Apollo Hospitals")
-                if account_lower in entity_lower or entity_lower in account_lower:
-                    ratio = max(ratio, 0.80)
-
-                if ratio > best_ratio:
-                    best_ratio = ratio
-                    best_entity = entity
-
-            if best_ratio >= _ACCOUNT_MATCH_THRESHOLD:
-                results[account].append(AccountMatch(
-                    cluster_id=cluster.cluster_id,
-                    matched_account=account,
-                    matched_entity=best_entity,
-                    similarity_score=round(best_ratio, 3),
-                    cluster_label=cluster.label or "",
-                    cluster_summary=cluster.summary or "",
-                    entity_names=cluster.entity_names,
-                    event_type=cluster.event_type or "",
-                    industry_label=getattr(cluster, "industry_label", "") or "",
-                    industry_order=getattr(cluster, "industry_order", 1) or 1,
-                    granularity=_infer_granularity(cluster),
-                ))
-
-    # Sort each account's matches by similarity descending
-    for account in results:
-        results[account].sort(key=lambda m: m.similarity_score, reverse=True)
-
-    matched_count = sum(len(v) for v in results.values())
-    accounts_with_matches = sum(1 for v in results.values() if v)
-    logger.info(
-        f"[match] account_list: {accounts_with_matches}/{len(account_list)} accounts matched, "
-        f"{matched_count} cluster assignments across {len(clusters)} clusters"
-    )
-
-    return results
-
-
-def _infer_granularity(cluster: ClusterResult) -> str:
-    """Infer EventGranularity from cluster article count and size."""
-    article_count = getattr(cluster, "article_count", 0) or len(getattr(cluster, "article_ids", []))
-    if article_count >= 5:
-        return "major"
-    if article_count >= 2:
-        return "sub"
-    return "nano"
 
 
 def _load_catalog(user_products: List[str]) -> ProductCatalog:

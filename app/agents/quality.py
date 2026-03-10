@@ -1,28 +1,23 @@
 """
-Quality Agent — validation, gating, and feedback routing.
+Quality Agent — deterministic validation, gating, and retry logic.
 
-pydantic-ai agent that validates outputs at every pipeline stage,
-decides pass/fail/retry, and routes feedback to learning subsystems
-(source bandit, company bandit, weight learner).
+Replaced LLM-based quality agent (March 2026 audit):
+  - LLM agent always returned quality_score=0.0 (wasted 1-2 LLM calls + 5-10s)
+  - Deterministic formula: quality = 0.40 * mean_coherence + 0.30 * (1 - noise_rate) + 0.30 * mean_oss
+  - Same retry/pass/fail logic, no LLM call
 
-Tools:
-  - validate_trends: Council Stage A trend validation
-  - validate_impacts: Confidence-based impact filtering
-  - record_feedback: Save feedback to JSONL for learning
+The quality_score flows into:
+  - learning_update_node → signal_bus → threshold_adapter (next run's thresholds)
+  - run recordings (data/recordings/*/quality_complete.json)
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
-
-from app.agents.deps import AgentDeps
 
 logger = logging.getLogger(__name__)
 
-
-# ── Output schema ─────────────────────────────────────────────────────
 
 class QualityVerdict(BaseModel):
     """Structured output from the Quality Agent."""
@@ -36,62 +31,47 @@ class QualityVerdict(BaseModel):
     reasoning: str = ""
 
 
-# ── System prompt ─────────────────────────────────────────────────────
+async def run_quality_check(deps, stage: str) -> QualityVerdict:
+    """Deterministic quality gate — no LLM needed.
 
-QUALITY_PROMPT = """\
-You are the Quality Agent for a sales intelligence pipeline. You validate \
-outputs at every stage and decide: PASS, RETRY, or FAIL.
-
-VALIDATION STAGES:
-1. Post-Analysis: Check cluster coherence, noise ratio, trend count
-2. Post-Impact: Check impact confidence scores, filter low quality
-3. Post-LeadGen: Validate company-trend fit, check email quality
-
-DECISION RULES:
-- PASS: Quality meets thresholds → proceed to next stage
-- RETRY: Quality is borderline → ask previous agent to try again (max 2x)
-- FAIL: Quality is unacceptable AND retries exhausted → proceed with degraded output
-
-QUALITY THRESHOLDS:
-- Mean coherence >= 0.40 (trends)
-- Council confidence >= 0.35 (impacts)
-- Company relevance >= 0.30 (leads)
-
-Always explain your quality verdict with specific metrics.
-"""
-
-
-# ── Agent definition ──────────────────────────────────────────────────
-
-quality = Agent(
-    'test',  # Placeholder — overridden at runtime via deps.get_model()
-    deps_type=AgentDeps,
-    output_type=QualityVerdict,
-    system_prompt=QUALITY_PROMPT,
-    retries=1,
-)
-
-
-# ── Tools ─────────────────────────────────────────────────────────────
-
-@quality.tool
-async def validate_trend_quality(ctx: RunContext[AgentDeps]) -> str:
-    """Validate trend clustering quality (post-Analysis stage).
-
-    Checks coherence, noise ratio, cluster count against thresholds.
+    Trends: quality = 0.40 * mean_coherence + 0.30 * (1 - noise_rate) + 0.30 * mean_oss
+    Impacts: filter by council_confidence >= threshold
     """
-    tree = ctx.deps._trend_tree
+    if stage == "trends":
+        return _check_trends(deps)
+    elif stage == "impacts":
+        return _check_impacts(deps)
+    else:
+        return QualityVerdict(stage=stage, passed=True)
+
+
+def _check_trends(deps) -> QualityVerdict:
+    """Validate trend clustering quality using deterministic formula."""
+    tree = getattr(deps, "_trend_tree", None)
     if tree is None:
-        return "No trend tree to validate."
+        return QualityVerdict(stage="trends", passed=True, reasoning="No trend tree")
 
     major = tree.to_major_trends()
     if not major:
-        return "FAIL: Zero clusters found."
+        return QualityVerdict(
+            stage="trends", passed=False, quality_score=0.0,
+            issues=["Zero clusters found"], reasoning="FAIL: no clusters",
+        )
 
-    import numpy as np
+    # Compute signals from existing cluster data
     coherences = [getattr(m, 'coherence_score', 0.5) for m in major]
-    mean_coh = float(np.mean(coherences))
-    min_coh = float(np.min(coherences))
+    mean_coh = sum(coherences) / max(len(coherences), 1)
+    min_coh = min(coherences) if coherences else 0.0
+
+    pipeline = getattr(deps, "_pipeline", None)
+    noise_rate = getattr(pipeline, "_noise_rate", 0.0) if pipeline else 0.0
+    mean_oss = sum(getattr(m, 'oss_score', 0) for m in major) / max(len(major), 1)
+
+    # Deterministic quality formula (weights sum to 1.0)
+    quality = round(
+        0.40 * mean_coh + 0.30 * (1 - noise_rate) + 0.30 * mean_oss,
+        3,
+    )
 
     issues = []
     if mean_coh < 0.40:
@@ -101,89 +81,53 @@ async def validate_trend_quality(ctx: RunContext[AgentDeps]) -> str:
     if min_coh < 0.25:
         issues.append(f"Very low min coherence: {min_coh:.3f}")
 
-    status = "PASS" if not issues else "RETRY" if mean_coh >= 0.35 else "FAIL"
-    return (
-        f"Trend validation: {status}\n"
-        f"Clusters: {len(major)}, Mean coherence: {mean_coh:.3f}, "
-        f"Min: {min_coh:.3f}\n"
-        f"Issues: {issues if issues else 'None'}"
+    # Decision logic (same thresholds as old LLM agent)
+    if not issues:
+        passed, should_retry = True, False
+    elif mean_coh >= 0.35:
+        passed, should_retry = True, True  # borderline → retry if allowed
+    else:
+        passed, should_retry = False, False
+
+    reasoning = (
+        f"Deterministic quality: {quality:.3f} "
+        f"(coherence={mean_coh:.3f}, noise={noise_rate:.1%}, oss={mean_oss:.3f}). "
+        f"Clusters: {len(major)}, min_coh: {min_coh:.3f}"
+    )
+
+    logger.info(f"Quality gate (trends): score={quality:.3f}, passed={passed}, retry={should_retry}")
+
+    return QualityVerdict(
+        stage="trends",
+        passed=passed,
+        should_retry=should_retry,
+        items_passed=len(major),
+        items_filtered=0,
+        quality_score=quality,
+        issues=issues,
+        reasoning=reasoning,
     )
 
 
-@quality.tool
-async def validate_impact_quality(ctx: RunContext[AgentDeps]) -> str:
-    """Validate impact analysis quality (post-Impact stage).
-
-    Filters impacts by council confidence threshold.
-    """
+def _check_impacts(deps) -> QualityVerdict:
+    """Validate impact analysis — filter by council confidence threshold."""
     from app.config import get_settings
     settings = get_settings()
     threshold = settings.min_trend_confidence_for_agents
 
-    impacts = ctx.deps._impacts
+    impacts = getattr(deps, "_impacts", [])
     if not impacts:
-        return "No impacts to validate."
+        return QualityVerdict(stage="impacts", passed=True, reasoning="No impacts to validate")
 
     viable = [i for i in impacts if i.council_confidence >= threshold]
     filtered = len(impacts) - len(viable)
 
-    ctx.deps._viable_impacts = viable
+    deps._viable_impacts = viable
 
-    return (
-        f"Impact validation: {len(viable)}/{len(impacts)} passed "
-        f"(threshold={threshold}). Filtered: {filtered}."
+    return QualityVerdict(
+        stage="impacts",
+        passed=len(viable) > 0,
+        items_passed=len(viable),
+        items_filtered=filtered,
+        reasoning=f"{len(viable)}/{len(impacts)} passed (threshold={threshold}). Filtered: {filtered}.",
     )
-
-
-@quality.tool
-async def record_quality_feedback(
-    ctx: RunContext[AgentDeps],
-    feedback_type: str,
-    item_id: str,
-    rating: str,
-) -> str:
-    """Record quality feedback for learning subsystems.
-
-    Args:
-        feedback_type: "trend" or "lead"
-        item_id: Trend or lead identifier.
-        rating: For trends: good_trend/bad_trend/already_knew.
-                For leads: would_email/maybe/bad_lead.
-    """
-    from app.tools.feedback_store import save_feedback
-    record = save_feedback(
-        feedback_type=feedback_type,
-        item_id=item_id,
-        rating=rating,
-    )
-    return f"Feedback recorded: {feedback_type}/{rating} for {item_id}"
-
-
-# ── Public runner ─────────────────────────────────────────────────────
-
-async def run_quality_check(deps: AgentDeps, stage: str) -> QualityVerdict:
-    """Run the Quality Agent for a specific stage.
-
-    Args:
-        stage: "trends", "impacts", or "leads"
-    """
-    prompt = f"Validate the quality of the '{stage}' stage output."
-
-    try:
-        model = deps.get_model()
-        result = await quality.run(prompt, deps=deps, model=model)
-        logger.info(
-            f"Quality Agent ({stage}): "
-            f"passed={result.output.passed}, "
-            f"retry={result.output.should_retry}"
-        )
-        return result.output
-
-    except Exception as e:
-        logger.error(f"Quality Agent failed: {e}")
-        # Fallback: always pass
-        return QualityVerdict(
-            stage=stage,
-            passed=True,
-            reasoning=f"Fallback (agent error): {e}",
-        )

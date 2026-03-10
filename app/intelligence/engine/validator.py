@@ -437,9 +437,6 @@ def _compute_centroid(indices: List[int], embeddings: np.ndarray) -> Optional[np
 
 
 def _cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
-    """Cosine similarity between two vectors."""
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a < 1e-8 or norm_b < 1e-8:
-        return 0.0
-    return float(np.dot(a, b) / (norm_a * norm_b))
+    """Delegate to shared cosine_sim_pair in similarity.py."""
+    from app.intelligence.engine.similarity import cosine_sim_pair
+    return cosine_sim_pair(a, b)

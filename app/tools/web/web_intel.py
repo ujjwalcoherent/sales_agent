@@ -1007,8 +1007,28 @@ Return a JSON object with these exact fields:
 """
 
 
-# Limit concurrent ScrapeGraphAI calls (each uses ~10K-50K tokens from OpenAI)
-_scrapegraph_sem = asyncio.Semaphore(2)
+# ── ScrapeGraphAI availability check (once at import time) ────────────────
+try:
+    from scrapegraphai.graphs import SearchGraph as _SearchGraph  # noqa: F401
+    _SCRAPEGRAPH_AVAILABLE = True
+except ImportError:
+    _SCRAPEGRAPH_AVAILABLE = False
+    logger.warning(
+        "scrapegraphai not installed — deep_company_search will be unavailable. "
+        "Install with: pip install scrapegraphai"
+    )
+
+# Limit concurrent ScrapeGraphAI calls (each uses ~10K-50K tokens from OpenAI).
+# Lazy-initialised to avoid creating a Semaphore before an event loop exists.
+_scrapegraph_sem: Optional[asyncio.Semaphore] = None
+
+
+def _get_scrapegraph_sem() -> asyncio.Semaphore:
+    """Return (and lazily create) the ScrapeGraphAI concurrency semaphore."""
+    global _scrapegraph_sem
+    if _scrapegraph_sem is None:
+        _scrapegraph_sem = asyncio.Semaphore(2)
+    return _scrapegraph_sem
 
 
 async def deep_company_search(query: str, prompt: Optional[str] = None) -> Optional[CompanyProfile]:
@@ -1023,7 +1043,11 @@ async def deep_company_search(query: str, prompt: Optional[str] = None) -> Optio
     Returns:
         CompanyProfile or None on failure.
     """
-    async with _scrapegraph_sem:
+    if not _SCRAPEGRAPH_AVAILABLE:
+        logger.debug("deep_company_search skipped: scrapegraphai not installed")
+        return None
+
+    async with _get_scrapegraph_sem():
       try:
         from scrapegraphai.graphs import SearchGraph
 
@@ -1057,13 +1081,19 @@ async def deep_company_search(query: str, prompt: Optional[str] = None) -> Optio
             )
             return graph.run()
 
-        raw = await asyncio.to_thread(_run_search)
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(_run_search),
+            timeout=90,
+        )
 
         if not raw:
             return None
 
         return _parse_company_result(raw, query)
 
+      except asyncio.TimeoutError:
+        logger.warning(f"deep_company_search timed out for '{query}' (90s)")
+        return None
       except Exception as e:
         logger.warning(f"deep_company_search failed for '{query}': {e}")
         return None

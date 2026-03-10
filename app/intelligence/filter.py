@@ -198,8 +198,8 @@ async def filter_articles(
             if s <= params.nli_auto_reject and a.id not in kept_ids
         ]
         enhancer.extract_labels_from_filter(kept, rejected_texts, kept_with_scores)
-    except Exception as _exc:
-        pass  # Never block the filter for dataset enhancement
+    except Exception as exc:
+        logger.debug(f"[filter] Dataset enhancement skipped: {exc}")
 
     # ── Math assertions ───────────────────────────────────────────────────────
     assert_target_present = _check_targets_present(kept, targets, articles)
@@ -207,6 +207,20 @@ async def filter_articles(
 
     if not assert_non_increasing:
         logger.error(f"[filter] ASSERTION FAILED: output ({len(kept)}) > input ({len(articles)})")
+
+    # ── Proxy confusion matrix (A1) ──────────────────────────────────────────
+    # Estimate TP/FP/TN/FN using entity-in-title heuristic (no ground truth).
+    # "Has a named entity in title" ≈ positive class. Tracks precision trends
+    # across runs. If precision drops <0.6 for 3 runs → trigger hypothesis retrain.
+    tp, fp, tn, fn = _estimate_confusion(
+        kept, llm_rejected, auto_rejected, articles, nli_scores, params,
+    )
+    est_precision = tp / max(tp + fp, 1)
+    est_recall = tp / max(tp + fn, 1)
+    logger.info(
+        f"[filter] Confusion: TP={tp} FP={fp} TN={tn} FN={fn} "
+        f"precision={est_precision:.3f} recall={est_recall:.3f}"
+    )
 
     logger.info(
         f"[filter] {len(articles)} → {len(kept)} "
@@ -303,16 +317,6 @@ def _get_targets(scope: DiscoveryScope) -> List[str]:
         return list(get_industry_keywords(scope.industry))[:5]
     return []
 
-
-def _build_entity_counts(articles: List[Article]) -> Dict[str, int]:
-    """Count total cross-document mentions per entity name (lowercased)."""
-    counts: Counter = Counter()
-    for article in articles:
-        text = f"{article.title} {article.summary} {article.full_text}".lower()
-        for entity in article.entities_raw:
-            el = entity.lower()
-            counts[el] += text.count(el)
-    return dict(counts)
 
 
 def _entity_in_text(entity_lower: str, text_lower: str) -> bool:
@@ -466,7 +470,13 @@ Example: KEEP, DROP, KEEP, KEEP, DROP"""
 
     try:
         from app.tools.llm.llm_service import LLMService
-        response = await llm.generate(prompt, max_tokens=50)
+        # max_tokens=50 is too tight for 10 articles — "KEEP, DROP, ..." with spacing
+        # needs ~5-6 tokens per article.  Use 10*batch to be safe.
+        # asyncio.wait_for guards against LLM hangs (30s per batch).
+        response = await asyncio.wait_for(
+            llm.generate(prompt, max_tokens=max(len(batch) * 10, 80)),
+            timeout=30.0,
+        )
         decisions = [d.strip().upper() for d in response.split(",")]
 
         kept = []
@@ -527,6 +537,42 @@ def _apply_gap4(
             kept.append(article)  # No target mention → let cluster decide
 
     return kept, dropped_companies
+
+
+def _has_entity_in_title(article: Article) -> bool:
+    """Heuristic: does the title contain a probable named entity (capitalized 2+ word)?
+
+    Used as a proxy for "is this a real B2B article" in confusion matrix estimation.
+    Not ground truth, but tracks precision trends across runs.
+    """
+    title = getattr(article, "title", "") or ""
+    # Look for capitalized multi-word sequences (company/person names)
+    return bool(re.search(r'[A-Z][a-z]+\s+[A-Z][a-z]+', title))
+
+
+def _estimate_confusion(
+    kept: List[Article],
+    llm_rejected: List[Article],
+    auto_rejected_count: int,
+    all_articles: List[Article],
+    nli_scores: List[float],
+    params: ClusteringParams,
+) -> tuple:
+    """Estimate TP/FP/TN/FN using entity-in-title heuristic.
+
+    Proxy confusion matrix (no ground truth available at filter time):
+      TP = kept articles with named entity in title (likely real B2B)
+      FP = kept articles WITHOUT named entity (possible noise leak)
+      TN = auto-rejected count (high confidence noise)
+      FN = LLM-rejected articles WITH named entity (possible good articles lost)
+
+    Returns (tp, fp, tn, fn).
+    """
+    tp = sum(1 for a in kept if _has_entity_in_title(a))
+    fp = len(kept) - tp
+    tn = auto_rejected_count
+    fn = sum(1 for a in llm_rejected if _has_entity_in_title(a))
+    return tp, fp, tn, fn
 
 
 def _check_targets_present(

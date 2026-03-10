@@ -60,6 +60,9 @@ def _coerce_to_str_list(v: Any, field_name: str) -> List[str]:
     return [str(v)]
 
 
+_NONE_LIKE = frozenset({"none", "null", "n/a", "na", "undefined", "untitled", ""})
+
+
 class TrendData(BaseModel):
     """Market trend detected from RSS/Tavily.
 
@@ -92,6 +95,27 @@ class TrendData(BaseModel):
     # Evidence chain (AutoResearch D7 — citation path for emails)
     evidence_snippets: List[str] = Field(default_factory=list)  # Sourced quotes from articles
     evidence_companies: List[str] = Field(default_factory=list)  # Companies cited in evidence
+
+    @field_validator('trend_title', mode='before')
+    @classmethod
+    def validate_trend_title(cls, v):
+        """Reject None / empty / whitespace / placeholder trend titles.
+
+        LLMs occasionally return None or the literal string "None" for the
+        title field.  Coerce to a safe fallback so downstream agents (impact,
+        company search, email) never see a nonsensical title.
+        """
+        if v is None:
+            logger.warning("TrendData.trend_title was None — coercing to 'Untitled Trend'")
+            return "Untitled Trend"
+        v = str(v).strip()
+        if v.lower() in _NONE_LIKE:
+            logger.warning(f"TrendData.trend_title was placeholder '{v}' — coercing to 'Untitled Trend'")
+            return "Untitled Trend"
+        if len(v) < 3:
+            logger.warning(f"TrendData.trend_title too short ('{v}') — coercing to 'Untitled Trend'")
+            return "Untitled Trend"
+        return v
 
     @field_validator('industries_affected', 'source_links', 'keywords',
                      'causal_chain', 'affected_companies', 'affected_regions',
@@ -164,6 +188,18 @@ class ImpactAnalysis(BaseModel):
     council_confidence: float = 0.0
     # Phase 3B: who_needs_help from synthesis buying_intent — used for targeted company search
     who_needs_help: str = ""
+
+    @field_validator('trend_title', mode='before')
+    @classmethod
+    def validate_trend_title(cls, v):
+        """Coerce None / placeholder trend titles on ImpactAnalysis."""
+        if v is None:
+            return "Untitled Trend"
+        v = str(v).strip()
+        if v.lower() in _NONE_LIKE:
+            logger.warning(f"ImpactAnalysis.trend_title was placeholder '{v}' — coercing")
+            return "Untitled Trend"
+        return v
 
     @field_validator(
         'direct_impact', 'indirect_impact', 'additional_verticals',

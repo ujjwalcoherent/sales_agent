@@ -427,6 +427,7 @@ class ClusterResult(BaseModel):
 
     # Industry classification
     industry: Optional[IndustryClassification] = None
+    industries: List[str] = Field(default_factory=list)  # Human-readable industry names from article labels
 
     # Product matching
     matched_user_products: List[str] = Field(default_factory=list)
@@ -440,6 +441,12 @@ class ClusterResult(BaseModel):
     # Critic validation (AutoResearch quality gate)
     critic_score: float = 0.0        # 0-1, set by critic after synthesis
     critic_reasoning: str = ""       # Why critic accepted/rejected
+
+    # Strategic business opportunity score (set by verify_clustering in pipeline_validator.py)
+    # Measures B2B value, not just structural quality. Range [0.0, 1.0].
+    # Formula: 0.30×event_specificity + 0.25×entity_action + 0.20×industry + 0.15×temporal + 0.10×source_cred
+    # Jim Cramer commentary = ~0.09 (LOW), Apollo acquisition = ~0.90 (HIGH)
+    strategic_score: float = 0.0
 
     # Evidence chain (article → trend → lead citation)
     evidence_chain: Optional["EvidenceChain"] = None
@@ -604,6 +611,11 @@ class PipelineState(BaseModel):
     thought_log: List[ThoughtEntry] = Field(default_factory=list)
     noise_article_indices: List[int] = Field(default_factory=list)
 
+    # Stage advisories: inter-stage communication (SPOC pattern, arXiv:2506.06923).
+    # Each verify_*() in pipeline_validator.py appends a StageAdvisory dict here.
+    # Downstream stages read upstream advisories to adapt behavior.
+    stage_advisories: List[Dict[str, Any]] = Field(default_factory=list)
+
     # Round tracking (supervisor negotiation)
     round_number: int = 0
     max_rounds: int = 3
@@ -688,6 +700,9 @@ class IntelligenceResult(BaseModel):
     thought_log: List[ThoughtEntry] = Field(default_factory=list)
     rounds_completed: int = 0
     agent_requests_processed: int = 0
+
+    # NLI filter diagnostics (flows to source bandit reward in orchestrator)
+    nli_scores_by_source: Dict[str, float] = Field(default_factory=dict)
 
     # Diagnostics
     diagnostics_dir: Optional[str] = None

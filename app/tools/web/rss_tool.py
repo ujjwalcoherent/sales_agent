@@ -801,6 +801,10 @@ class RSSTool:
             summary = re.sub(r'<[^>]+>', '', summary)  # Strip HTML tags
             summary = html.unescape(summary)[:500]     # Decode &nbsp; &amp; etc.
             title = html.unescape(title)                # Decode entities in title too
+            # Some sources (Yahoo Finance, GDELT) omit summaries — fall back to title
+            # so NLI filter has enough signal to classify the article
+            if not summary.strip():
+                summary = title
 
             # Language filter: reject non-English articles (Hindi, Bengali, etc.)
             # Uses langdetect (Google n-gram detector) — scales to any language

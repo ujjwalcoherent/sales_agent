@@ -90,9 +90,6 @@ async def fetch_articles(
         elif isinstance(result, list):
             articles.extend(result)
 
-    # Publish source quality to SourceBandit (for learning)
-    _publish_fetch_stats(articles)
-
     logger.info(f"[fetch] {len(articles)} raw articles from {len(tasks)} sources")
     return articles
 
@@ -280,23 +277,6 @@ def _extract_domain(url: str) -> str:
     except Exception:
         return "unknown"
 
-
-def _publish_fetch_stats(articles: List[RawArticle]) -> None:
-    """Publish fetch stats to Signal Bus for SourceBanditAgent."""
-    try:
-        from collections import Counter
-        source_counts = Counter(a.source_name for a in articles)
-        # Non-blocking fire-and-forget via signal bus
-        import asyncio
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.ensure_future(_async_publish_fetch_stats(dict(source_counts)))
-    except Exception:
-        pass  # Learning update is non-critical
-
-
-async def _async_publish_fetch_stats(source_counts: dict) -> None:
-    pass  # Fetch stats are implicitly available via article source_name field
 
 
 async def _expand_queries(scope: DiscoveryScope) -> List[str]:
@@ -579,12 +559,4 @@ def _to_article(raw: RawArticle) -> Article:
     )
 
 
-def _extract_domain(url: str) -> str:
-    """Extract domain name from URL for source_name."""
-    try:
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        domain = parsed.netloc.lower()
-        return domain.replace("www.", "") if domain else "unknown"
-    except Exception:
-        return "unknown"
+# _extract_domain already defined above (line 275); removed duplicate

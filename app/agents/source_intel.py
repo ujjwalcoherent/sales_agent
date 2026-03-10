@@ -225,6 +225,11 @@ async def scrape_and_embed_articles(ctx: RunContext[AgentDeps]) -> str:
     embeddings = ctx.deps.embedding_tool.embed_batch(texts)
     ctx.deps._embeddings = embeddings
 
+    # Attach embeddings to articles so downstream clustering reuses them
+    # instead of recomputing (cluster/orchestrator._get_embeddings checks article.embedding)
+    for a, emb in zip(articles, embeddings):
+        a.embedding = emb
+
     content_rate = sum(1 for a in articles if a.content) / max(len(articles), 1)
     return (
         f"Processed {len(articles)} articles: "
@@ -347,7 +352,12 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
         # Mock injection is handled exclusively by the early-return above (line 272).
         _scope = getattr(deps, "scope", None)
         _hours = getattr(_scope, "hours", None) or settings.rss_hours_ago
+        # Use region-filtered source list (not DEFAULT_ACTIVE_SOURCES which includes broken feeds)
+        _region = getattr(_scope, "region", None) or settings.country_code or "IN"
+        from app.intelligence.config import get_region as _get_region
+        _region_source_ids = _get_region(_region).source_ids
         articles = await deps.rss_tool.fetch_all_sources(
+            source_ids=_region_source_ids,
             max_per_source=settings.rss_max_per_source,
             hours_ago=_hours,
         )
@@ -368,6 +378,10 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
         texts = [f"{a.title} {a.content or a.summary or ''}"[:cfg.summary_max_chars] for a in articles]
         embeddings = deps.embedding_tool.embed_batch(texts)
         deps._embeddings = embeddings
+
+        # Attach to articles — avoids recomputing in clustering phase
+        for _a, _emb in zip(articles, embeddings):
+            _a.embedding = _emb
 
     logger.info(f"Direct fetch fallback: {len(articles)} articles, {len(embeddings)} embeddings")
     fallback_result = SourceIntelResult(

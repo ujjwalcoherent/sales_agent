@@ -16,21 +16,35 @@ from ...config import get_settings, TREND_ROLE_MAPPING
 logger = logging.getLogger(__name__)
 
 
-def match_roles_to_trend(trend_type: str, pain_point: str = "", who_needs_help: str = "") -> list[str]:
+def match_roles_to_trend(
+    trend_type: str,
+    pain_point: str = "",
+    who_needs_help: str = "",
+    trend_title: str = "",
+) -> list[str]:
     """Determine which roles to target based on the trend.
 
-    Uses trend_type as primary signal, then scans pain_point and
-    who_needs_help for role keywords. Returns ordered list of target roles.
+    Uses trend_type as primary signal, then scans trend_title, pain_point,
+    and who_needs_help for role keywords. Returns ordered list of target roles.
     """
     roles = list(TREND_ROLE_MAPPING.get(trend_type, []))
 
-    # Scan pain_point and who_needs_help for additional role signals
-    text = f"{pain_point} {who_needs_help}".lower()
+    # Also try scanning trend_type itself for partial matches when it's a
+    # free-form LLM string like "AI security acquisition"
+    if not roles and trend_type and trend_type != "general":
+        tt_lower = trend_type.lower()
+        for key in TREND_ROLE_MAPPING:
+            if key != "default" and key in tt_lower:
+                roles = list(TREND_ROLE_MAPPING[key])
+                break
+
+    # Scan trend_title, pain_point, and who_needs_help for additional role signals
+    text = f"{trend_title} {pain_point} {who_needs_help}".lower()
     if "security" in text or "cyber" in text or "breach" in text:
         roles = list(TREND_ROLE_MAPPING.get("cybersecurity", [])) + roles
     if "cost" in text or "budget" in text or "expense" in text or "savings" in text:
         roles = list(TREND_ROLE_MAPPING.get("cost_reduction", [])) + roles
-    if "ai" in text or "artificial intelligence" in text or "machine learning" in text:
+    if " ai " in f" {text} " or "artificial intelligence" in text or "machine learning" in text:
         roles = list(TREND_ROLE_MAPPING.get("ai_adoption", [])) + roles
     if "cloud" in text or "infrastructure" in text or "migration" in text:
         roles = list(TREND_ROLE_MAPPING.get("cloud_migration", [])) + roles
@@ -42,6 +56,12 @@ def match_roles_to_trend(trend_type: str, pain_point: str = "", who_needs_help: 
         roles = list(TREND_ROLE_MAPPING.get("talent", [])) + roles
     if "privacy" in text or "data protection" in text:
         roles = list(TREND_ROLE_MAPPING.get("data_privacy", [])) + roles
+    if "acqui" in text or "merger" in text or "m&a" in text or "buyout" in text:
+        roles = list(TREND_ROLE_MAPPING.get("funding", [])) + roles
+    if "expansion" in text or "expand" in text or "growth" in text or "market entry" in text:
+        roles = list(TREND_ROLE_MAPPING.get("expansion", [])) + roles
+    if "funding" in text or "raise" in text or "series " in text or "ipo" in text:
+        roles = list(TREND_ROLE_MAPPING.get("funding", [])) + roles
 
     # If no roles found, use default
     if not roles:
@@ -148,7 +168,7 @@ class ContactFinder:
             self.apollo_tool = deps.apollo_tool
             self.hunter_tool = getattr(deps, "hunter_tool", None)
         else:
-            from ...search.manager import SearchManager
+            from app.tools.search import SearchManager
             from app.tools.crm.hunter_tool import HunterTool
             self.search_manager = SearchManager()
             self.llm_service = LLMService(mock_mode=self.mock_mode, lite=True)
@@ -193,15 +213,33 @@ class ContactFinder:
                         impact = impact_map.get(company.trend_id)
                         trend = trend_map.get(company.trend_id)
                         trend_type = getattr(trend, "trend_type", "") or "" if trend else ""
+                        trend_title = getattr(trend, "trend_title", "") or "" if trend else ""
                         pain_point = " ".join(getattr(impact, "midsize_pain_points", []) or []) if impact else ""
                         who_needs_help = getattr(impact, "who_needs_help", "") or "" if impact else ""
-                        matched_roles = match_roles_to_trend(trend_type, pain_point, who_needs_help)
+                        matched_roles = match_roles_to_trend(
+                            trend_type, pain_point, who_needs_help, trend_title=trend_title,
+                        )
                         if matched_roles:
                             target_roles = matched_roles
                         elif impact and impact.target_roles:
                             target_roles = impact.target_roles
                         else:
                             target_roles = list(TREND_ROLE_MAPPING.get("default", []))
+
+                        # ContactBandit re-ranking: prioritize roles that historically
+                        # produce high-value contacts for this event type
+                        try:
+                            from app.learning.contact_bandit import ContactBandit
+                            _cb = ContactBandit.load()
+                            _event = trend_type or "general"
+                            _size = getattr(company, "company_size_band", "mid") or "mid"
+                            _ranked = _cb.rank_roles(
+                                roles=target_roles, event_type=_event, company_size=_size,
+                            )
+                            # rank_roles returns List[Tuple[str, float]] — extract role names
+                            target_roles = [r for r, _ in _ranked]
+                        except Exception:
+                            pass  # Graceful degradation: use original role order
                     contacts = await self._find_contacts_for_company(
                         company, target_roles, max_contacts
                     )
@@ -327,6 +365,37 @@ class ContactFinder:
                     logger.info(f"Hunter domain_search added {len(hunter_results)} contacts for {company.company_name}")
             except Exception as e:
                 logger.debug(f"Hunter domain_search failed for {company.company_name}: {e}")
+
+        # Phase 4: Hunter find_email for contacts missing emails.
+        # Web search (Phases 1-2 fallback) finds names but no emails.
+        # Hunter find_email resolves name+domain → verified email address.
+        if self.hunter_tool and company.domain:
+            no_email = [c for c in contacts if not c.email and c.person_name]
+            if no_email:
+                import asyncio as _aio
+                email_results = await _aio.gather(
+                    *[
+                        self.hunter_tool.find_email(company.domain, c.person_name)
+                        for c in no_email[:5]  # Cap at 5 to stay within Hunter rate limits
+                    ],
+                    return_exceptions=True,
+                )
+                resolved = 0
+                for contact, result in zip(no_email[:5], email_results):
+                    if isinstance(result, Exception):
+                        logger.debug(f"Hunter find_email failed for {contact.person_name}: {result}")
+                        continue
+                    if result and result.email:
+                        contact.email = result.email
+                        contact.email_confidence = result.confidence or 70
+                        contact.email_source = "hunter"
+                        contact.verified = result.verified or False
+                        resolved += 1
+                if resolved:
+                    logger.info(
+                        f"Hunter find_email resolved {resolved}/{len(no_email)} "
+                        f"emails for {company.company_name}"
+                    )
 
         # Post-process: validate emails and clean up
         for c in contacts:
