@@ -1695,13 +1695,7 @@ async def learning_update_node(state: GraphState) -> dict:
             "feedback_distribution": bus.feedback_distribution,
             "nli_mean_entailment": bus.nli_mean_entailment,
         },
-        "retrospective": {
-            "grade": retro.run_grade if retro else "",
-            "summary": retro.summary if retro else "",
-            "successes": retro.successes[:3] if retro else [],
-            "failures": retro.failures[:3] if retro else [],
-            "improvement_plan": retro.improvement_plan[:3] if retro else [],
-        } if retro else None,
+        "retrospective": None,  # MetaReasoner removed (decorative, output never consumed)
     }, t0)
 
     # Save recording manifest (finalizes the recording for replay)
@@ -1765,13 +1759,7 @@ async def learning_update_node(state: GraphState) -> dict:
         logger.debug(f"Experiment tracking skipped: {e}")
         cleanup_snapshot()
 
-    retro_summary = ""
-    if retro and retro.run_grade:
-        retro_summary = f" | grade={retro.run_grade}"
-        if retro.improvement_plan:
-            top_plan = retro.improvement_plan[0]
-            if isinstance(top_plan, dict):
-                retro_summary += f" | next: {top_plan.get('action', '')[:60]}"
+    retro_summary = ""  # MetaReasoner removed — no retrospective data
 
     return {
         "errors": [],
