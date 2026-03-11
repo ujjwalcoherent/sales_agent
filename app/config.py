@@ -72,144 +72,20 @@ class Settings(BaseSettings):
     huggingface_api_key: str = Field(default="", alias="HF_API_KEY")
     embedding_model: str = Field(default="nvidia/nv-embedqa-e5-v5", alias="EMBEDDING_MODEL")
     local_embedding_model: str = Field(default="BAAI/bge-large-en-v1.5", alias="LOCAL_EMBEDDING_MODEL")
-    # Priority: "nvidia" = NVIDIA NIM API (best quality), "api" = HF GPUs, "local" = local CPU/GPU
-    embedding_provider: str = Field(default="nvidia", alias="EMBEDDING_PROVIDER")
-
-    # ── Trend Engine Pipeline ──
-    # Leiden: k-NN graph + community detection on raw 1024-dim embeddings.
-    # k: number of nearest neighbors for graph construction (sqrt(N) is a good default)
-    leiden_k: int = Field(default=20, alias="LEIDEN_K")
-    # resolution: higher = more, smaller clusters. Auto-tuned if leiden_auto_resolution=True.
-    leiden_resolution: float = Field(default=1.0, alias="LEIDEN_RESOLUTION")
-    # Auto-resolve resolution to hit target cluster count range (sqrt(N)/3 to sqrt(N))
-    leiden_auto_resolution: bool = Field(default=True, alias="LEIDEN_AUTO_RESOLUTION")
-    # Minimum community size (smaller → noise)
-    leiden_min_community_size: int = Field(default=3, alias="LEIDEN_MIN_COMMUNITY_SIZE")
-    # Seed for deterministic results
-    leiden_seed: int = Field(default=42, alias="LEIDEN_SEED")
-    # Optuna: Bayesian multi-parameter optimization (k, resolution, min_community)
-    # When True, replaces binary-search auto_resolution with Optuna TPE.
-    # ~15s for 15 trials at N=1000. Warm-starts from last run's best params.
-    leiden_optuna_enabled: bool = Field(default=True, alias="LEIDEN_OPTUNA_ENABLED")
-    leiden_optuna_trials: int = Field(default=15, alias="LEIDEN_OPTUNA_TRIALS")
-    leiden_optuna_timeout: int = Field(default=30, alias="LEIDEN_OPTUNA_TIMEOUT")
-
-    # Deduplication: MinHash LSH near-duplicate detection (lexical)
-    # 0.25 = very aggressive, catches articles with ~25% shared word bigrams (RECOMMENDED)
-    # 0.3 = aggressive, catches articles with ~30% shared word bigrams
-    # 0.5 = moderate, catches near-identical with some variation
-    # Combined with title-based, entity-based, and semantic dedup for comprehensive coverage
-    dedup_threshold: float = Field(default=0.25, alias="DEDUP_THRESHOLD")
-    dedup_num_perm: int = Field(default=128, alias="DEDUP_NUM_PERM")
-    dedup_shingle_size: int = Field(default=2, alias="DEDUP_SHINGLE_SIZE")
-
-    # Deduplication: Semantic (embedding-based) - catches cross-source duplicates
-    # OBSERVED SIMILARITY RANGES (nv-embedqa-e5-v5):
-    # - True duplicates (same story, different source): 0.90-1.0
-    # - Related but different articles: 0.65-0.72
-    # - Unrelated articles: 0.40-0.50
-    # THRESHOLD SELECTION:
-    # 0.88 = catches true duplicates, comfortable margin above related (0.72)
-    # 0.80 = too aggressive for nv-embedqa-e5-v5, catches related articles
-    # 0.93 = too conservative, misses cross-source duplicates
-    # Recalibrated for nv-embedqa-e5-v5 (sharper discrimination than bge-large)
-    semantic_dedup_threshold: float = Field(default=0.88, alias="SEMANTIC_DEDUP_THRESHOLD")
-
-    # Entity extraction: spaCy NER model
-    spacy_model: str = Field(default="en_core_web_lg", alias="SPACY_MODEL")
-
-    # Engine: Pipeline-level settings
-    engine_max_depth: int = Field(default=3, alias="ENGINE_MAX_DEPTH")
-    engine_max_concurrent_llm: int = Field(default=5, alias="ENGINE_MAX_CONCURRENT_LLM")
-
-    # Signal weights for actionability scoring (JSON string, override via env)
-    # These determine how trends are ranked for sales outreach.
-    # Weights should sum to ~1.0. Adjust to tune which signals matter most.
-    # Phase 6: Added cmi_relevance (10%) — clusters with low CMI service
-    # alignment score lower for sales outreach (but articles NOT dropped).
-    actionability_weights: str = Field(
-        default='{"recency":0.12,"velocity":0.07,"specificity":0.12,"regulatory":0.12,"trigger":0.14,"diversity":0.07,"authority":0.13,"financial":0.05,"person":0.03,"event_focus":0.05,"cmi_relevance":0.10}',
-        alias="ACTIONABILITY_WEIGHTS",
-    )
-
-    # ── Temporal Histogram (BERTopic topics_over_time approach) ──
-    # Number of time bins for temporal histogram (sparkline data).
-    # 8 bins balances granularity vs noise. Use 4-12 for different resolutions.
-    temporal_histogram_bins: int = Field(default=8, alias="TEMPORAL_HISTOGRAM_BINS")
-    # Recency decay lambda for BERTrend exponential decay: e^(-lambda * hours²)
-    # 0.003 = 6hr→0.9, 24hr→0.18, 48hr→0.001
-    recency_decay_lambda: float = Field(default=0.003, alias="RECENCY_DECAY_LAMBDA")
-    # Momentum classification thresholds (applied to last N bins of velocity_history)
-    # "spiking" if max bin velocity > spike_multiplier × mean velocity
-    momentum_spike_multiplier: float = Field(default=3.0, alias="MOMENTUM_SPIKE_MULTIPLIER")
-    # Number of trailing bins to evaluate for momentum direction
-    momentum_window_bins: int = Field(default=3, alias="MOMENTUM_WINDOW_BINS")
-
-    # ── LLM Synthesis Quality (T5) ──
-    # Max articles to include in synthesis context (per cluster)
-    synthesis_max_articles: int = Field(default=15, alias="SYNTHESIS_MAX_ARTICLES")
-    # Max characters per article in synthesis context (increased for richer context)
-    synthesis_article_char_limit: int = Field(default=2000, alias="SYNTHESIS_ARTICLE_CHAR_LIMIT")
-    # Max retries on synthesis failure before returning empty (3 = struct + specificity)
-    synthesis_max_retries: int = Field(default=3, alias="SYNTHESIS_MAX_RETRIES")
-    
     # ── LLM JSON Validation (V2) ──
     llm_json_max_retries: int = Field(default=2, alias="LLM_JSON_MAX_RETRIES")
 
-    # ── Synthesis Validation (V3) ──
-    synthesis_strict_mode: bool = Field(default=False, alias="SYNTHESIS_STRICT_MODE")
-
-    # ── Event Classifier (V8) ──
-    # 20 event types (was 14) — lower threshold since more categories to match.
-    # Tier 2 LLM catches ambiguous cases above threshold.
-    event_classifier_threshold: float = Field(default=0.35, alias="EVENT_CLASSIFIER_THRESHOLD")
-    event_classifier_ambiguity_margin: float = Field(default=0.04, alias="EVENT_CLASSIFIER_AMBIGUITY_MARGIN")
-    event_max_llm_calls: int = Field(default=80, alias="EVENT_MAX_LLM_CALLS")
-
     # ── Coherence Validation ──
     coherence_min: float = Field(default=0.48, alias="COHERENCE_MIN")
-    coherence_reject: float = Field(default=0.35, alias="COHERENCE_REJECT")
     merge_threshold: float = Field(default=0.82, alias="MERGE_THRESHOLD")
 
-    # ── CMI Relevance Filter ──
-    cmi_relevance_threshold: float = Field(default=0.28, alias="CMI_RELEVANCE_THRESHOLD")
-    # Hard floor: "general" articles below this CMI score are dropped (non-business content)
-    cmi_hard_floor: float = Field(default=0.25, alias="CMI_HARD_FLOOR")
-
-    # ── Article Triage Agent ──
-    # Confidence floor: articles with event classifier confidence below this get LLM triage
-    triage_confidence_floor: float = Field(default=0.45, alias="TRIAGE_CONFIDENCE_FLOOR")
-    # Max articles to send to LLM triage per run.
-    # 50 articles × batch_size=15 = ~4 LLM calls.
-    triage_max_articles: int = Field(default=50, alias="TRIAGE_MAX_ARTICLES")
-    # Batch size for LLM triage calls (15 optimal — fewer calls, same quality)
-    triage_batch_size: int = Field(default=15, alias="TRIAGE_BATCH_SIZE")
-
-    # ── Subclustering ──
-    max_children_per_parent: int = Field(default=6, alias="MAX_CHILDREN_PER_PARENT")
-    min_articles_for_subclustering: int = Field(default=6, alias="MIN_ARTICLES_FOR_SUBCLUSTERING")
-    min_subcluster_coherence: float = Field(default=0.35, alias="MIN_SUBCLUSTER_COHERENCE")
-
     # ── Scraping ──
-    semantic_dedup_max_articles: int = Field(default=2000, alias="SEMANTIC_DEDUP_MAX_ARTICLES")
     scrape_enabled: bool = Field(default=False, alias="SCRAPE_ENABLED")
     scrape_max_concurrent: int = Field(default=10, alias="SCRAPE_MAX_CONCURRENT")
     scrape_max_articles: int = Field(default=250, alias="SCRAPE_MAX_ARTICLES")
     summary_max_chars: int = Field(default=1500, alias="SUMMARY_MAX_CHARS")
 
-    # ── Scoring Weights (JSON strings, same pattern as actionability_weights) ──
-    trend_score_weights: str = Field(
-        default='{"volume":0.30,"momentum":0.45,"diversity":0.25}',
-        alias="TREND_SCORE_WEIGHTS",
-    )
-    cluster_quality_score_weights: str = Field(
-        default='{"coherence":0.28,"source_diversity":0.25,"event_agreement":0.17,"evidence_volume":0.12,"authority":0.18}',
-        alias="CLUSTER_QUALITY_SCORE_WEIGHTS",
-    )
-    # source_credibility_weights — REMOVED (0 callers, March 2026 audit)
-
     # ── Council & Agent Thresholds ──
-    cmi_auto_noise_threshold: float = Field(default=0.2, alias="CMI_AUTO_NOISE_THRESHOLD")
     lead_relevance_threshold: float = Field(default=0.3, alias="LEAD_RELEVANCE_THRESHOLD")
     max_search_queries_per_impact: int = Field(default=7, alias="MAX_SEARCH_QUERIES_PER_IMPACT")
     enterprise_blocklist: str = Field(
@@ -228,58 +104,9 @@ class Settings(BaseSettings):
     rss_per_source_timeout: float = Field(default=15.0, alias="RSS_PER_SOURCE_TIMEOUT")
     rss_httpx_timeout: float = Field(default=12.0, alias="RSS_HTTPX_TIMEOUT")
 
-    # ── Dedup Entity Thresholds ──
-    # Entity fingerprint dedup: min shared entities for same-topic match
-    dedup_entity_same_topic_min: int = Field(default=2, alias="DEDUP_ENTITY_SAME_TOPIC_MIN")
-    # Entity fingerprint dedup: min shared entities for cross-topic match
-    dedup_entity_cross_topic_min: int = Field(default=4, alias="DEDUP_ENTITY_CROSS_TOPIC_MIN")
-
-    # hybrid_w_semantic/lexical/event/temporal — REMOVED (0 callers, March 2026 audit)
-    # hybrid_same_source_penalty — REMOVED (0 callers)
-    # hybrid_temporal_decay_hours — REMOVED (0 callers)
-    # Similarity weights now live in intelligence/config.py (ClusteringParams)
-
-    # ── Embedding Augmentation (engine.py) ──
-    # Event-type one-hot augmentation scale
-    event_augment_scale: float = Field(default=0.50, alias="EVENT_AUGMENT_SCALE")
-    # Entity fingerprint augmentation scale
-    entity_fp_scale: float = Field(default=0.30, alias="ENTITY_FP_SCALE")
-    # Entity fingerprint hash buckets
-    entity_fp_buckets: int = Field(default=32, alias="ENTITY_FP_BUCKETS")
-
-    # ── Quality Composite Weights (coherence.py) ──
-    # Weights for computing composite quality grade (must sum to 1.0)
-    quality_w_coherence: float = Field(default=0.15, alias="QUALITY_W_COHERENCE")
-    quality_w_entity: float = Field(default=0.10, alias="QUALITY_W_ENTITY")
-    quality_w_cmi: float = Field(default=0.25, alias="QUALITY_W_CMI")
-    quality_w_specificity: float = Field(default=0.25, alias="QUALITY_W_SPECIFICITY")
-    quality_w_second_order: float = Field(default=0.15, alias="QUALITY_W_SECOND_ORDER")
-    quality_w_source_diversity: float = Field(default=0.10, alias="QUALITY_W_SOURCE_DIVERSITY")
-
     # ── Quality Gates (V9) ──
     min_synthesis_confidence: float = Field(default=0.40, alias="MIN_SYNTHESIS_CONFIDENCE")
     min_trend_confidence_for_agents: float = Field(default=0.40, alias="MIN_TREND_CONFIDENCE_FOR_AGENTS")
-
-    # ── Cross-Validation (V10) ──
-    # ValidatorAgent: scores LLM synthesis groundedness against source articles.
-    # Enable/disable the validator (disable to save LLM calls during development)
-    validator_enabled: bool = Field(default=True, alias="VALIDATOR_ENABLED")
-    # Max back-and-forth rounds between synthesizer and validator (1 = validate only, 2+ = revise)
-    validator_max_rounds: int = Field(default=3, alias="VALIDATOR_MAX_ROUNDS")
-    # Overall groundedness score threshold to PASS (0.0-1.0). Below this = REVISE.
-    validator_pass_threshold: float = Field(default=0.40, alias="VALIDATOR_PASS_THRESHOLD")
-    # Overall groundedness score below which we REJECT outright (no revision attempt).
-    validator_reject_threshold: float = Field(default=0.25, alias="VALIDATOR_REJECT_THRESHOLD")
-    # Minimum entity overlap ratio (claimed entities found in sources) to pass entity check.
-    # Lowered from 0.55 to 0.35: NER only sees title+summary+content[:1200] but LLM synthesis
-    # correctly reads entities from full article text. 0.35 accounts for this coverage gap.
-    validator_entity_overlap_min: float = Field(default=0.35, alias="VALIDATOR_ENTITY_OVERLAP_MIN")
-    # Weight for NER entity overlap in overall score (0.0-1.0)
-    validator_weight_entity: float = Field(default=0.35, alias="VALIDATOR_WEIGHT_ENTITY")
-    # Weight for keyword overlap in overall score (0.0-1.0)
-    validator_weight_keyword: float = Field(default=0.30, alias="VALIDATOR_WEIGHT_KEYWORD")
-    # Weight for embedding similarity in overall score (0.0-1.0)
-    validator_weight_embedding: float = Field(default=0.35, alias="VALIDATOR_WEIGHT_EMBEDDING")
 
     # ── Company Verification (V7) ──
     company_min_verification_confidence: float = Field(default=0.0, alias="COMPANY_MIN_VERIFICATION_CONFIDENCE")
@@ -309,7 +136,6 @@ class Settings(BaseSettings):
     max_contacts_per_company: int = Field(default=6, alias="MAX_CONTACTS_PER_COMPANY")  # 3 DMs + 3 influencers
     email_confidence_threshold: int = Field(default=70, alias="EMAIL_CONFIDENCE_THRESHOLD")
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
-    show_tooltips: bool = Field(default=True, alias="SHOW_TOOLTIPS")
     
     # ── Email Sending (Brevo) ──
     # Global kill switch: set to True to enable email sending
@@ -329,35 +155,15 @@ class Settings(BaseSettings):
     )
 
     # ── API Configuration ──
-    api_key: str = Field(default="", alias="API_KEY")
     cors_origins: str = Field(
         default="http://localhost:3000,http://localhost:3001",
         alias="CORS_ORIGINS",
     )
-    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
-    api_port: int = Field(default=8000, alias="API_PORT")
 
     # ── Engine Phase Timeouts (seconds) ──
     # High timeouts: prefer patience over skipping. GCP rate limits = just wait.
-    engine_event_class_timeout: float = Field(default=600.0, alias="ENGINE_EVENT_CLASS_TIMEOUT")
-    engine_clustering_timeout: float = Field(default=120.0, alias="ENGINE_CLUSTERING_TIMEOUT")
-    engine_validation_timeout: float = Field(default=600.0, alias="ENGINE_VALIDATION_TIMEOUT")
     engine_synthesis_timeout: float = Field(default=600.0, alias="ENGINE_SYNTHESIS_TIMEOUT")
     engine_causal_timeout: float = Field(default=300.0, alias="ENGINE_CAUSAL_TIMEOUT")
-
-    # ── Provider Resilience ──
-    # Rate limit cooldown: base seconds per 429 failure (doubles each time, capped)
-    provider_ratelimit_base_seconds: float = Field(default=15.0, alias="PROVIDER_RATELIMIT_BASE_SECONDS")
-    provider_ratelimit_max_seconds: float = Field(default=120.0, alias="PROVIDER_RATELIMIT_MAX_SECONDS")
-    # Generic error cooldown: seconds per non-429 failure
-    provider_error_base_seconds: float = Field(default=30.0, alias="PROVIDER_ERROR_BASE_SECONDS")
-    # Failures before marking provider "broken" (still usable after backoff expires)
-    provider_broken_threshold: int = Field(default=8, alias="PROVIDER_BROKEN_THRESHOLD")
-
-    # ── Cross-Trend Causal Council (Layer 6 in engine) ──
-    cross_trend_max_candidates: int = Field(default=5, alias="CROSS_TREND_MAX_CANDIDATES")
-    cross_trend_max_cascades: int = Field(default=2, alias="CROSS_TREND_MAX_CASCADES")
-    cross_trend_inner_timeout: float = Field(default=120.0, alias="CROSS_TREND_INNER_TIMEOUT")
 
     # ── Per-Trend Causal Council (Step 3.7 in orchestrator) ──
     per_trend_max_impacts: int = Field(default=8, alias="PER_TREND_MAX_IMPACTS")
@@ -371,8 +177,6 @@ class Settings(BaseSettings):
     # Max seconds to wait when all providers are in cooldown
     # 300s = patient wait for GCP rate limit recovery (was 30s = too aggressive)
     llm_max_provider_wait: float = Field(default=300.0, alias="LLM_MAX_PROVIDER_WAIT")
-
-    # coherence_grade_a/b/c/d — REMOVED (defined but never referenced, March 2026 audit)
 
     # ── Enrichment (ScrapeGraphAI) ──
     deep_enrichment_enabled: bool = Field(default=False, alias="DEEP_ENRICHMENT_ENABLED")

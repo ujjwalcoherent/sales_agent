@@ -78,6 +78,13 @@ def _check_trends(deps, trends: list = None) -> QualityVerdict:
         3,
     )
 
+    # Check for duplicate cluster labels (self-learning signal for clustering quality)
+    labels = [getattr(c, "label", "") or "" for c in clusters]
+    label_keys = [(l[:50].strip().lower()) for l in labels if l.strip()]
+    duplicate_rate = 1.0 - (len(set(label_keys)) / max(len(label_keys), 1))
+    if duplicate_rate > 0.20:
+        logger.warning(f"Quality gate: high duplicate cluster rate {duplicate_rate:.0%} — clustering threshold may need tightening")
+
     issues = []
     if mean_coh < 0.40:
         issues.append(f"Low mean coherence: {mean_coh:.3f} (need >= 0.40)")
@@ -85,6 +92,8 @@ def _check_trends(deps, trends: list = None) -> QualityVerdict:
         issues.append(f"Too few clusters: {len(clusters)} (need >= 3)")
     if min_coh < 0.25:
         issues.append(f"Very low min coherence: {min_coh:.3f}")
+    if duplicate_rate > 0.30:
+        issues.append(f"High duplicate cluster rate: {duplicate_rate:.0%} (clustering too fine-grained)")
 
     # Decision logic (same thresholds as old LLM agent)
     if not issues:

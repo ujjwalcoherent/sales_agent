@@ -250,17 +250,3 @@ def get_threshold_adapter() -> ThresholdAdapter:
     return _INSTANCE
 
 
-async def update_from_run_metrics(metrics: Dict[str, Any]) -> None:
-    """Update thresholds from Signal Bus intelligence.run.complete event."""
-    adapter = get_threshold_adapter()
-    update = ThresholdUpdate(
-        observed_filter_accept_rate=metrics.get("articles_filtered", 0) / max(metrics.get("articles_fetched", 1), 1),
-        observed_coherence=metrics.get("mean_coherence"),
-        observed_pass_rate=(
-            metrics.get("clusters_passed", 0) /
-            max(metrics.get("clusters_passed", 0) + metrics.get("clusters_rejected", 0), 1)
-        ),
-        observed_noise_rate=metrics.get("noise_rate"),
-        run_id=metrics.get("run_id", ""),
-    )
-    adapter.update(update)

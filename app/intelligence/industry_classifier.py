@@ -225,8 +225,6 @@ def classify_articles(
                     "label": spec.industry_id,
                     "order": order,
                     "score": order_score,
-                    "first_order_score": fs,
-                    "second_order_score": ss,
                 }
 
     # Apply best match to articles
@@ -240,8 +238,6 @@ def classify_articles(
         if match:
             article.industry_label = match["label"]
             article.industry_order = match["order"]
-            article.first_order_score = match["first_order_score"]
-            article.second_order_score = match["second_order_score"]
             labeled += 1
             if match["order"] == 1:
                 first_order_count += 1

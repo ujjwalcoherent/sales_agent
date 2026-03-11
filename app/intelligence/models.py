@@ -140,7 +140,6 @@ class Article(BaseModel):
     fetch_method: str = ""
 
     # Computed during filter step
-    salience_scores: Dict[str, float] = Field(default_factory=dict)  # entity → salience
     is_relevant: bool = True
     relevance_confidence: float = 1.0
 
@@ -151,9 +150,6 @@ class Article(BaseModel):
     # Industry classification (set by industry_classifier.py after NLI filter)
     industry_label: Optional[str] = None          # e.g. "healthcare_pharma"
     industry_order: Optional[int] = None          # 1 = direct player, 2 = adjacent/supply-chain
-    first_order_score: float = 0.0               # NLI entailment vs 1st-order hypothesis
-    second_order_score: float = 0.0              # NLI entailment vs 2nd-order hypothesis
-
     # Index within run (set by pipeline for matrix indexing)
     run_index: int = -1
 
@@ -176,32 +172,6 @@ class DedupResult(BaseModel):
 # ══════════════════════════════════════════════════════════════════════════════
 # SALIENCE / FILTER (FilterAgent output)
 # ══════════════════════════════════════════════════════════════════════════════
-
-class SalienceScore(BaseModel):
-    """Dunietz & Gillick 2014 salience for one (entity, article) pair.
-
-    salience = 0.40 * title_presence
-             + 0.30 * first_sentence_presence
-             + 0.15 * normalized_frequency
-             + 0.15 * exclusivity_score
-    """
-    entity: str
-    article_id: str
-
-    title_presence: float = 0.0          # 1.0 if entity in title, else 0.0
-    first_sentence_presence: float = 0.0  # 1.0 if in first 2 sentences
-    normalized_frequency: float = 0.0    # min(count/total_words*100, 1.0)
-    exclusivity_score: float = 0.0       # 1 / log(1 + total_cross_doc_mentions)
-
-    @property
-    def score(self) -> float:
-        return (
-            0.40 * self.title_presence
-            + 0.30 * self.first_sentence_presence
-            + 0.15 * self.normalized_frequency
-            + 0.15 * self.exclusivity_score
-        )
-
 
 class FilterResult(BaseModel):
     """Output of FilterAgent — math gate 2."""
@@ -291,21 +261,6 @@ class ExtractionResult(BaseModel):
     assertion_no_camel_case: bool = True
     assertion_variants_fuzzy_match: bool = True
     assertion_no_duplicate_groups: bool = True
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 5W EVENT EXTRACTION
-# ══════════════════════════════════════════════════════════════════════════════
-
-class ArticleEvent(BaseModel):
-    """Structured 5W extraction from a news article."""
-    who: str = ""
-    what: str = ""
-    when: str = ""
-    where: str = ""
-    why: str = ""
-    event_type: str = ""           # "product_launch", "regulatory", "funding"
-    b2b_relevant: bool = True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -402,11 +357,9 @@ class ClusterResult(BaseModel):
     # Event classification
     event_type: str = ""
     event_granularity: EventGranularity = EventGranularity.MAJOR
-    events: List[ArticleEvent] = Field(default_factory=list)
 
     # Quality metrics
     confidence: float = 0.0
-    confidence_breakdown: Dict[str, float] = Field(default_factory=dict)
 
     # Dendrogram (HAC only)
     dendrogram_metrics: Optional[DendrogramMetrics] = None
@@ -415,7 +368,6 @@ class ClusterResult(BaseModel):
     coherence_score: float = 0.0
     entity_consistency: float = 0.0
     source_diversity: int = 0
-    temporal_spread_hours: float = 0.0
 
     # Embedding (centroid of member articles)
     centroid_embedding: List[float] = Field(default_factory=list)
@@ -431,7 +383,6 @@ class ClusterResult(BaseModel):
 
     # Product matching
     matched_user_products: List[str] = Field(default_factory=list)
-    product_match_score: float = 0.0
 
     # Synthesis
     summary: str = ""                # 2-3 sentence summary from SynthesisAgent

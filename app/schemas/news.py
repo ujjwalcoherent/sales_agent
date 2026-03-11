@@ -99,21 +99,13 @@ class NewsArticle(BaseModel):
     entities: List[Entity] = Field(default_factory=list)
     entity_names: List[str] = Field(default_factory=list)  # Flat list for quick overlap
 
-    # Legacy entity fields (kept for backward compat with existing code)
-    mentioned_companies: List[str] = Field(default_factory=list)
-    mentioned_people: List[str] = Field(default_factory=list)
-    mentioned_locations: List[str] = Field(default_factory=list)
-    mentioned_amounts: List[MoneyAmount] = Field(default_factory=list)
-
     # Classification (populated by ML/LLM)
     detected_sectors: List[Sector] = Field(default_factory=list)
     detected_trend_types: List[TrendType] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
     sentiment_score: float = 0.0  # -1.0 to 1.0
 
-    # Embeddings for similarity (populated by embedding model)
-    title_embedding: Optional[List[float]] = None
-    content_embedding: Optional[List[float]] = None
+    # Embedding for similarity (populated by embedding model)
     embedding: Optional[List[float]] = None  # Combined embedding (title+content), set by source_intel
 
     # Clustering

@@ -89,12 +89,6 @@ class LearningSignalBus:
     lead_quality_per_cluster: Dict[str, float] = field(default_factory=dict)
     # {cluster_id: mean_lead_score} → company bandit backward reward.
 
-    # ── Confusion matrix (A1) ──────────────────────────────────
-    filter_tp: int = 0
-    filter_fp: int = 0
-    filter_tn: int = 0
-    filter_fn: int = 0
-
     # ── Cross-loop derived signals (Phase 2) ────────────────────
     system_confidence: float = 0.5   # Overall system health [0,1]
     exploration_budget: float = 0.3  # How aggressively to explore [0.1, 0.5]
@@ -225,13 +219,6 @@ class LearningSignalBus:
         self.cluster_noise_rate = cluster_noise_rate
         if lead_quality_per_cluster:
             self.lead_quality_per_cluster = lead_quality_per_cluster
-
-    def publish_confusion_matrix(self, tp: int, fp: int, tn: int, fn: int) -> None:
-        """Publish proxy confusion matrix from filter (A1)."""
-        self.filter_tp = tp
-        self.filter_fp = fp
-        self.filter_tn = tn
-        self.filter_fn = fn
 
     # ──────────────────────────────────────────────────────────────
     # Phase 2: Compute derived cross-loop signals

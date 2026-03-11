@@ -37,7 +37,6 @@ Also applies Gap 4 rule:
 
 import asyncio
 import logging
-import math
 import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -49,7 +48,6 @@ from app.intelligence.models import (
     Article,
     DiscoveryScope,
     FilterResult,
-    SalienceScore,
 )
 
 logger = logging.getLogger(__name__)
@@ -296,66 +294,6 @@ async def filter_articles(
     )
 
 
-def compute_salience(
-    entity: str,
-    article: Article,
-    entity_counts: Dict[str, int],
-    corpus_size: int,
-) -> SalienceScore:
-    """Compute Dunietz & Gillick 2014 salience for one (entity, article) pair.
-
-    NOTE: This function is kept for backwards compatibility and used by the
-    entity extractor's MIN_SEED_SALIENCE check. It is NO LONGER used for the
-    article relevance filter (replaced by NLI in filter_articles()).
-
-    Args:
-        entity: canonical entity name (case-insensitive match)
-        article: Article to score
-        entity_counts: cross-document mention counts (for exclusivity)
-        corpus_size: total number of articles in corpus
-    """
-    entity_lower = entity.lower()
-    title_lower = article.title.lower()
-    text = (article.full_text or article.summary or "").lower()
-    full_lower = title_lower + " " + text
-
-    # ── Component 1: Title presence (0.40 weight) ─────────────────────────────
-    title_presence = 1.0 if _entity_in_text(entity_lower, title_lower) else 0.0
-
-    # ── Component 2: First 2 sentences presence (0.30 weight) ────────────────
-    first_sentences = _extract_first_sentences(text, n=2)
-    first_sentence_presence = 1.0 if _entity_in_text(entity_lower, first_sentences) else 0.0
-
-    # ── Component 3: Normalized frequency (0.15 weight) ───────────────────────
-    total_words = max(len(full_lower.split()), 1)
-    mention_count = full_lower.count(entity_lower)
-    normalized_freq = min(mention_count / total_words * 100, 1.0)
-
-    # ── Early exit: entity not mentioned at all → score = 0 ───────────────────
-    if title_presence == 0.0 and first_sentence_presence == 0.0 and mention_count == 0:
-        return SalienceScore(
-            entity=entity,
-            article_id=article.id,
-            title_presence=0.0,
-            first_sentence_presence=0.0,
-            normalized_frequency=0.0,
-            exclusivity_score=0.0,
-        )
-
-    # ── Component 4: Exclusivity score (0.15 weight) ──────────────────────────
-    total_corpus_mentions = entity_counts.get(entity_lower, 1)
-    exclusivity = 1.0 / math.log(1 + total_corpus_mentions)
-
-    return SalienceScore(
-        entity=entity,
-        article_id=article.id,
-        title_presence=title_presence,
-        first_sentence_presence=first_sentence_presence,
-        normalized_frequency=normalized_freq,
-        exclusivity_score=exclusivity,
-    )
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # INTERNAL HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -369,21 +307,6 @@ def _get_targets(scope: DiscoveryScope) -> List[str]:
         return list(get_industry_keywords(scope.industry))[:5]
     return []
 
-
-
-def _entity_in_text(entity_lower: str, text_lower: str) -> bool:
-    """Check if entity appears in text as a word/phrase (not substring)."""
-    words = entity_lower.split()
-    if len(words) == 1:
-        pattern = r'\b' + re.escape(entity_lower) + r'\b'
-        return bool(re.search(pattern, text_lower))
-    return entity_lower in text_lower
-
-
-def _extract_first_sentences(text: str, n: int = 2) -> str:
-    """Extract first N sentences from text."""
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-    return " ".join(sentences[:n])
 
 
 async def _llm_classify_batch(

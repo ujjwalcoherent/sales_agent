@@ -73,15 +73,29 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
 
     clusters = getattr(intel, "clusters", []) or []
     _none_like = {"none", "null", "n/a", "na", "undefined", "untitled", ""}
+    _none_prefixes = ("none ", "null ", "no title", "insufficient", "unknown")
     trends = []
+    _seen_titles: set[str] = set()  # deduplicate by normalized title
+
     for cluster in clusters:
         label = getattr(cluster, "label", "") or ""
         summary = getattr(cluster, "summary", "") or ""
-        # Guard against LLM returning literal "None" / "null" as a title
-        if label.strip().lower() in _none_like:
+        # Guard: LLM returning literal "None" / "null" / "None (insufficient data)" as title
+        label_low = label.strip().lower()
+        if label_low in _none_like or any(label_low.startswith(p) for p in _none_prefixes):
             label = ""
+        summary_low = summary.strip().lower()
+        if summary_low in _none_like or any(summary_low.startswith(p) for p in _none_prefixes):
+            summary = ""
         if not label and not summary:
-            continue  # Skip unlabeled clusters
+            continue  # Skip unlabeled/bad clusters
+
+        # Deduplicate: skip clusters whose title normalizes to something already seen
+        _title_key = (label or summary)[:50].strip().lower()
+        if _title_key in _seen_titles:
+            logger.debug(f"[orchestrator] Skipping duplicate cluster title: '{label[:60]}'")
+            continue
+        _seen_titles.add(_title_key)
 
         coherence = getattr(cluster, "coherence_score", 0.5) or 0.5
         strategic = getattr(cluster, "strategic_score", 0.0) or 0.0

@@ -332,35 +332,6 @@ def record_cluster_signals(
     return records_written
 
 
-def load_cluster_signal_history(
-    log_path: Path = CLUSTER_SIGNAL_LOG_PATH,
-    min_runs: int = 5,
-) -> List[Dict[str, Any]]:
-    """Load cluster signal history for auto-learning. Empty if < min_runs."""
-    if not log_path.exists():
-        return []
-
-    records = []
-    try:
-        with open(log_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        records.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-    except Exception as e:
-        logger.warning(f"Failed to load cluster signal history: {e}")
-        return []
-
-    run_ids = set(r.get("run_id", "") for r in records)
-    if len(run_ids) < min_runs:
-        return []
-
-    return records
-
-
 def _extract_nested(data: Dict[str, Any], dotted_key: str) -> Optional[Any]:
     """Extract a value from a dict using a dotted key path like 'a.b.c'."""
     parts = dotted_key.split(".")
