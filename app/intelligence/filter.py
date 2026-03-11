@@ -411,6 +411,7 @@ async def _classify_batch(
             results = await _aio.gather(*[_classify_one(a) for a, _ in batch], return_exceptions=True)
             for (article, _), keep in zip(batch, results):
                 if isinstance(keep, Exception):
+                    logger.debug(f"[filter] Fine-tuned classify exception for '{article.title[:60]}': {keep}")
                     rejected.append(article)
                 elif keep:
                     kept.append(article)
@@ -508,7 +509,15 @@ Example: KEEP, DROP, KEEP, KEEP, DROP"""
             llm.generate(prompt, max_tokens=max(len(batch) * 10, 80)),
             timeout=30.0,
         )
-        decisions = [d.strip().upper() for d in response.split(",")]
+        raw_tokens = [d.strip().upper() for d in response.split(",")]
+        # Validate each token — LLM sometimes returns YES/NO, explanations, or extra text
+        decisions = [t if t in {"KEEP", "DROP"} else "DROP" for t in raw_tokens]
+        invalid = sum(1 for r, d in zip(raw_tokens, decisions) if r != d)
+        if invalid:
+            logger.warning(
+                f"[filter] LLM returned {invalid}/{len(raw_tokens)} non-standard tokens "
+                f"in batch of {len(batch)} — defaulted to DROP"
+            )
 
         kept = []
         rejected = []
@@ -520,6 +529,9 @@ Example: KEEP, DROP, KEEP, KEEP, DROP"""
                 rejected.append(article)
         return kept, rejected
 
+    except asyncio.TimeoutError:
+        logger.warning(f"[filter] LLM classify timeout — dropping {len(batch)} ambiguous articles")
+        return [], [a for a, _ in batch]
     except Exception as exc:
         logger.warning(f"[filter] LLM batch failed ({exc}) — dropping {len(batch)} ambiguous articles")
         return [], [a for a, _ in batch]

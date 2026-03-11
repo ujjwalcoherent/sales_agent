@@ -469,6 +469,8 @@ RULES:
                     output_type=CompanyListLLM,
                 )
                 result = [c.model_dump() for c in llm_result.companies]
+                if not result:
+                    logger.warning("[company_agent] LLM returned empty companies list (structured)")
             except Exception as struct_err:
                 logger.warning(f"Structured extraction failed: {struct_err}, trying generate_json...")
                 raw = await self.llm_service.generate_json(prompt=prompt)
@@ -476,6 +478,8 @@ RULES:
                     result = raw.get("companies", [])
                     if not isinstance(result, list):
                         result = []
+                    if not result:
+                        logger.warning("[company_agent] LLM returned empty companies list (json fallback)")
                 elif isinstance(raw, list):
                     result = raw
                 else:

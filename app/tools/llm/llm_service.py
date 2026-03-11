@@ -258,11 +258,11 @@ class LLMService:
             self.last_provider = self._extract_provider_name(result)
             parsed = json_repair.parse_json_response(result.output)
 
-            # Validate required keys if specified
+            # Enforce required keys — callers depend on these; warn + raise so caller gets error dict
             if required_keys and isinstance(parsed, dict):
                 missing = required_keys - set(parsed.keys())
                 if missing:
-                    logger.warning(f"Missing required keys: {missing}")
+                    raise ValueError(f"LLM response missing required keys: {missing}")
 
             return parsed
         except (FallbackExceptionGroup, ExceptionGroup) as eg:

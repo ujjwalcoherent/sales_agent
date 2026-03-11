@@ -98,22 +98,6 @@ class ImpactAnalyzer:
         impacts = await asyncio.gather(*tasks)
         impacts = list(impacts)  # Convert from tuple
 
-        # I1: Cross-trend synthesis if multiple impacts
-        if len(impacts) >= 2:
-            try:
-                self._log(f"Cross-trend synthesis: Looking for compound opportunities across {len(impacts)} trends...")
-                cross_insight = await self._synthesize_cross_trend_impacts(impacts)
-                if cross_insight:
-                    state.cross_trend_insight = cross_insight
-                    compound = cross_insight.get('compound_impacts', [])
-                    self._log(f"Cross-trend synthesis: {len(compound)} compound impacts found")
-                    if cross_insight.get('mega_opportunity'):
-                        self._log(f"  Mega opportunity: {cross_insight['mega_opportunity'][:100]}...")
-                else:
-                    self._log("Cross-trend synthesis: No compound impacts detected")
-            except Exception as e:
-                self._log(f"Cross-trend synthesis failed: {e}", "warning")
-
         state.impacts = impacts
         state.current_step = "impacts_analyzed"
         self._log(f"Impact analysis complete: {len(impacts)} trends analyzed", "success")
@@ -414,79 +398,6 @@ Always respond with valid JSON only."""
 
         return self._create_basic_impact(trend)
     
-    async def _synthesize_cross_trend_impacts(
-        self, impacts: List[ImpactAnalysis]
-    ) -> Optional[dict]:
-        """
-        I1: Cross-trend impact synthesis — our differentiation.
-
-        After individual impact analyses, run ONE additional LLM call to find
-        companies hit by MULTIPLE trends simultaneously. This is what Meltwater
-        and Feedly DON'T do — they show trends independently.
-
-        Returns:
-            Dict with cross_trend_insight, compound_impacts, mega_opportunity.
-            None if synthesis fails or is not valuable.
-        """
-        # Build summary of all impacts for the LLM
-        impact_summaries = []
-        for i, impact in enumerate(impacts[:6], 1):  # Cap at 6 to fit context
-            direct = ', '.join(impact.direct_impact[:3]) if impact.direct_impact else 'N/A'
-            pain = ', '.join(impact.midsize_pain_points[:2]) if impact.midsize_pain_points else 'N/A'
-            impact_summaries.append(
-                f"Trend {i}: {impact.trend_title}\n"
-                f"  Affected: {direct}\n"
-                f"  Pain points: {pain}"
-            )
-
-        prompt = f"""These {len(impact_summaries)} trends are happening SIMULTANEOUSLY in India right now.
-
-{chr(10).join(impact_summaries)}
-
-Identify COMPOUND OPPORTUNITIES — company types hit by MULTIPLE trends at once.
-
-Return JSON:
-{{
-    "cross_trend_insight": "1-2 paragraph narrative about the compound impact landscape",
-    "compound_impacts": [
-        {{
-            "company_type": "Specific mid-size company type (e.g., 'Regional pharma distributors')",
-            "affected_by_trends": [1, 3],
-            "compound_challenge": "Why being hit by BOTH trends simultaneously is worse than either alone",
-            "consulting_opportunity": "What specific analysis/service they need urgently"
-        }}
-    ],
-    "mega_opportunity": "The single best pitch combining multiple trends (1 sentence)"
-}}
-
-Focus on mid-size Indian companies (50-300 employees).
-Find 2-4 company types affected by 2+ trends simultaneously."""
-
-        try:
-            result = await self.llm_service.generate_json(
-                prompt=prompt,
-                system_prompt="You are a senior strategy consultant. Identify compound market impacts. Respond with JSON only."
-            )
-            if isinstance(result, dict) and "error" not in result:
-                # V5: Validate cross-trend synthesis structure
-                if not isinstance(result.get("compound_impacts"), list):
-                    result["compound_impacts"] = []
-                    logger.debug("Coerced compound_impacts to empty list")
-                if not isinstance(result.get("mega_opportunity"), str):
-                    result["mega_opportunity"] = str(result.get("mega_opportunity", ""))
-                    logger.debug("Coerced mega_opportunity to string")
-                if not isinstance(result.get("cross_trend_insight"), str):
-                    result["cross_trend_insight"] = str(result.get("cross_trend_insight", ""))
-                return result
-            if isinstance(result, dict):
-                logger.debug(f"Cross-trend synthesis returned error: {result.get('error', 'unknown')}")
-            else:
-                logger.debug(f"Cross-trend synthesis returned {type(result).__name__} instead of dict")
-            return None
-        except Exception as e:
-            logger.warning(f"Cross-trend synthesis LLM call failed: {e}")
-            return None
-
     @staticmethod
     def _validate_impact_response(result: dict) -> dict:
         """
