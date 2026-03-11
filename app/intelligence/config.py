@@ -415,7 +415,6 @@ class ClusteringParams:
     sim_weight_semantic: float = 0.35
     sim_weight_entity: float = 0.25
     sim_weight_lexical: float = 0.05
-    sim_weight_event: float = 0.10
     sim_weight_temporal: float = 0.10
     sim_weight_source: float = 0.15
     # Temporal decay — dual-sigma Gaussian (max of short + long)

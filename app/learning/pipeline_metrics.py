@@ -2,11 +2,8 @@
 Pipeline metric logging — appends a JSON record per run to a JSONL file.
 
 Supports distribution-based calibration, EMA threshold adaptation.
-
-Functions removed (March 2026 audit — never called or results never consumed):
-  - record_run, compute_distributions, detect_drift, detect_drift_ewma,
-    compute_source_quality, compute_cluster_stability, save_cluster_assignments,
-    compute_run_quality
+`compute_adaptive_thresholds()` reads from pipeline_run_log.jsonl,
+which is written by `record_pipeline_run()` at the end of each run.
 """
 
 import json
@@ -21,6 +18,60 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LOG_PATH = Path("./data/pipeline_run_log.jsonl")
 CLUSTER_SIGNAL_LOG_PATH = Path("./data/cluster_signal_log.jsonl")
+
+
+def record_pipeline_run(
+    run_id: str,
+    coherence_scores: List[float],
+    trend_scores: List[float],
+    confidence_scores: List[float],
+    article_count: int = 0,
+    cluster_count: int = 0,
+    lead_count: int = 0,
+    log_path: Path = DEFAULT_LOG_PATH,
+) -> None:
+    """Append one run record to pipeline_run_log.jsonl.
+
+    Computes percentile distributions from raw scores so that
+    compute_adaptive_thresholds() can read them via dotted paths like
+    'coherence_distribution.p50'.
+
+    Called from orchestrator learning_update_node at end of each run.
+    """
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _percentiles(vals: List[float]) -> Dict[str, float]:
+        if not vals:
+            return {"p10": 0.0, "p25": 0.0, "p50": 0.0, "p75": 0.0, "p90": 0.0}
+        arr = np.array(vals)
+        return {
+            "p10": round(float(np.percentile(arr, 10)), 4),
+            "p25": round(float(np.percentile(arr, 25)), 4),
+            "p50": round(float(np.percentile(arr, 50)), 4),
+            "p75": round(float(np.percentile(arr, 75)), 4),
+            "p90": round(float(np.percentile(arr, 90)), 4),
+        }
+
+    record = {
+        "run_id": run_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "article_count": article_count,
+        "cluster_count": cluster_count,
+        "lead_count": lead_count,
+        "coherence_distribution": _percentiles(coherence_scores),
+        "trend_score_distribution": _percentiles(trend_scores),
+        "confidence_distribution": _percentiles(confidence_scores),
+    }
+
+    try:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, default=str) + "\n")
+        logger.info(
+            f"Pipeline run logged: {cluster_count} clusters, "
+            f"coherence_p50={record['coherence_distribution']['p50']:.3f}"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log pipeline run: {e}")
 
 
 def load_history(

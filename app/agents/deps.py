@@ -71,9 +71,6 @@ class AgentDeps:
     _recorder: Optional[object] = field(default=None, repr=False)
     _pipeline_t0: float = 0.0  # Pipeline start time (set by orchestrator)
 
-    # MetaReasoner — chain-of-thought reasoning layer (lazy-initialized)
-    _meta_reasoner: Optional[object] = field(default=None, repr=False)
-
     @classmethod
     def create(
         cls,
@@ -194,17 +191,6 @@ class AgentDeps:
             from app.learning.company_bandit import CompanyRelevanceBandit
             self._company_bandit = CompanyRelevanceBandit()
         return self._company_bandit
-
-    @property
-    def meta_reasoner(self):
-        """Chain-of-thought reasoning layer — uses lite LLM for cost efficiency."""
-        if self._meta_reasoner is None:
-            from app.learning.meta_reasoner import MetaReasoner
-            self._meta_reasoner = MetaReasoner(
-                llm_service=self.llm_lite_service,
-                enabled=not self.mock_mode,
-            )
-        return self._meta_reasoner
 
     @property
     def search_manager(self):

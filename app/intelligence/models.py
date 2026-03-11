@@ -264,55 +264,6 @@ class ExtractionResult(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SIMILARITY (SimilarityAgent output)
-# ══════════════════════════════════════════════════════════════════════════════
-
-class SignalWeights(BaseModel):
-    """6-signal weights for distance matrix. Must sum to 1.0.
-
-    Learned by WeightLearnerAgent — these are starting priors only.
-    All values are adapted dynamically via gradient-free optimization + EWC.
-    """
-    semantic: float = 0.35
-    entity: float = 0.25
-    lexical: float = 0.05
-    event: float = 0.10
-    temporal: float = 0.10
-    source: float = 0.15
-
-    @field_validator("source", mode="after")
-    @classmethod
-    def weights_sum_to_one(cls, v: float, info: Any) -> float:
-        data = info.data
-        total = (
-            data.get("semantic", 0.35) + data.get("entity", 0.25)
-            + data.get("lexical", 0.05) + data.get("event", 0.10)
-            + data.get("temporal", 0.10) + v
-        )
-        if abs(total - 1.0) > 1e-6:
-            raise ValueError(f"Signal weights must sum to 1.0, got {total:.6f}")
-        return v
-
-
-class DistanceMatrix(BaseModel):
-    """Precomputed n×n article distance matrix — math gate 4.
-
-    Uses 6-signal blended similarity with same-source penalty.
-    Entries are distances (0=identical, 1=completely different).
-    """
-    n: int
-    data: List[List[float]]      # n×n matrix flattened as list of rows
-    weights_used: SignalWeights
-    same_source_penalty: float = 0.3
-
-    # Math assertions
-    assertion_symmetric: bool = True
-    assertion_diagonal_zero: bool = True
-    assertion_values_in_range: bool = True
-    assertion_shape_correct: bool = True
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 # CLUSTER MODELS (ClusterAgent + ValidationAgent)
 # ══════════════════════════════════════════════════════════════════════════════
 

@@ -266,15 +266,6 @@ class ContactBandit:
             for arm in sorted(self.arms.values(), key=lambda a: a.posterior_mean, reverse=True)
         ]
 
-    def publish_to_bus(self, bus) -> None:
-        """Publish contact bandit stats to LearningSignalBus."""
-        arm_means = {arm.arm_key: arm.posterior_mean for arm in self.arms.values()}
-        # Publish to company_bandit slot (closest available) or future contact_bandit slot
-        logger.info(
-            f"[contact_bandit] {len(self.arms)} arms, {self.total_updates} updates, "
-            f"top arms: {self.get_top_roles('funding', 'enterprise')}"
-        )
-
     # ── Private helpers ────────────────────────────────────────────────────
 
     @staticmethod

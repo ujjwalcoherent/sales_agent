@@ -18,13 +18,11 @@ DATA_DIR = Path("data")
 class LearningStatusResponse(BaseModel):
     """Full learning system state — all 8 loops."""
     source_bandit: Dict[str, Any] = Field(default_factory=dict)
-    weight_learner: Dict[str, Any] = Field(default_factory=dict)
     company_bandit: Dict[str, Any] = Field(default_factory=dict)
     adaptive_thresholds: Dict[str, Any] = Field(default_factory=dict)
     trend_memory: Dict[str, Any] = Field(default_factory=dict)
     feedback: Dict[str, Any] = Field(default_factory=dict)
     signal_bus: Dict[str, Any] = Field(default_factory=dict)
-    meta_reasoner: Dict[str, Any] = Field(default_factory=dict)
 
 
 def _load_json(path: Path) -> Dict:
@@ -84,21 +82,6 @@ async def learning_status():
 
     # 2. Weight Learner — current learned weights
     # File stores weights directly at top level (actionability, trend_score, ...)
-    # or nested under "weights" key — handle both formats
-    weight_data = _load_json(DATA_DIR / "learned_weights.json")
-    weight_learner = {}
-    if weight_data:
-        weights = weight_data.get("weights", None)
-        if weights is None:
-            # Top-level format: {actionability: {...}, trend_score: {...}, ...}
-            weights = {k: v for k, v in weight_data.items()
-                       if k not in ("data_count", "last_updated")}
-        weight_learner = {
-            "weights": weights,
-            "data_count": weight_data.get("data_count", 0),
-            "last_updated": weight_data.get("last_updated", ""),
-        }
-
     # 3. Company Bandit — (size, event_type) arms
     # File stores arms directly at top level or nested under "arms"
     company_data = _load_json(DATA_DIR / "company_bandit.json")
@@ -191,29 +174,11 @@ async def learning_status():
             "last_updated": signal_bus_data.get("last_updated", ""),
         }
 
-    # 8. MetaReasoner — chain-of-thought reasoning traces
-    meta_reasoner = {}
-    trace_count = _count_jsonl(DATA_DIR / "reasoning_traces.jsonl")
-    hypotheses_data = _load_json(DATA_DIR / "improvement_hypotheses.json")
-    hypotheses = hypotheses_data if isinstance(hypotheses_data, list) else hypotheses_data.get("hypotheses", [])
-    if trace_count or hypotheses:
-        meta_reasoner = {
-            "trace_count": trace_count,
-            "hypothesis_count": len(hypotheses),
-            "latest_hypotheses": [
-                h.get("hypothesis", h) if isinstance(h, dict) else str(h)
-                for h in hypotheses[-5:]
-            ],
-            "last_run": hypotheses_data.get("last_updated", "") if isinstance(hypotheses_data, dict) else "",
-        }
-
     return LearningStatusResponse(
         source_bandit=source_bandit,
-        weight_learner=weight_learner,
         company_bandit=company_bandit,
         adaptive_thresholds=adaptive_thresholds,
         trend_memory=trend_memory,
         feedback=feedback,
         signal_bus=signal_bus,
-        meta_reasoner=meta_reasoner,
     )

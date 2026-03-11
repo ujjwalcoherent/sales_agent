@@ -107,6 +107,26 @@ def match_roles_to_trend(
             unique.append(r)
 
     filtered = _filter_roles_by_size(unique, employee_count)
+
+    # Re-rank using contact bandit (Thompson Sampling on historical email engagement).
+    # Bandit learns which (role × event_type × company_size) combos get replies.
+    # REF: Chapelle & Li (2011) Thompson Sampling for CTR — arXiv:1111.1797
+    try:
+        from app.learning.contact_bandit import ContactBandit
+        bandit = ContactBandit.load()
+        if bandit.total_updates > 0:
+            size = "enterprise" if (employee_count or 0) > 900 else (
+                "smb" if (employee_count or 0) < 100 else "mid_market"
+            )
+            ranked = bandit.rank_roles(
+                roles=filtered,
+                event_type=trend_type or "general",
+                company_size=size,
+            )
+            filtered = [role for role, _ in ranked]
+    except Exception:
+        pass  # Graceful fallback to static ordering
+
     return filtered[:8]  # Cap at 8 roles
 
 

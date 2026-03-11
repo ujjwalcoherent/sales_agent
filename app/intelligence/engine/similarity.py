@@ -40,19 +40,17 @@ logger = logging.getLogger(__name__)
 def compute_decomposed_similarity(
     embeddings: np.ndarray,
     articles: Optional[List[Any]] = None,
-    events: Optional[List[Any]] = None,
     params: Optional[ClusteringParams] = None,
 ) -> Dict[str, np.ndarray]:
-    """Compute 6 decomposed similarity signals and blend them.
+    """Compute 5 decomposed similarity signals and blend them.
 
     Args:
         embeddings: (N, D) article embedding matrix.
         articles: Optional NewsArticle list (for entity/temporal/source signals).
-        events: Optional ArticleEvent list (for event match signal).
         params: Clustering parameters with signal weights.
 
     Returns:
-        Dict with keys: 'semantic', 'entity', 'lexical', 'event',
+        Dict with keys: 'semantic', 'entity', 'lexical',
         'temporal', 'source', 'blended' — each an (N, N) matrix.
     """
     if params is None:
@@ -71,10 +69,7 @@ def compute_decomposed_similarity(
     # Signal 3: Lexical/BM25 (keyword overlap via title words)
     signals["lexical"] = _compute_lexical(articles, n)
 
-    # Signal 4: Event match (5W who+what alignment)
-    signals["event"] = _compute_event_match(events, n)
-
-    # Signal 5: Temporal proximity (dual-sigma Gaussian decay)
+    # Signal 4: Temporal proximity (dual-sigma Gaussian decay)
     signals["temporal"] = _compute_temporal(
         articles, n,
         sigma_short=params.temporal_sigma_short,
@@ -89,7 +84,6 @@ def compute_decomposed_similarity(
         "semantic": params.sim_weight_semantic,
         "entity": params.sim_weight_entity,
         "lexical": params.sim_weight_lexical,
-        "event": params.sim_weight_event,
         "temporal": params.sim_weight_temporal,
         "source": params.sim_weight_source,
     }
@@ -247,52 +241,6 @@ def _compute_lexical(articles: Optional[List[Any]], n: int) -> np.ndarray:
     return sim
 
 
-def _compute_event_match(events: Optional[List[Any]], n: int) -> np.ndarray:
-    """Articles with same 5W who+what get bonus similarity."""
-    if not events:
-        return np.zeros((n, n))
-
-    sim = np.zeros((n, n))
-    for i in range(n):
-        for j in range(i + 1, n):
-            score = _event_similarity(events[i], events[j])
-            sim[i, j] = score
-            sim[j, i] = score
-        sim[i, i] = 1.0
-
-    return sim
-
-
-def _event_similarity(e1: Any, e2: Any) -> float:
-    """Compare two ArticleEvents by who + what + event_type."""
-    score = 0.0
-
-    who1 = getattr(e1, "who", "").lower().strip()
-    who2 = getattr(e2, "who", "").lower().strip()
-    what1 = getattr(e1, "what", "").lower().strip()
-    what2 = getattr(e2, "what", "").lower().strip()
-    type1 = getattr(e1, "event_type", "").lower().strip()
-    type2 = getattr(e2, "event_type", "").lower().strip()
-
-    # Same entity (who) = strong signal
-    if who1 and who2 and (who1 in who2 or who2 in who1):
-        score += 0.5
-
-    # Same event type
-    if type1 and type2 and type1 == type2:
-        score += 0.25
-
-    # Similar what (word overlap)
-    if what1 and what2:
-        words1 = set(what1.split())
-        words2 = set(what2.split())
-        if words1 and words2:
-            overlap = len(words1 & words2) / max(len(words1 | words2), 1)
-            score += overlap * 0.25
-
-    return min(score, 1.0)
-
-
 def _compute_temporal(
     articles: Optional[List[Any]],
     n: int,
@@ -367,7 +315,7 @@ def _blend_signals(
     weights: Dict[str, float],
 ) -> np.ndarray:
     """Weighted blend of all signals into final similarity matrix."""
-    signal_names = ["semantic", "entity", "lexical", "event", "temporal", "source"]
+    signal_names = ["semantic", "entity", "lexical", "temporal", "source"]
     total_weight = sum(weights.get(s, 0.0) for s in signal_names)
 
     if total_weight == 0:

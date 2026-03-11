@@ -153,7 +153,9 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
                 affected_companies=[entity] if entity else [],
                 affected_regions=[],
                 trend_score=coherence,
-                actionability_score=0.0,
+                actionability_score=_compute_actionability(
+                    severity, coherence, _compute_oss(cluster),
+                ),
                 oss_score=_compute_oss(cluster),
                 article_count=len(article_indices),
                 article_snippets=[],
@@ -346,7 +348,6 @@ async def source_intel_node(state: GraphState) -> dict:
         errors.append(f"Source Intel: {e}")
         result = None
 
-    # MetaReasoner source checkpoint — REMOVED (decorative)
 
     article_count = len(getattr(deps, "_articles", []))
     _record(deps, "source_intel_complete", {
@@ -408,7 +409,6 @@ async def analysis_node(state: GraphState) -> dict:
         trends = []
         result = None
 
-    # MetaReasoner trend checkpoint — REMOVED (decorative)
 
     _record(deps, "analysis_complete", {
         "trends": [
@@ -635,7 +635,6 @@ async def lead_gen_node(state: GraphState) -> dict:
         companies, contacts, outreach = [], [], []
         result = None
 
-    # MetaReasoner lead checkpoint — REMOVED (decorative)
 
     # -- SPOC Verify: company enrichment + contacts quality check --------
     lead_sheets = getattr(deps, "_lead_sheets", [])
@@ -1600,7 +1599,31 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as e:
         logger.debug(f"Quality feedback recording skipped: {e}")
 
-    # -- 6b. Adaptive Thresholds: publish current state to bus ---------
+    # -- 6b. Record pipeline run metrics (feeds adaptive thresholds) ----
+    try:
+        from app.learning.pipeline_metrics import record_pipeline_run
+        intel = getattr(deps, "_intelligence_result", None)
+        _coherence_scores = [
+            c.coherence_score for c in (intel.clusters if intel else [])
+            if hasattr(c, "coherence_score")
+        ]
+        _trend_scores = [s.oss_score for s in signals] if signals else []
+        _confidence_scores = [
+            l.confidence for l in getattr(deps, "_lead_sheets", [])
+        ]
+        record_pipeline_run(
+            run_id=state.get("run_id", ""),
+            coherence_scores=_coherence_scores,
+            trend_scores=_trend_scores,
+            confidence_scores=_confidence_scores,
+            article_count=len(getattr(deps, "_articles", [])),
+            cluster_count=len(intel.clusters if intel else []),
+            lead_count=len(getattr(deps, "_lead_sheets", [])),
+        )
+    except Exception as e:
+        logger.debug(f"Pipeline run recording skipped: {e}")
+
+    # -- 6c. Adaptive Thresholds: publish current state to bus ---------
     try:
         from app.learning.pipeline_metrics import compute_adaptive_thresholds, THRESHOLD_REGISTRY
         thresholds = compute_adaptive_thresholds()
@@ -1729,9 +1752,6 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as e:
         logger.debug(f"Cross-loop company bandit modulation skipped: {e}")
 
-    # 3c. Hypothesis dispatcher — REMOVED (parsed MetaReasoner output which is now gutted)
-
-    # PHASE 4: MetaReasoner retrospective — REMOVED (decorative, output never consumed)
     avg_oss = sum(s.oss_score for s in signals) / len(signals) if signals else 0.0
     avg_kb_hit = sum(s.kb_hit_rate for s in signals) / len(signals) if signals else 0.0
     mean_quality = (quality_sum / max(len(signals), 1)) if signals else 0.0
@@ -1826,7 +1846,7 @@ async def learning_update_node(state: GraphState) -> dict:
             "feedback_distribution": bus.feedback_distribution,
             "nli_mean_entailment": bus.nli_mean_entailment,
         },
-        "retrospective": None,  # MetaReasoner removed (decorative, output never consumed)
+        "retrospective": None,
     }, t0)
 
     # Save recording manifest (finalizes the recording for replay)
@@ -1890,7 +1910,7 @@ async def learning_update_node(state: GraphState) -> dict:
         logger.debug(f"Experiment tracking skipped: {e}")
         cleanup_snapshot()
 
-    retro_summary = ""  # MetaReasoner removed — no retrospective data
+    retro_summary = ""
 
     return {
         "errors": [],

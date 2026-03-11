@@ -601,7 +601,7 @@ Write ONLY the hypothesis sentence, nothing else."""
             # Catches catastrophic regressions before they affect production hypothesis.
             try:
                 from app.intelligence.engine.nli_filter import score_canary_set
-                canary_acc = score_canary_set(hypothesis=candidate)
+                canary_acc = score_canary_set(hypothesis=new_hyp)
                 if canary_acc is not None:
                     _canary_baseline = 0.80  # 0.90 baseline - 10% = 0.80 floor
                     if canary_acc < _canary_baseline:
