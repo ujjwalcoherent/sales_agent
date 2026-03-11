@@ -105,6 +105,15 @@ class PersonResponse(BaseModel):
     outreach_body: str = ""
 
 
+class CompanyNewsArticle(BaseModel):
+    """Single news article for a company — matches frontend CompanyNewsArticle type."""
+    title: str = ""
+    summary: str = ""
+    url: str = ""
+    source_name: str = ""
+    published_at: str = ""
+
+
 # -- Leads (call sheets) --
 
 class LeadResponse(BaseModel):
@@ -139,7 +148,7 @@ class LeadResponse(BaseModel):
     confidence: float = 0.0
     oss_score: float = 0.0
     data_sources: List[str] = Field(default_factory=list)
-    company_news: List[Dict[str, Any]] = Field(default_factory=list)
+    company_news: List["CompanyNewsArticle"] = Field(default_factory=list)
     # People at this company (multiple contacts with reach scores)
     people: List["PersonResponse"] = Field(default_factory=list)
 

@@ -37,6 +37,16 @@ export interface TrendData {
   council_confidence: number;
 }
 
+// ── Company news article (matches backend CompanyNewsArticle schema) ──
+
+export interface CompanyNewsArticle {
+  title: string;
+  summary: string;
+  url: string;
+  source_name: string;
+  published_at: string;
+}
+
 // ── Person at a company (from people extraction pipeline) ──
 
 export interface PersonRecord {
@@ -88,10 +98,9 @@ export interface LeadRecord {
   confidence: number;
   oss_score: number;
   data_sources: string[];
-  company_news?: Array<{ title: string; summary: string; url: string; source_name: string; published_at: string }>;
+  company_news?: CompanyNewsArticle[];
   // People extraction (tiered contacts with per-person outreach)
   people?: PersonRecord[];
-  validation?: LeadValidation;
 }
 
 // ── Email sending ────────────────────────────
@@ -592,15 +601,3 @@ export interface ImpactCouncilResult {
   target_roles: string[]
 }
 
-// ─── Lead Validation ─────────────────────────────────────────────────────────
-
-export interface LeadValidation {
-  company_name: string
-  trend_title: string
-  relevance_score: number
-  is_relevant: boolean
-  reasoning: string
-  improved_pitch: string
-  recommended_service: string
-  recommended_offering: string
-}
