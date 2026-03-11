@@ -231,6 +231,9 @@ async def _run_clustering(
     else:
         all_noise.extend(ungrouped)
 
+    # Step 4: Soft-assign noise articles to nearest cluster (Campello et al. 2013)
+    all_clusters, all_noise = _reassign_noise(all_clusters, all_noise, embeddings, params)
+
     logger.info(
         f"[cluster] {len(all_clusters)} clusters, {len(all_noise)} noise "
         f"from {n} articles across {len(entity_groups)} entity groups"
@@ -345,6 +348,86 @@ def _tfidf_fallback_embeddings(texts: List[str], dim: int = 512) -> "np.ndarray"
     except Exception as e:
         logger.error(f"[cluster] TF-IDF fallback also failed: {e} — using zeros (clustering degraded)")
         return np.zeros((len(texts), dim), dtype=np.float32)
+
+
+def _reassign_noise(
+    all_clusters: List[ClusterResult],
+    all_noise: List[int],
+    embeddings: np.ndarray,
+    params: ClusteringParams,
+) -> Tuple[List[ClusterResult], List[int]]:
+    """Soft-assign noise articles to nearest cluster if similarity >= threshold.
+
+    Research basis: Campello et al. (2013) soft membership principle extended
+    to post-hoc reassignment. Articles that don't form tight clusters themselves
+    may still carry useful signal when attached to an existing cluster.
+
+    Only runs if params.noise_reassign_enabled and noise_reassign_min_similarity set.
+    """
+    if not params.noise_reassign_enabled or not all_clusters or not all_noise:
+        return all_clusters, all_noise
+
+    threshold = params.noise_reassign_min_similarity
+    n_reassigned = 0
+    remaining_noise = []
+
+    # Compute centroid for each cluster (mean of member embeddings)
+    cluster_centroids = []
+    for cluster in all_clusters:
+        member_indices = cluster.article_indices
+        valid = [i for i in member_indices if i < len(embeddings)]
+        if valid:
+            centroid = embeddings[valid].mean(axis=0)
+            # L2 normalize for cosine similarity
+            norm = np.linalg.norm(centroid)
+            centroid = centroid / max(norm, 1e-10)
+            cluster_centroids.append(centroid)
+        else:
+            cluster_centroids.append(None)
+
+    for noise_idx in all_noise:
+        if noise_idx >= len(embeddings):
+            remaining_noise.append(noise_idx)
+            continue
+
+        noise_emb = embeddings[noise_idx]
+        noise_norm = np.linalg.norm(noise_emb)
+        noise_emb_norm = noise_emb / max(noise_norm, 1e-10)
+
+        # Find best cluster by cosine similarity to centroid
+        best_sim = -1.0
+        best_idx = -1
+        for ci, centroid in enumerate(cluster_centroids):
+            if centroid is None:
+                continue
+            sim = float(np.dot(noise_emb_norm, centroid))
+            if sim > best_sim:
+                best_sim = sim
+                best_idx = ci
+
+        if best_sim >= threshold and best_idx >= 0:
+            # Add to cluster
+            all_clusters[best_idx].article_indices.append(noise_idx)
+            all_clusters[best_idx].article_count += 1
+            # Update centroid (running mean) to prevent all noise piling into one cluster
+            old_n = len(all_clusters[best_idx].article_indices) - 1
+            cluster_centroids[best_idx] = (
+                cluster_centroids[best_idx] * old_n + noise_emb_norm
+            ) / max(old_n + 1, 1)
+            norm2 = np.linalg.norm(cluster_centroids[best_idx])
+            cluster_centroids[best_idx] /= max(norm2, 1e-10)
+            n_reassigned += 1
+        else:
+            remaining_noise.append(noise_idx)
+
+    if n_reassigned > 0:
+        logger.info(
+            f"[cluster] Noise reassignment: {n_reassigned}/{len(all_noise)} articles "
+            f"soft-assigned (threshold={threshold:.2f}), "
+            f"{len(remaining_noise)} remain as true noise"
+        )
+
+    return all_clusters, remaining_noise
 
 
 def _get_article_indices(group) -> List[int]:
