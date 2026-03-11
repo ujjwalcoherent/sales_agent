@@ -400,9 +400,8 @@ class ClusteringParams:
     # Lowered from 0.15→0.10: captures Sarvam open-source (0.092), Euler Motors PLI (0.076) for LLM.
     # Cost tradeoff: more LLM calls (~60% of articles), but eliminates government/political FPs.
     filter_gap4_days: int = 5           # Drop company if 0 articles in N days
-    # Legacy salience thresholds (kept for backwards compat with adaptive_thresholds.json)
+    # Legacy salience threshold — adapted by threshold_adapter.py EMA
     filter_auto_accept: float = 0.30
-    filter_auto_reject: float = 0.05
 
     # ── NER / Entity extraction (math gate 3) ────────────────────────────────
     fuzzy_merge_threshold: float = 85.0      # rapidfuzz token_sort_ratio
