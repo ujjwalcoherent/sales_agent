@@ -16,7 +16,9 @@ Next step: DedupAgent (now merged in this file — intelligence/fetch.py)
 """
 
 import asyncio
+import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -25,6 +27,14 @@ from app.intelligence.config import ClusteringParams
 from app.intelligence.models import DiscoveryScope, RawArticle
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ReportEntities:
+    """Structured entities extracted from an analyst report."""
+    companies: List[str] = field(default_factory=list)   # ["Infosys", "TCS", "HCL"]
+    industries: List[str] = field(default_factory=list)  # ["IT Services", "Cloud Computing"]
+    topics: List[str] = field(default_factory=list)      # ["AI adoption", "data center expansion"]
 
 _MAX_CONCURRENT_FEEDS = 20    # Semaphore for RSS fetch concurrency
 _ARTICLE_LIMIT_PER_SOURCE = 50
@@ -64,19 +74,43 @@ async def fetch_articles(
 
     # ── Industry mode: additional keyword search ──────────────────────────────
     if scope.industry:
-        from app.intelligence.config import get_industry_keywords
+        from app.intelligence.config import get_industry_keywords, get_industry_anchors
         keywords = list(get_industry_keywords(scope.industry))[:3]
-        for kw in keywords:
-            tasks.append(_fetch_tavily_news(kw, cutoff))
 
-    # ── Report-Driven mode: extract key topics from report text ────────────────
-    # REF: Named entity + noun-phrase extraction primes Tavily for report corroboration.
+        # PRIMARY: Google News RSS for anchor companies (no Tavily needed)
+        anchor_companies = get_industry_anchors(scope.industry)
+        for company in anchor_companies[:4]:
+            tasks.append(_fetch_google_news_rss(company, cutoff, sem))
+
+        # SECONDARY: Tavily/DDG for industry keywords
+        for kw in keywords:
+            tasks.append(_fetch_tavily_or_ddg(kw, cutoff))
+
+    # ── Report-Driven mode: LLM entity extraction → Google News RSS + Tavily/DDG ──
+    # REF: Structured entity extraction (companies/industries/topics) routes to the
+    # right fetch function — Google News RSS for company names (no API key needed),
+    # Tavily/DDG for topic queries. Regex fallback if LLM unavailable.
     if scope.report_text:
-        report_queries = _extract_report_queries(scope.report_text, region=scope.region)
-        for query in report_queries:
-            tasks.append(_fetch_tavily_news(query, cutoff))
-        if report_queries:
-            logger.info(f"[fetch] Report-Driven: +{len(report_queries)} queries from report")
+        entities = await _extract_report_entities_llm(scope.report_text, region=scope.region)
+
+        # PRIMARY: Google News RSS per company (no Tavily needed)
+        for company in entities.companies[:5]:
+            tasks.append(_fetch_google_news_rss(company, cutoff, sem))
+
+        # SECONDARY: Tavily/DDG per topic (optional, graceful fallback to DDG)
+        for topic in entities.topics[:3]:
+            tasks.append(_fetch_tavily_or_ddg(topic, cutoff))
+
+        # Also surface extracted companies to scope for downstream entity processing
+        if entities.companies and not scope.companies:
+            scope.companies = entities.companies[:5]
+
+        n_sources = len(entities.companies) + len(entities.topics)
+        logger.info(
+            f"[fetch] Report-Driven: {len(entities.companies)} companies, "
+            f"{len(entities.industries)} industries, {len(entities.topics)} topics → "
+            f"{n_sources} fetch tasks"
+        )
 
     # ── AutoResearch: LLM-expanded queries for broader coverage ────────────
     if params.enable_query_expansion:
@@ -251,6 +285,44 @@ async def _fetch_tavily_news(
         return []
 
 
+async def _fetch_ddg_news(query: str, cutoff: datetime, max_results: int = 10) -> List[RawArticle]:
+    """Fetch news via DuckDuckGo as Tavily fallback.
+
+    Uses ddgs library (NOT duckduckgo_search — that package is broken).
+    Returns empty list on failure — callers must handle gracefully.
+    """
+    try:
+        from ddgs import DDGS
+        articles = []
+        with DDGS() as ddgs:
+            results = list(ddgs.news(query, max_results=max_results))
+        for r in results:
+            published_at = _parse_iso_date(r.get("date", ""))
+            if published_at and published_at < cutoff:
+                continue
+            articles.append(RawArticle(
+                url=r.get("url", ""),
+                title=r.get("title", ""),
+                summary=r.get("body", ""),
+                source_name=r.get("source", _extract_domain(r.get("url", ""))),
+                source_url=r.get("url", ""),
+                published_at=published_at or datetime.now(timezone.utc),
+                fetch_method="ddg",
+            ))
+        return articles
+    except Exception as exc:
+        logger.debug(f"[fetch] DDG news for '{query}' failed: {exc}")
+        return []
+
+
+async def _fetch_tavily_or_ddg(query: str, cutoff: datetime) -> List[RawArticle]:
+    """Try Tavily first, fall back to DDG if unavailable or returns no results."""
+    results = await _fetch_tavily_news(query, cutoff)
+    if not results:
+        results = await _fetch_ddg_news(query, cutoff)
+    return results
+
+
 def _parse_feed_date(entry) -> Optional[datetime]:
     """Parse published date from feedparser entry."""
     try:
@@ -286,6 +358,51 @@ def _extract_domain(url: str) -> str:
     except Exception:
         return "unknown"
 
+
+
+async def _extract_report_entities_llm(report_text: str, region: str = "IN") -> ReportEntities:
+    """Extract structured entities from analyst report using LLM.
+
+    One LLM call at pipeline start. Returns companies, industries, topics
+    for routing to appropriate fetch functions (Google News RSS, RSS feeds).
+    Graceful fallback to regex if LLM unavailable.
+
+    Research note: structured entity extraction over raw regex improves recall
+    for multi-word company names and disambiguates industry signals from topic signals.
+    """
+    # Truncate to first 2000 chars (enough for entity extraction, avoids huge prompts)
+    text = report_text[:2000]
+
+    prompt = (
+        f"Extract entities from this business/analyst report text for a B2B sales intelligence system.\n\n"
+        f"Report (region: {region}):\n{text}\n\n"
+        "Return JSON with exactly these keys:\n"
+        '{"companies": ["list of company names mentioned"], '
+        '"industries": ["list of industry sectors mentioned"], '
+        '"topics": ["list of key business topics/themes, 3-5 words each"]}\n\n'
+        "Rules:\n"
+        "- companies: proper company names only (e.g. 'Infosys', 'HDFC Bank', 'TCS'). Max 6.\n"
+        "- industries: sector names (e.g. 'IT Services', 'Fintech', 'Healthcare'). Max 3.\n"
+        "- topics: specific actionable themes (e.g. 'AI chip demand surge', '5G enterprise adoption'). Max 4.\n"
+        "- Return ONLY valid JSON, nothing else."
+    )
+
+    try:
+        from app.tools.llm.llm_service import LLMService
+        llm = LLMService()
+        raw = await llm.generate(prompt, temperature=0.1, max_tokens=300, json_mode=True)
+
+        data = json.loads(raw)
+        return ReportEntities(
+            companies=[str(c).strip() for c in data.get("companies", [])[:6] if c],
+            industries=[str(i).strip() for i in data.get("industries", [])[:3] if i],
+            topics=[str(t).strip() for t in data.get("topics", [])[:4] if t],
+        )
+    except Exception as exc:
+        logger.warning(f"[fetch] LLM entity extraction failed: {exc}, falling back to regex")
+        # Fallback: use the existing _extract_report_queries() regex approach
+        queries = _extract_report_queries(report_text, region=region, max_queries=4)
+        return ReportEntities(topics=queries)
 
 
 def _extract_report_queries(report_text: str, region: str = "IN", max_queries: int = 4) -> List[str]:
@@ -330,15 +447,29 @@ def _extract_report_queries(report_text: str, region: str = "IN", max_queries: i
             if len(queries) >= max_queries:
                 break
 
-    # 3. Append region to at least one query for geographic grounding
+    # 3. Fallback: if still no queries, use first meaningful sentence fragment
+    if not queries:
+        # Split on sentence boundaries, pick 2-4 noun-heavy fragments
+        sentences = re.split(r'[.!?\n]', report_text)
+        for sent in sentences:
+            sent = sent.strip()
+            if 10 <= len(sent) <= 100:
+                queries.append(sent)
+            if len(queries) >= 2:
+                break
+
+    # 4. Append region to at least one query for geographic grounding
+    # (skip if the first query already mentions the country name)
     if queries and region and region != "GLOBAL":
         from app.intelligence.config import get_region
         try:
             region_cfg = get_region(region)
-            country_name = getattr(region_cfg, "display_name", region)
+            # RegionConfig has .name not .display_name
+            country_name = getattr(region_cfg, "name", None) or getattr(region_cfg, "display_name", region)
         except Exception:
             country_name = region
-        queries[0] = f"{queries[0]} {country_name}"
+        if country_name.lower() not in queries[0].lower():
+            queries[0] = f"{queries[0]} {country_name}"
 
     return queries[:max_queries]
 

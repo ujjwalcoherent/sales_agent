@@ -301,18 +301,6 @@ class LearningSignalBus:
             "top_sources": self.top_sources,
         }
 
-    def get_adaptive_threshold_modulation(self) -> Dict[str, Any]:
-        """Signals for Adaptive Thresholds cross-pollination.
-
-        Tighten when novelty is low (recycled trends need higher bar).
-        Account for source diversity (biased sources = conservative adaptation).
-        """
-        return {
-            "avg_novelty": self.avg_novelty,
-            "source_diversity": self.source_diversity_index,
-            "nli_mean_entailment": self.nli_mean_entailment,
-        }
-
     # ──────────────────────────────────────────────────────────────
     # Persistence
     # ──────────────────────────────────────────────────────────────

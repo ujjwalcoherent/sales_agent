@@ -114,6 +114,7 @@ class ThresholdAdapter:
         if self._frozen and quality_score >= 0.45:
             logger.info("[threshold_adapter] Quality recovered — unfreezing adaptation")
             self._frozen = False
+            self._save()
             return
 
         # CUSUM degradation detection: subtract 0.4 baseline so positive deviations
@@ -127,12 +128,18 @@ class ThresholdAdapter:
                     "Freezing threshold adaptation until recovery."
                 )
                 self._frozen = True
+                self._save()
 
-    def update(self, update: ThresholdUpdate) -> None:
+    def update(self, update: ThresholdUpdate, system_confidence: float = 0.5) -> None:
         """Apply EMA update from one pipeline run.
 
         Only updates thresholds where we have a meaningful observed signal.
         Skipped if CUSUM freeze is active (quality degradation detected).
+
+        system_confidence: cross-loop health signal from signal bus (previous run).
+          High (>0.7) → adapt faster (larger alpha — system is stable, trust the signal).
+          Low (<0.3)  → adapt slower (smaller alpha — system is degraded, be conservative).
+          REF: adaptive learning rates proportional to SNR (Kingma & Ba, Adam, 2014).
         """
         self._run_count += 1
 
@@ -142,6 +149,12 @@ class ThresholdAdapter:
                 f"skipping adaptation (CUSUM guard active)"
             )
             return
+
+        # Modulate alpha: [0.7, 1.3] × base alpha, capped at 0.30.
+        # High confidence → learn faster; low confidence → be conservative.
+        alpha_factor = 0.7 + 0.6 * max(0.0, min(1.0, system_confidence))
+        saved_alpha = self.alpha
+        self.alpha = min(0.30, self.alpha * alpha_factor)
 
         changed = False
 
@@ -195,6 +208,8 @@ class ThresholdAdapter:
                 self._ema_update("hdbscan_soft_noise_threshold", target)
                 changed = True
 
+        self.alpha = saved_alpha  # restore after modulated update
+
         if changed:
             self._save()
             coh = self._thresholds.get("val_coherence_min")
@@ -203,7 +218,8 @@ class ThresholdAdapter:
             fac_str = f"{fac:.3f}" if fac is not None else "N/A"
             logger.info(
                 f"[threshold_adapter] Run #{self._run_count}: thresholds updated "
-                f"(coherence={coh_str}, filter_accept={fac_str})"
+                f"(coherence={coh_str}, filter_accept={fac_str}, "
+                f"sys_confidence={system_confidence:.2f}, alpha_factor={alpha_factor:.2f})"
             )
 
     def _ema_update(self, key: str, observed: float) -> None:
@@ -220,7 +236,9 @@ class ThresholdAdapter:
                 data = json.load(f)
             self._thresholds = data.get("thresholds", {})
             self._run_count = data.get("run_count", 0)
-            logger.debug(f"[threshold_adapter] Loaded {len(self._thresholds)} thresholds (runs={self._run_count})")
+            self._quality_history = data.get("quality_history", [])
+            self._frozen = data.get("frozen", False)
+            logger.debug(f"[threshold_adapter] Loaded {len(self._thresholds)} thresholds (runs={self._run_count}, frozen={self._frozen})")
         except Exception as exc:
             logger.warning(f"[threshold_adapter] Load failed: {exc}")
 
@@ -231,6 +249,8 @@ class ThresholdAdapter:
                 json.dump({
                     "thresholds": self._thresholds,
                     "run_count": self._run_count,
+                    "quality_history": self._quality_history,
+                    "frozen": self._frozen,
                     # alpha is code-defined (_EMA_ALPHA=0.1) — not stored to prevent JSON drift
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }, f, indent=2)

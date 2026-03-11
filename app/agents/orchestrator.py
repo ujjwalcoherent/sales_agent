@@ -219,6 +219,7 @@ class GraphState(TypedDict):
     retry_counts: Dict[str, int]
     agent_reasoning: Dict[str, str]
     stage_advisories: Annotated[List[Dict], operator.add]  # Inter-stage communication
+    quality_score: float  # From quality_validation_node → learning_update_node (CUSUM)
 
 
 # -- Recording helper ----------------------------------------------------------
@@ -310,6 +311,15 @@ async def analysis_node(state: GraphState) -> dict:
     deps = state["deps"]
     errors = []
 
+    # Lightweight source quality gate (replaces deleted verify_company_enrichment)
+    article_count = len(getattr(deps, "_articles", []))
+    if not getattr(deps, "mock_mode", False) and article_count < 20:
+        logger.warning(
+            f"[quality_gate] Low article count: {article_count} articles. "
+            f"Check: RSS sources reachable? Tavily keys valid? "
+            f"Proceeding but expect fewer trends."
+        )
+
     try:
         from .analysis import run_analysis
         intel, result = await run_analysis(deps)
@@ -356,6 +366,13 @@ async def impact_node(state: GraphState) -> dict:
 
     deps = state["deps"]
     errors = []
+
+    # Cluster quality gate (replaces deleted verify_clustering)
+    trends = state.get("trends", [])
+    if not trends:
+        logger.error("[quality_gate] Zero clusters passed validation. Pipeline output will be empty.")
+    elif len(trends) < 3:
+        logger.warning(f"[quality_gate] Only {len(trends)} clusters passed — limited trend coverage")
 
     try:
         from .market_impact import run_market_impact
@@ -492,6 +509,7 @@ async def quality_validation_node(state: GraphState) -> dict:
         "errors": errors,
         "current_step": "quality_complete",
         "impacts": viable,
+        "quality_score": getattr(trend_verdict, 'quality_score', 0.0) if trend_verdict else 0.0,
         "agent_reasoning": {
             **state.get("agent_reasoning", {}),
             "quality_trends": getattr(trend_verdict, 'reasoning', ''),
@@ -552,6 +570,18 @@ async def lead_gen_node(state: GraphState) -> dict:
         companies, contacts, outreach = [], [], []
         result = None
 
+
+    # Lead quality gate (replaces deleted verify_lead_crystallization)
+    lead_sheets = getattr(deps, "_lead_sheets", [])
+    if lead_sheets:
+        leads_with_email = sum(1 for l in lead_sheets if getattr(l, "email", None))
+        leads_with_contact = sum(1 for l in lead_sheets if getattr(l, "contact_name", None))
+        logger.info(
+            f"[quality_gate] Leads: {len(lead_sheets)} total, {leads_with_contact} with contact, "
+            f"{leads_with_email} with email ({100 * leads_with_email // max(len(lead_sheets), 1)}%)"
+        )
+        if leads_with_email < len(lead_sheets) * 0.3:
+            logger.warning("[quality_gate] <30% of leads have email — check Hunter/Apollo config")
 
     people = getattr(deps, "_person_profiles", [])
     _record(deps, "lead_gen_complete", {
@@ -1230,6 +1260,30 @@ async def learning_update_node(state: GraphState) -> dict:
 
                 # PUBLISH to bus
                 bus.publish_source_bandit(updated, previous_means=pre_update_means)
+
+            # Publish NLI filter signals to the orchestrator's bus instance.
+            # (intelligence/pipeline.py publishes to a throwaway bus instance;
+            # this is the one that actually gets saved to disk.)
+            intel = getattr(deps, "_intelligence_result", None)
+            if intel:
+                _nli_src = getattr(intel, "nli_scores_by_source", {}) or {}
+                # Compute mean entailment from per-source scores (FilterResult
+                # has nli_mean_entailment but isn't accessible here).
+                _nli_mean = (
+                    sum(_nli_src.values()) / max(len(_nli_src), 1)
+                    if _nli_src else 0.0
+                )
+                # Estimate rejection rate from pipeline metrics if available
+                _pipeline = getattr(deps, "_pipeline", None)
+                _n_input = getattr(_pipeline, "_n_input", 0) if _pipeline else 0
+                _n_filtered = getattr(_pipeline, "_n_filtered", 0) if _pipeline else 0
+                _nli_rej = (1.0 - _n_filtered / max(_n_input, 1)) if _n_input > 0 else 0.0
+                bus.publish_nli_filter(
+                    mean_entailment=_nli_mean,
+                    rejection_rate=_nli_rej,
+                    hypothesis_version="v0",
+                    scores_by_source=_nli_src,
+                )
     except Exception as e:
         logger.warning(f"Source bandit update failed: {e}")
 
@@ -1291,6 +1345,21 @@ async def learning_update_node(state: GraphState) -> dict:
                 run_id=state.get("run_id", ""),
             ), system_confidence=_sys_conf)
             logger.info("[threshold_adapter] Updated from run metrics")
+
+            # PUBLISH to bus — closes the loop: other loops can read threshold state
+            _anomalies = []
+            if adapter._frozen:
+                _anomalies.append("cusum_frozen")
+            _drift = []
+            if _mean_coherence is not None and _mean_coherence < 0.35:
+                _drift.append("low_coherence")
+            if _noise_rate is not None and _noise_rate > 0.40:
+                _drift.append("high_noise")
+            bus.publish_adaptive_thresholds(
+                thresholds=dict(adapter._thresholds),
+                anomalies=_anomalies,
+                drift=_drift,
+            )
         else:
             logger.info("[threshold_adapter] Dampened — skipping update")
     except Exception as e:
