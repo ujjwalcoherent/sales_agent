@@ -29,6 +29,24 @@ from ..database import get_database
 logger = logging.getLogger(__name__)
 
 
+def _compute_actionability(severity: str, coherence: float, oss: float) -> float:
+    """Actionability score — how suitable is this trend for sales outreach.
+
+    Composite of:
+      40% severity (urgency: HIGH=1.0, MEDIUM=0.6, LOW=0.3)
+      30% OSS (operational specificity: named entities + action verbs + numbers)
+      30% coherence (cluster quality: tight clusters = reliable signal)
+
+    Returns 0.0-1.0. Higher = more immediately actionable for B2B sales.
+    """
+    sev_str = severity.lower() if isinstance(severity, str) else (
+        severity.value.lower() if hasattr(severity, "value") else "medium"
+    )
+    sev_map = {"high": 1.0, "medium": 0.6, "low": 0.3, "negligible": 0.1}
+    sev_score = sev_map.get(sev_str, 0.4)
+    return round(0.40 * sev_score + 0.30 * oss + 0.30 * coherence, 3)
+
+
 def _compute_oss(cluster) -> float:
     """Operational Specificity Score — deterministic, no LLM.
 

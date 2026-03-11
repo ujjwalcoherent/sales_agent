@@ -116,8 +116,6 @@ class NewsArticle(BaseModel):
     duplicate_of: Optional[UUID] = None
     content_quality_score: float = 0.5
     word_count: int = 0               # For depth_score signal
-    novelty_score: float = 0.0        # Filled during dedup phase
-    source_trust_score: float = 0.5   # From config source tiers
 
     @validator('title_normalized', pre=True, always=True)
     def normalize_title(cls, v, values):
