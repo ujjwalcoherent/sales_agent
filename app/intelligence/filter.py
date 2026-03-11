@@ -477,22 +477,23 @@ Example: KEEP, DROP, KEEP, KEEP, DROP"""
         prompt = f"""You are a B2B sales intelligence filter.{report_context}
 Target companies: {targets_str}
 
-B2B ONLY: Keep articles about BUSINESS EVENTS at {targets_str}. Be strict.
+KEEP if a company in ({targets_str}) is TAKING A SPECIFIC ACTION — not just mentioned.
+Required: the company must be the grammatical subject performing the action.
 
-KEEP if:
-- A company in ({targets_str}) is the PRIMARY actor making a concrete B2B decision
-- Events: product launches, funding, M&A, enterprise contracts, regulatory action ON the company,
-  partnerships, hiring of C-suite, quarterly earnings, SaaS/cloud/tech updates
+KEEP events: product launch, funding raised, acquisition, enterprise contract signed,
+partnership formed, C-suite hire, quarterly earnings, SaaS/cloud product update,
+regulatory approval or penalty targeting the company directly.
 
 DROP if ANY is true:
-- The company is only briefly mentioned, quoted, or referenced (not the primary subject)
-- Consumer product news (phones, apps, gadgets for end users)
+- Company is quoted/mentioned in an industry macro trend article (not the primary subject)
+- Article is about industry forecasts, sector outlooks, or "industry will..." narratives that cite the company as an example
+- Consumer product news (phones, apps for end users, gadget reviews)
 - Government policy, politician statements, military/geopolitical events
 - Sports, cricket, IPL, entertainment, celebrity, Bollywood
 - Crime, court cases unrelated to corporate governance
 - Stock tips, analyst forecasts, market commentary with no specific company action
-- PR fluff: rankings, awards, CSR events unless tied to a business deal
-- Article is about a person not affiliated with ({targets_str})
+- PR fluff: rankings, awards, CSR events unless tied to a concrete business deal
+- Article is about a journalist/analyst/professor, not a company executive
 
 Articles:
 {titles}
@@ -551,10 +552,12 @@ def _apply_gap4(
 
     for target in targets:
         target_lower = target.lower()
+        # Use word-boundary matching to avoid "ai" matching "bail", "AI" matching "fail" etc.
+        _pat = re.compile(r'\b' + re.escape(target_lower) + r'\b')
         recent = [
             a for a in articles
             if a.published_at and a.published_at >= cutoff
-            and target_lower in f"{a.title} {a.summary}".lower()
+            and _pat.search(f"{a.title} {a.summary}".lower())
         ]
         if not recent:
             dropped_companies.append(target)

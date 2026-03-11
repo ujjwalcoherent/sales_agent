@@ -17,6 +17,19 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 
+# Known news/press-release/social domains — never valid as company domains
+_NEWS_DOMAINS: frozenset = frozenset({
+    "businesswire.com", "prnewswire.com", "globenewswire.com",
+    "newswire.com", "accesswire.com", "einpresswire.com",
+    "reuters.com", "bloomberg.com", "ft.com", "wsj.com",
+    "techcrunch.com", "venturebeat.com", "wired.com", "forbes.com",
+    "economictimes.com", "livemint.com", "thehindu.com", "moneycontrol.com",
+    "businessstandard.com", "financialexpress.com", "ndtv.com",
+    "medium.com", "substack.com", "wordpress.com", "blogger.com",
+    "crunchbase.com", "linkedin.com", "twitter.com", "x.com",
+    "facebook.com", "youtube.com", "instagram.com",
+})
+
 from ...schemas import CompanyData, CompanySize, ImpactAnalysis, AgentState
 from app.tools.llm.llm_service import LLMService
 from app.tools.domain_utils import (
@@ -560,14 +573,20 @@ RULES:
                 domain = ""
                 if website:
                     domain = extract_clean_domain(website)
-                    # Reject domains that don't relate to the company name
-                    # (LLM may extract the article source URL, e.g. prnewswire.com)
-                    if domain and is_valid_company_domain(domain):
-                        name_norm = company_name.lower().replace(" ", "")
-                        dom_base = domain.split(".")[0].lower()
-                        if dom_base not in name_norm and name_norm not in dom_base and len(name_norm) > 4:
+                    if domain:
+                        # Reject known news/press-release/social domains immediately
+                        if any(domain == nd or domain.endswith("." + nd) for nd in _NEWS_DOMAINS):
+                            logger.debug(f"[company_agent] Rejected news domain '{domain}' for '{company_name}'")
                             domain = ""
                             website = ""
+                        # Reject domains that don't relate to the company name
+                        # (LLM may extract the article source URL, e.g. prnewswire.com)
+                        elif is_valid_company_domain(domain):
+                            name_norm = company_name.lower().replace(" ", "")
+                            dom_base = domain.split(".")[0].lower()
+                            if dom_base not in name_norm and name_norm not in dom_base and len(name_norm) > 4:
+                                domain = ""
+                                website = ""
                 if not domain:
                     domain = extract_domain_from_company_name(company_name)
 

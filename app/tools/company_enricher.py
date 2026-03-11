@@ -206,17 +206,23 @@ async def validate_entity(name: str) -> ValidationResult:
     if llm_result:
         return llm_result
 
-    # Step 5: Domain check (medium confidence 0.7)
+    # Step 5: Domain check — ONLY accept if domain closely matches company name
+    # (prevents "Cloud Computing Solutions for Enterprises" → guessed domain validated as 0.7)
     try:
         from .domain_utils import extract_domain_from_company_name, is_valid_company_domain
 
         guessed_domain = extract_domain_from_company_name(name)
         if guessed_domain and is_valid_company_domain(guessed_domain):
-            return ValidationResult(
-                is_valid_company=True,
-                confidence=0.7,
-                validation_source="domain",
-            )
+            # Require strong name↔domain overlap to avoid accepting description strings
+            name_base = re.sub(r"[^a-z0-9]", "", name.lower())
+            dom_base = guessed_domain.split(".")[0].lower()
+            # Domain must be a significant substring of company name or vice versa
+            if len(dom_base) >= 4 and (dom_base in name_base or name_base.startswith(dom_base)):
+                return ValidationResult(
+                    is_valid_company=True,
+                    confidence=0.5,  # Lower than before — it's just a guess
+                    validation_source="domain_guess",
+                )
     except Exception as e:
         logger.debug(f"Domain validation failed for '{name}': {e}")
 

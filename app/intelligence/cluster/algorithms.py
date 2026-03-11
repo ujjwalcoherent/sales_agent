@@ -173,6 +173,15 @@ def cluster_hac(
         cluster_embeddings = embeddings[local_clean]
         coherence = _mean_pairwise_cosine(cluster_embeddings)
 
+        # Coherence gate: clusters below 60% of val_coherence_min are noise
+        _min_coh = params.val_coherence_min * 0.6 if params else 0.25
+        if coherence < _min_coh:
+            logger.debug(
+                f"[hac] Rejecting low-coherence cluster (coh={coherence:.3f} < {_min_coh:.3f})"
+            )
+            noise_indices.extend(global_indices)
+            continue
+
         dendro = DendrogramMetrics(
             cophenetic_r=round(float(coph_r), 4),
             silhouette_score=round(float(best_sil), 4),
@@ -326,6 +335,15 @@ def cluster_hdbscan_soft(
         global_indices = [article_indices[i] for i in local_indices]
         cluster_embeddings = embeddings[member_mask]
         coherence = _mean_pairwise_cosine(cluster_embeddings)
+
+        # Coherence gate: clusters below 60% of val_coherence_min are noise
+        _min_coh = params.val_coherence_min * 0.6 if params else 0.25
+        if coherence < _min_coh:
+            logger.debug(
+                f"[hdbscan] Rejecting low-coherence cluster (coh={coherence:.3f} < {_min_coh:.3f})"
+            )
+            noise_global_indices.extend(global_indices)
+            continue
 
         clusters.append(ClusterResult(
             label=f"{entity_name} event {cluster_label}" if entity_name else f"hdbscan_{cluster_label}",

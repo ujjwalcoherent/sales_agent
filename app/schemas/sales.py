@@ -319,6 +319,16 @@ class CompanyData(BaseModel):
             return ""
         return v
 
+    @model_validator(mode='after')
+    def warn_missing_domain(self):
+        if not self.domain and not self.website:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"CompanyData '{self.company_name}' has no domain/website — "
+                "contact finding will fall back to web search only"
+            )
+        return self
+
     class Config:
         use_enum_values = True
 

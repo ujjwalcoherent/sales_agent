@@ -107,6 +107,9 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
             summary = ""
         if not label and not summary:
             continue  # Skip unlabeled/bad clusters
+        if not label:
+            # Use truncated summary as title — cluster label synthesis failed but content exists
+            label = summary[:80].strip()
 
         # Deduplicate: skip clusters whose title normalizes to something already seen
         _title_key = (label or summary)[:50].strip().lower()
@@ -157,7 +160,7 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
         try:
             trends.append(TrendData(
                 id=getattr(cluster, "cluster_id", str(len(trends))),
-                trend_title=label or f"Cluster {len(trends) + 1}",
+                trend_title=label,  # always non-empty after guard above
                 summary=summary,
                 severity=severity,
                 industries_affected=industries_affected,
