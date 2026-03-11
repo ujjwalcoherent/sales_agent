@@ -41,6 +41,7 @@ import math
 import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from app.intelligence.config import ClusteringParams
@@ -55,6 +56,57 @@ logger = logging.getLogger(__name__)
 
 # LLM batch size for ambiguous cases (same pattern as news_collector.py)
 _LLM_BATCH_SIZE = 10
+
+# Cache for fine-tuned model ID (loaded once per process)
+_FINETUNE_MODEL_ID: str | None = None
+
+
+def _get_finetune_model() -> str | None:
+    """Return the fine-tuned gpt-4o-mini model ID if ready, else None.
+
+    Reads data/finetune/finetune_job.json. If the fine_tuned_model field is
+    populated, uses that. If still pending, checks OpenAI API once and caches.
+    Falls back to None → standard LLMService chain.
+    """
+    global _FINETUNE_MODEL_ID
+    if _FINETUNE_MODEL_ID is not None:
+        return _FINETUNE_MODEL_ID
+
+    job_file = Path("data/finetune/finetune_job.json")
+    if not job_file.exists():
+        return None
+
+    try:
+        import json as _json
+        job = _json.loads(job_file.read_text(encoding="utf-8"))
+        model_id = job.get("fine_tuned_model")
+        if model_id:
+            _FINETUNE_MODEL_ID = model_id
+            logger.info(f"[filter] Using fine-tuned model: {model_id}")
+            return model_id
+
+        # Still pending — check OpenAI API
+        job_id = job.get("job_id")
+        if not job_id:
+            return None
+
+        import os
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        ft_job = client.fine_tuning.jobs.retrieve(job_id)
+        if ft_job.fine_tuned_model:
+            _FINETUNE_MODEL_ID = ft_job.fine_tuned_model
+            # Update file so next process doesn't need to call API
+            job["fine_tuned_model"] = ft_job.fine_tuned_model
+            job["status"] = "succeeded"
+            job_file.write_text(_json.dumps(job, indent=2), encoding="utf-8")
+            logger.info(f"[filter] Fine-tuned model ready: {ft_job.fine_tuned_model}")
+            return ft_job.fine_tuned_model
+
+        logger.debug(f"[filter] Fine-tuning job {job_id} status: {ft_job.status}")
+    except Exception as e:
+        logger.debug(f"[filter] Fine-tune model check failed: {e}")
+    return None
 
 
 async def filter_articles(
@@ -403,9 +455,48 @@ async def _classify_batch(
 ) -> Tuple[List[Article], List[Article]]:
     """Send one batch to LLM for relevance classification.
 
-    Uses industry-aware context when available (INDUSTRY_FIRST mode).
+    Uses fine-tuned gpt-4o-mini when available (data/finetune/finetune_job.json).
+    Falls back to standard LLM chain with industry-aware prompt.
     Fail-CLOSED on exception: drops ambiguous articles rather than keeping them.
     """
+    # Fast path: use fine-tuned model if available (per-article YES/NO)
+    ft_model = _get_finetune_model()
+    if ft_model:
+        kept, rejected = [], []
+        try:
+            import os
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            import asyncio as _aio
+            sem = _aio.Semaphore(5)
+
+            async def _classify_one(article: "Article") -> bool:
+                text = f"{article.title}\n{(article.summary or '')[:400]}"
+                async with sem:
+                    resp = await client.chat.completions.create(
+                        model=ft_model,
+                        messages=[
+                            {"role": "user", "content": text[:800]},
+                        ],
+                        max_tokens=3,
+                        temperature=0,
+                    )
+                ans = (resp.choices[0].message.content or "").strip().upper()
+                return ans.startswith("YES")
+
+            results = await _aio.gather(*[_classify_one(a) for a, _ in batch], return_exceptions=True)
+            for (article, _), keep in zip(batch, results):
+                if isinstance(keep, Exception):
+                    rejected.append(article)
+                elif keep:
+                    kept.append(article)
+                else:
+                    rejected.append(article)
+            logger.info(f"[filter] Fine-tuned model: {sum(1 for r in results if r is True)}/{len(batch)} kept")
+            return kept, rejected
+        except Exception as e:
+            logger.warning(f"[filter] Fine-tuned model call failed: {e} — falling back to standard LLM")
+
     titles = "\n".join(
         f"{i+1}. {art.title}"
         for i, (art, _) in enumerate(batch)
