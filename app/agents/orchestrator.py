@@ -177,6 +177,117 @@ class GraphState(TypedDict):
     stage_advisories: Annotated[List[Dict], operator.add]  # Inter-stage communication
 
 
+# -- Fine-tuning auto-trigger --------------------------------------------------
+
+_FINETUNE_TRIGGER_EVERY = 200   # new examples between fine-tuning runs
+_FINETUNE_JOB_FILE = Path("data/finetune/finetune_job.json")
+
+
+def _maybe_trigger_finetune(dataset_total: int) -> None:
+    """Fire a background OpenAI fine-tuning job if dataset grew by 200+ examples.
+
+    Non-blocking: spawns a thread so the pipeline doesn't wait for the upload.
+    Checks the last_finetune_size stored in finetune_job.json to decide.
+    Uses the previous fine-tuned model as base for continued fine-tuning.
+    """
+    import json as _json
+    import os
+    import threading
+
+    try:
+        job = {}
+        if _FINETUNE_JOB_FILE.exists():
+            job = _json.loads(_FINETUNE_JOB_FILE.read_text(encoding="utf-8"))
+
+        last_size = job.get("last_finetune_size", 0)
+        pending_job = job.get("pending_job_id")
+
+        # Don't trigger if:
+        # - dataset hasn't grown enough since last fine-tune
+        # - a fine-tuning job is already in-flight
+        if dataset_total - last_size < _FINETUNE_TRIGGER_EVERY:
+            return
+        if pending_job:
+            # Check if it finished
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                ft = client.fine_tuning.jobs.retrieve(pending_job)
+                if ft.status in ("running", "queued", "validating_files"):
+                    logger.info(f"[finetune] Job {pending_job} still {ft.status}, skipping trigger")
+                    return
+                if ft.fine_tuned_model:
+                    job["fine_tuned_model"] = ft.fine_tuned_model
+                    job["status"] = "succeeded"
+                job.pop("pending_job_id", None)
+                _FINETUNE_JOB_FILE.write_text(_json.dumps(job, indent=2), encoding="utf-8")
+            except Exception:
+                return  # Can't check, skip to be safe
+
+        # Use previous fine-tuned model as base (continued fine-tuning)
+        base_model = job.get("fine_tuned_model") or "gpt-4o-mini-2024-07-18"
+        logger.info(
+            f"[finetune] Triggering new fine-tuning job. "
+            f"Dataset: {dataset_total} examples (+{dataset_total - last_size} since last). "
+            f"Base: {base_model}"
+        )
+
+        def _run_finetune():
+            try:
+                import sys
+                from pathlib import Path as _Path
+                _root = _Path(__file__).parent.parent.parent
+                sys.path.insert(0, str(_root))
+                from scripts.finetune_b2b_classifier import (
+                    load_dynamic_dataset, load_anli_negatives,
+                    build_training_file,
+                )
+                import tempfile
+
+                examples = load_dynamic_dataset(_root / "data" / "dynamic_dataset.jsonl")
+                examples.extend(load_anli_negatives(n=400))
+
+                with tempfile.TemporaryDirectory() as tmp:
+                    from pathlib import Path as _P
+                    train_path, val_path = build_training_file(examples, _P(tmp))
+
+                    import os as _os
+                    from openai import OpenAI as _OAI
+                    from dotenv import load_dotenv
+                    load_dotenv()
+                    client = _OAI(api_key=_os.getenv("OPENAI_API_KEY"))
+
+                    with open(train_path, "rb") as f:
+                        tf = client.files.create(file=f, purpose="fine-tune")
+                    with open(val_path, "rb") as f:
+                        vf = client.files.create(file=f, purpose="fine-tune")
+
+                    new_job = client.fine_tuning.jobs.create(
+                        training_file=tf.id,
+                        validation_file=vf.id,
+                        model=base_model,
+                        hyperparameters={"n_epochs": 2},  # 2 epochs for incremental updates
+                        suffix="b2b-classifier",
+                    )
+                    # Persist new job info
+                    current = {}
+                    if _FINETUNE_JOB_FILE.exists():
+                        current = _json.loads(_FINETUNE_JOB_FILE.read_text(encoding="utf-8"))
+                    current["pending_job_id"] = new_job.id
+                    current["last_finetune_size"] = dataset_total
+                    current["status"] = "validating_files"
+                    _FINETUNE_JOB_FILE.write_text(_json.dumps(current, indent=2), encoding="utf-8")
+                    logger.info(f"[finetune] New job started: {new_job.id} on base {base_model}")
+            except Exception as e:
+                logger.warning(f"[finetune] Background fine-tuning failed: {e}")
+
+        t = threading.Thread(target=_run_finetune, daemon=True)
+        t.start()
+
+    except Exception as e:
+        logger.debug(f"[finetune] Trigger check failed: {e}")
+
+
 # -- Recording helper ----------------------------------------------------------
 
 def _record(deps, step_name: str, data: dict, t0: float):
@@ -1662,6 +1773,12 @@ async def learning_update_node(state: GraphState) -> dict:
             f"pos={stats['positives']} neg={stats['negatives']} "
             f"ready={stats['ready_for_retrain']}"
         )
+
+        # ── Auto-trigger fine-tuning when dataset grows by 200+ examples ──
+        # Fires a background OpenAI fine-tuning job (non-blocking).
+        # Uses previous fine-tuned model as base if available (continued FT).
+        _maybe_trigger_finetune(stats["total"])
+
     except Exception as exc:
         logger.warning(f"Dataset enhancement skipped: {exc}")
 
