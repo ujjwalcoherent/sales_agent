@@ -408,10 +408,35 @@ class LeadGenResult(BaseModel):
 
 
 async def _resolve_domain(company_name: str, mock_mode: bool = False) -> str:
-    """Find a company's domain via web search + validation."""
+    """Find a company's domain via Clearbit → web search → validation.
+
+    Clearbit Autocomplete (FREE, no auth, <100ms) is tried first since
+    it reliably maps company names to canonical domains. Falls back to
+    web search when Clearbit doesn't know the company.
+    """
     if mock_mode:
         from app.tools.domain_utils import extract_domain_from_company_name
         return extract_domain_from_company_name(company_name) or ""
+
+    # Step 1: Clearbit Autocomplete — free, instant, reliable for known companies
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                "https://autocomplete.clearbit.com/v1/companies/suggest",
+                params={"query": company_name},
+            )
+            if resp.status_code == 200:
+                results = resp.json()
+                if results and isinstance(results, list):
+                    first = results[0]
+                    domain = first.get("domain", "")
+                    if domain:
+                        return domain
+    except Exception as e:
+        logger.debug(f"Clearbit domain lookup failed for '{company_name}': {e}")
+
+    # Step 2: Web search fallback (Tavily → DDG)
     try:
         from app.tools.web.web_intel import search
         from app.tools.domain_utils import extract_clean_domain, is_valid_company_domain
