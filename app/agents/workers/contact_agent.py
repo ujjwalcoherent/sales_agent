@@ -460,11 +460,16 @@ class ContactFinder:
         company: CompanyData,
         role: str
     ) -> Optional[ContactData]:
-        """Find a contact via web search."""
+        """Find a contact via web search.
+
+        Uses a broad leadership query (avoids LinkedIn keyword which DDG blocks),
+        then LLM-extracts the specific role from the results.
+        """
         country = getattr(self, '_country', 'India')
-        query = f"{role} {company.company_name} {country} LinkedIn"
+        # Single combined query — avoid "LinkedIn" keyword (DDG blocks it)
+        query = f"{company.company_name} {role} {country} executive"
         try:
-            data = await self.search_manager.web_search(query, max_results=3)
+            data = await self.search_manager.web_search(query, max_results=5)
         except Exception as e:
             logger.debug(f"Web search for {role} at {company.company_name} failed: {e}")
             data = {"results": [], "answer": ""}
@@ -477,14 +482,14 @@ class ContactFinder:
         contact_info = await self._extract_contact_from_search(
             search_result, company.company_name, role
         )
-        
+
         if not contact_info.get("person_name"):
             return None
-        
+
         contact_id = hashlib.md5(
             f"{company.id}_{contact_info.get('person_name')}".encode()
         ).hexdigest()[:12]
-        
+
         return ContactData(
             id=contact_id,
             company_id=company.id,

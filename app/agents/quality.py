@@ -81,8 +81,8 @@ def _check_trends(deps, trends: list = None) -> QualityVerdict:
     issues = []
     if mean_coh < 0.40:
         issues.append(f"Low mean coherence: {mean_coh:.3f} (need >= 0.40)")
-    if len(major) < 3:
-        issues.append(f"Too few clusters: {len(major)} (need >= 3)")
+    if len(clusters) < 3:
+        issues.append(f"Too few clusters: {len(clusters)} (need >= 3)")
     if min_coh < 0.25:
         issues.append(f"Very low min coherence: {min_coh:.3f}")
 
@@ -97,7 +97,7 @@ def _check_trends(deps, trends: list = None) -> QualityVerdict:
     reasoning = (
         f"Deterministic quality: {quality:.3f} "
         f"(coherence={mean_coh:.3f}, noise={noise_rate:.1%}, oss={mean_oss:.3f}). "
-        f"Clusters: {len(major)}, min_coh: {min_coh:.3f}"
+        f"Clusters: {len(clusters)}, min_coh: {min_coh:.3f}"
     )
 
     logger.info(f"Quality gate (trends): score={quality:.3f}, passed={passed}, retry={should_retry}")
@@ -106,7 +106,7 @@ def _check_trends(deps, trends: list = None) -> QualityVerdict:
         stage="trends",
         passed=passed,
         should_retry=should_retry,
-        items_passed=len(major),
+        items_passed=len(clusters),
         items_filtered=0,
         quality_score=quality,
         issues=issues,

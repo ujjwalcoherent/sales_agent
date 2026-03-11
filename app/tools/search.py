@@ -121,6 +121,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+import asyncio as _asyncio
+
+# Global DDG semaphore: DDG blocks after ~20 simultaneous requests from same IP.
+# Limit to 2 concurrent DDG calls across ALL SearchManager instances.
+_DDG_SEMAPHORE = _asyncio.Semaphore(2)
+
+
 class SearchManager:
     """
     Single entry point for all search operations.
@@ -179,11 +186,17 @@ class SearchManager:
         except Exception as e:
             logger.debug(f"Tavily search failed: {e}")
 
-        # 3. DuckDuckGo (free fallback — fragile, no auth needed)
+        # 3. DuckDuckGo (free fallback — rate-limited, max ~20 concurrent from one IP)
         try:
             from ddgs import DDGS
-            with DDGS() as ddgs:
-                raw = list(ddgs.text(query, max_results=max_results))
+            import asyncio as _aio
+            async with _DDG_SEMAPHORE:
+                # Run synchronous DDGS call in executor to avoid blocking event loop
+                loop = _aio.get_event_loop()
+                raw = await loop.run_in_executor(
+                    None,
+                    lambda: list(DDGS().text(query, max_results=max_results)),
+                )
             if raw:
                 results = [
                     {"title": r.get("title", ""), "url": r.get("href", ""), "content": r.get("body", "")}
