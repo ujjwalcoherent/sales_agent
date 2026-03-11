@@ -1,16 +1,15 @@
 """
-ExperimentTracker — AutoResearch-inspired propose→test→keep/discard loop.
+ExperimentTracker — AutoResearch-inspired keep/discard loop.
 
 Each pipeline run = one experiment. The tracker:
   1. Records run metrics (like AutoResearch's results.tsv)
   2. Detects regressions (keep vs discard decision)
-  3. Tracks hypothesis outcomes (which param changes helped?)
-  4. Monitors loop health (which learning loops are hurting quality?)
+  3. Monitors loop health (which learning loops are hurting quality?)
+  4. Snapshots/restores learning state for regression rollback
 
 Persistence: data/experiments.jsonl (append-only log of all runs)
 """
 
-import json
 import logging
 import shutil
 from datetime import datetime, timezone
@@ -28,18 +27,6 @@ _SNAPSHOT_DIR = Path("data/_learning_snapshot")
 # ══════════════════════════════════════════════════════════════════════════════
 # MODELS
 # ══════════════════════════════════════════════════════════════════════════════
-
-class Hypothesis(BaseModel):
-    """A proposed parameter change to test in the next run."""
-    id: str = Field(default_factory=lambda: __import__("uuid").uuid4().hex[:8])
-    source: str = "meta_reasoner"
-    description: str
-    param_changes: Dict[str, Any] = Field(default_factory=dict)
-    priority: float = 0.5
-    status: str = "untested"       # untested → tested:keep / tested:discard
-    tested_in_run: str = ""
-    result_delta: Dict[str, float] = Field(default_factory=dict)
-
 
 class ExperimentRecord(BaseModel):
     """One pipeline run = one experiment (AutoResearch pattern)."""
@@ -261,51 +248,3 @@ class ExperimentTracker:
         return self.loop_health(loop_name) < 0.3
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# HYPOTHESIS MANAGER
-# ══════════════════════════════════════════════════════════════════════════════
-
-HYPOTHESES_PATH = Path("data/improvement_hypotheses.json")
-
-
-def load_hypotheses() -> List[Hypothesis]:
-    """Load hypotheses from disk."""
-    if not HYPOTHESES_PATH.exists():
-        return []
-    try:
-        with open(HYPOTHESES_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            return [Hypothesis.model_validate(h) for h in data]
-        return []
-    except Exception:
-        return []
-
-
-def save_hypotheses(hypotheses: List[Hypothesis]) -> None:
-    """Save hypotheses to disk."""
-    HYPOTHESES_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(HYPOTHESES_PATH, "w", encoding="utf-8") as f:
-        json.dump([h.model_dump() for h in hypotheses], f, indent=2, default=str)
-
-
-def pick_next_hypothesis() -> Optional[Hypothesis]:
-    """Pick the highest-priority untested hypothesis."""
-    hypotheses = load_hypotheses()
-    untested = [h for h in hypotheses if h.status == "untested"]
-    if not untested:
-        return None
-    return max(untested, key=lambda h: h.priority)
-
-
-def mark_hypothesis_tested(hypothesis_id: str, run_id: str, status: str,
-                           result_delta: Dict[str, float]) -> None:
-    """Mark a hypothesis as tested:keep or tested:discard."""
-    hypotheses = load_hypotheses()
-    for h in hypotheses:
-        if h.id == hypothesis_id:
-            h.status = status
-            h.tested_in_run = run_id
-            h.result_delta = result_delta
-            break
-    save_hypotheses(hypotheses)

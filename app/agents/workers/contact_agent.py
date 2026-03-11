@@ -175,29 +175,57 @@ class ContactFinder:
         linkedin_url: str,
         seniority_tier: str,
         role_relevance: float = 0.5,
+        hunter_seniority: str = "",
+        phone_number: str = "",
     ) -> int:
-        """Compute reach score (0-100) from multiple signals.
+        """Compute reach score (0-100). Higher = more likely to respond to cold outreach.
 
-        Weights:
-          - Email deliverability (40%): verified=40, confidence-based otherwise
-          - LinkedIn presence (15%): URL exists = 15
-          - Seniority match (25%): decision_maker=25, influencer=18, gatekeeper=8
-          - Role relevance (20%): from impact target_roles match (0.0-1.0 * 20)
+        Weights (sum to 100):
+          Email (0-40)  — primary channel. verified=40, else confidence×0.4 capped at 32.
+          Phone (0-10)  — direct-dial from Hunter.
+          LinkedIn(0-10)— secondary channel / identity signal.
+          Tier  (0-20)  — decision_maker=20, influencer=15, gatekeeper=5.
+          Fit   (0-20)  — role_relevance (0.0-1.0) × 20 from trend target_roles match.
+
+        Caps:
+          Gatekeeper: max 40 — filters mail, doesn't act on it.
+          No email + no phone: max 35 — no known way to reach them.
         """
+        # Hunter's ML seniority cross-validates our keyword-based tier
+        if hunter_seniority:
+            h = hunter_seniority.lower()
+            if h == "executive" and seniority_tier != "decision_maker":
+                seniority_tier = "decision_maker"
+            elif h == "junior" and seniority_tier == "decision_maker":
+                seniority_tier = "influencer"
+
         score = 0.0
+
         # Email deliverability (0-40)
         if verified:
             score += 40
         elif email:
-            score += min(email_confidence * 0.4, 35)
-        # LinkedIn (0-15)
+            score += min(email_confidence * 0.4, 32)
+
+        # Phone (0-10)
+        if phone_number:
+            score += 10
+
+        # LinkedIn (0-10)
         if linkedin_url:
-            score += 15
-        # Seniority (0-25)
-        tier_scores = {"decision_maker": 25, "influencer": 18, "gatekeeper": 8}
-        score += tier_scores.get(seniority_tier, 12)
+            score += 10
+
+        # Seniority tier (0-20)
+        score += {"decision_maker": 20, "influencer": 15, "gatekeeper": 5}.get(seniority_tier, 10)
+
         # Role relevance (0-20)
         score += role_relevance * 20
+
+        if seniority_tier == "gatekeeper":
+            score = min(score, 40)
+        if not email and not phone_number:
+            score = min(score, 35)
+
         return max(0, min(100, int(round(score))))
 
     @staticmethod
@@ -370,20 +398,6 @@ class ContactFinder:
             except Exception as e:
                 logger.debug(f"Apollo DM search failed for {company.company_name}: {e}")
 
-        if len(contacts) < dm_limit:
-            import asyncio as _aio
-            needed = dm_limit - len(contacts)
-            dm_search_results = await _aio.gather(
-                *[self._find_via_search(company, role, trend_context=trend_context) for role in dm_roles[:needed]],
-                return_exceptions=True,
-            )
-            for i, result in enumerate(dm_search_results):
-                if isinstance(result, Exception):
-                    logger.debug(f"Search DM failed for {dm_roles[i]} at {company.company_name}: {result}")
-                    continue
-                if result and not self._contact_exists(result, contacts):
-                    contacts.append(result)
-
         # Phase 2: Influencers (remaining quota)
         inf_limit = limit - len(contacts)
         if inf_limit > 0 and company.domain:
@@ -394,22 +408,6 @@ class ContactFinder:
                         contacts.append(c)
             except Exception as e:
                 logger.debug(f"Apollo influencer search failed for {company.company_name}: {e}")
-
-        if len(contacts) < limit:
-            import asyncio as _aio
-            needed = limit - len(contacts)
-            inf_search_results = await _aio.gather(
-                *[self._find_via_search(company, role, trend_context=trend_context) for role in other_roles[:needed]],
-                return_exceptions=True,
-            )
-            for i, result in enumerate(inf_search_results):
-                if isinstance(result, Exception):
-                    logger.debug(f"Search influencer failed for {other_roles[i]} at {company.company_name}: {result}")
-                    continue
-                if result and not self._contact_exists(result, contacts):
-                    contacts.append(result)
-                    if len(contacts) >= limit:
-                        break
 
         # Phase 3: Hunter domain_search fallback — bulk contact discovery
         if len(contacts) < limit and company.domain and self.hunter_tool:
@@ -433,7 +431,12 @@ class ContactFinder:
                         email=r.get("email", ""),
                         email_confidence=r.get("confidence", 50),
                         email_source="hunter_domain",
-                        verified=False,
+                        verified=r.get("verified", False),
+                        # Hunter ML-inferred seniority — cross-validates keyword-based tier
+                        hunter_seniority=r.get("seniority", ""),
+                        # LinkedIn + phone from Hunter — no extra credit, avoids separate search
+                        linkedin_url=r.get("linkedin", ""),
+                        phone_number=r.get("phone_number", ""),
                     )
                     if not self._contact_exists(contact, contacts):
                         contacts.append(contact)
@@ -468,6 +471,13 @@ class ContactFinder:
                         contact.email_confidence = result.confidence or 70
                         contact.email_source = "hunter"
                         contact.verified = result.verified or False
+                        # Enrich contact with free fields from email-finder response
+                        if result.linkedin_url and not contact.linkedin_url:
+                            contact.linkedin_url = result.linkedin_url
+                        if result.phone_number and not contact.phone_number:
+                            contact.phone_number = result.phone_number
+                        if result.position and not contact.role:
+                            contact.role = result.position
                         resolved += 1
                 if resolved:
                     logger.info(
@@ -532,130 +542,6 @@ class ContactFinder:
             ))
 
         return contacts
-    
-    async def _find_via_search(
-        self,
-        company: CompanyData,
-        role: str,
-        trend_context: str = "",
-    ) -> Optional[ContactData]:
-        """Find a contact via web search, using trend context for specificity.
-
-        Uses a trend-aware query (avoids LinkedIn keyword which DDG blocks),
-        then LLM-extracts the specific role from the results.
-        """
-        country = getattr(self, '_country', 'India')
-        # Trend-aware query — specificity beats generic "executive" fishing
-        if trend_context:
-            # Use first 60 chars of trend context as search signal
-            short_ctx = trend_context[:60].split("|")[0].strip()
-            query = f"{company.company_name} {role} {short_ctx} {country}"
-        else:
-            query = f"{company.company_name} {role} {country} executive"
-        try:
-            data = await self.search_manager.web_search(query, max_results=5)
-        except Exception as e:
-            logger.debug(f"Web search for {role} at {company.company_name} failed: {e}")
-            data = {"results": [], "answer": ""}
-
-        # Use LLM to extract person info from search results
-        search_result = {
-            "search_answer": data.get("answer", ""),
-            "results": data.get("results", []),
-        }
-        contact_info = await self._extract_contact_from_search(
-            search_result, company.company_name, role, trend_context=trend_context,
-        )
-
-        if not contact_info.get("person_name"):
-            return None
-
-        contact_id = hashlib.md5(
-            f"{company.id}_{contact_info.get('person_name')}".encode()
-        ).hexdigest()[:12]
-
-        return ContactData(
-            id=contact_id,
-            company_id=company.id,
-            company_name=company.company_name,
-            person_name=contact_info.get("person_name", ""),
-            role=contact_info.get("role", role),
-            linkedin_url=contact_info.get("linkedin_url", ""),
-            email="",  # Will be found by email agent
-            email_confidence=0,
-            email_source=""
-        )
-    
-    async def _extract_contact_from_search(
-        self,
-        search_result: Dict,
-        company_name: str,
-        target_role: str,
-        trend_context: str = "",
-    ) -> Dict:
-        """Extract a SINGLE relevant contact from search results.
-
-        Trend-aware: validates that the found person is responsible for
-        the specific business area described in trend_context, not just
-        any person with a similar title. Rejects noise aggressively.
-        """
-        answer = search_result.get("search_answer", "")
-        results = search_result.get("results", [])
-
-        result_text = "\n".join([
-            f"- {r.get('title', '')}: {r.get('content', '')[:200]}"
-            for r in results
-        ])
-
-        trend_line = (
-            f"\nTREND CONTEXT (why we want this contact): {trend_context}"
-            if trend_context else ""
-        )
-
-        prompt = f"""You are extracting B2B sales contact information. Be STRICT — only return a person if you are confident they work at {company_name} in the {target_role} function.
-{trend_line}
-
-SEARCH ANSWER:
-{answer}
-
-SEARCH RESULTS:
-{result_text}
-
-RULES (follow exactly):
-1. Return ONLY a person currently employed at {company_name} — NOT at a partner, client, or competitor
-2. The person must own or influence the business area in TREND CONTEXT (if provided)
-3. Return empty person_name if the results mention: journalists, analysts, professors, politicians, or generic "executives" without a full name
-4. Return empty person_name if the person works at a news/media outlet (Forbes, ET, Mint, etc.)
-5. Never invent names — only extract from the search text above
-
-Return JSON only:
-{{"person_name": "<full name or empty string>", "role": "<exact title>", "linkedin_url": "<url or empty>"}}"""
-
-        try:
-            result = await self.llm_service.generate_json(prompt=prompt)
-
-            # Handle list response (NVIDIA sometimes returns array instead of object)
-            if isinstance(result, list) and result:
-                result = result[0]
-            if not isinstance(result, dict):
-                return {}
-
-            # Clean up LinkedIn URL
-            linkedin = result.get("linkedin_url", "")
-            if linkedin and not linkedin.startswith("http"):
-                if "linkedin.com" in linkedin:
-                    linkedin = "https://" + linkedin
-                else:
-                    linkedin = ""
-            
-            return {
-                "person_name": result.get("person_name", ""),
-                "role": result.get("role", target_role),
-                "linkedin_url": linkedin
-            }
-        except Exception as e:
-            logger.warning(f"LLM extraction failed: {e}")
-            return {}
     
     _EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 

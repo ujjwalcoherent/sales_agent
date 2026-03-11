@@ -65,8 +65,6 @@ async def execute(
     os.makedirs(diagnostics_dir, exist_ok=True)
 
     try:
-        _stage_results: list = []
-
         # ── Step 1: Fetch ────────────────────────────────────────────────────
         from app.intelligence.fetch import fetch_articles
         state.raw_articles = await fetch_articles(scope, params)
@@ -83,24 +81,6 @@ async def execute(
                           f"(removed {dedup_result.removed_count})")
         logger.info(f"[dedup] {len(state.articles)} unique articles")
 
-        # ── Verify dedup (SPOC: verify + advisory for downstream) ──────────
-        from app.learning.pipeline_validator import (
-            verify_dedup, verify_filter, verify_entity_extraction,
-            verify_clustering, verify_synthesis,
-            log_pipeline_validation_report, validate_pipeline_consistency,
-            should_correct, StageAdvisory,
-        )
-        _dedup_val, _dedup_adv = verify_dedup(
-            raw_count=len(state.raw_articles),
-            deduped_count=len(state.articles),
-            dedup_pairs=len(dedup_result.duplicate_pairs) if hasattr(dedup_result, 'duplicate_pairs') else 0,
-            articles=state.articles,
-            scope_hours=scope.hours,
-        )
-        _stage_results.append(_dedup_val)
-        state.stage_advisories.append(_dedup_adv.to_dict())
-        logger.info(f"[verify:dedup] {_dedup_val.status} {_dedup_val.message}")
-
         # ── Step 3: Filter (NLI zero-shot + Gap 4) ───────────────────────────
         from app.intelligence.filter import filter_articles
         filter_result = await filter_articles(state.articles, scope, params)
@@ -114,25 +94,6 @@ async def execute(
                     f"nli_mean={filter_result.nli_mean_entailment:.3f}, "
                     f"hypothesis={filter_result.hypothesis_version}, "
                     f"Gap4 dropped: {state.gap4_dropped_companies}")
-
-        # ── Verify filter (SPOC: verify + advisory + correction) ─────────────
-        from app.learning.pipeline_validator import apply_filter_rollback
-        _filter_val, _filter_adv = verify_filter(
-            input_count=len(state.articles),
-            kept_count=len(state.filtered_articles),
-            auto_accepted=getattr(filter_result, 'auto_accepted_count', 0),
-            auto_rejected=getattr(filter_result, 'auto_rejected_count', 0),
-            llm_classified=getattr(filter_result, 'llm_classified_count', 0),
-            nli_mean=filter_result.nli_mean_entailment,
-            kept_articles=state.filtered_articles,
-        )
-        _stage_results.append(_filter_val)
-        state.stage_advisories.append(_filter_adv.to_dict())
-        # Self-correction: if filter drifted, rollback hypothesis in-run
-        if not _filter_val.is_ok() and _filter_val.corrective_params.get("rollback_hypothesis"):
-            if apply_filter_rollback(_filter_val.corrective_params["rollback_hypothesis"]):
-                logger.warning("[pipeline] In-run NLI hypothesis rollback applied")
-        logger.info(f"[verify:filter] {_filter_val.status} {_filter_val.message}")
 
         if not state.filtered_articles:
             logger.warning("[pipeline] No articles survived filter. Returning empty result.")
@@ -148,39 +109,26 @@ async def execute(
                           f"{len(ungrouped)} ungrouped articles")
         logger.info(f"[extract] {len(state.entity_groups)} entity groups")
 
-        # ── Verify entity extraction (SPOC: verify + correction) ─────────────
-        grouped_count = sum(len(g.article_indices) for g in state.entity_groups if hasattr(g, 'article_indices'))
-        _entity_val, _entity_adv = verify_entity_extraction(
-            input_count=len(state.filtered_articles),
-            group_count=len(state.entity_groups),
-            grouped_article_count=grouped_count,
-            ungrouped_count=len(ungrouped),
-            entity_groups=state.entity_groups,
-        )
-        _stage_results.append(_entity_val)
-        state.stage_advisories.append(_entity_adv.to_dict())
-
-        # SPOC correction: remove entity groups with bad names (descriptions, single chars).
+        # ── Entity-group cleanup: remove bad names (descriptions, single chars) ──
         # Their articles move to the ungrouped pool for Leiden discovery clustering.
-        bad_groups_removed = _entity_adv.suggested_adjustments.get("groups_to_remove", 0)
-        if bad_groups_removed > 0 and state.entity_groups:
+        if state.entity_groups:
             valid_groups = []
+            bad_removed = 0
             try:
                 from app.agents.leads import is_company_description
                 for g in state.entity_groups:
                     name = getattr(g, "canonical_name", "")
                     if is_company_description(name) or len(name.strip()) <= 1 or name.strip().isdigit():
-                        # Move articles to ungrouped
                         ungrouped.extend(getattr(g, "article_indices", []))
-                        logger.info(f"[verify:entity] Removed bad entity group: '{name}'")
+                        logger.info(f"[entity] Removed bad entity group: '{name}'")
+                        bad_removed += 1
                     else:
                         valid_groups.append(g)
-                state.entity_groups = valid_groups
-                _entity_val.corrections_applied.append(f"removed {bad_groups_removed} bad entity groups")
+                if bad_removed:
+                    state.entity_groups = valid_groups
+                    logger.info(f"[entity] Removed {bad_removed} bad entity groups")
             except ImportError:
                 pass
-
-        logger.info(f"[verify:entity] {_entity_val.status} {_entity_val.message}")
 
         # ── Step 4b: Precompute embeddings (shared by clustering + synthesis) ───
         # Computing once here avoids redundant embed_batch() calls inside each
@@ -202,64 +150,27 @@ async def execute(
                     f"{len(state.rejected_cluster_ids)} rejected, "
                     f"{len(state.noise_article_indices)} noise")
 
-        # ── Verify clustering (SPOC: verify + strategic score + correction) ───
-        passed_clusters = state.passed_clusters()
-        coherences = [c.coherence_score for c in passed_clusters if c.coherence_score > 0]
-        mean_coh = sum(coherences) / max(len(coherences), 1)
-
-        # Load source bandit means for strategic score computation
-        _source_bandit_means: Optional[Dict] = None
-        try:
-            from app.learning.source_bandit import SourceBandit
-            _source_bandit_means = SourceBandit().get_quality_estimates()
-        except Exception:
-            pass
-
-        # Reconstruct upstream advisories from state
-        _upstream_advisories = [StageAdvisory(**a) for a in state.stage_advisories]
-
-        _cluster_val, _cluster_adv = verify_clustering(
-            input_count=len(state.filtered_articles),
-            total_clusters=len(state.clusters),
-            passed_count=len(state.passed_cluster_ids),
-            failed_count=len(state.rejected_cluster_ids),
-            noise_count=len(state.noise_article_indices),
-            mean_coherence=mean_coh,
-            coherences=coherences,
-            clusters=passed_clusters,
-            articles=state.filtered_articles,
-            upstream_advisories=_upstream_advisories,
-            source_bandit_means=_source_bandit_means,
-            scope_hours=scope.hours,
-        )
-        _stage_results.append(_cluster_val)
-        state.stage_advisories.append(_cluster_adv.to_dict())
-
-        # SPOC correction: if all clusters failed, re-validate with lowered coherence
-        if should_correct(_cluster_val):
-            override = _cluster_val.corrective_params.get("val_coherence_override")
-            if override is not None:
-                logger.info(f"[verify:cluster] Re-validating with coherence override {override:.3f}")
-                from app.intelligence.cluster.orchestrator import _run_validation
-                _revalidated = await _run_validation(
-                    state.clusters, state.filtered_articles, state.entity_groups,
-                    params._replace(val_coherence_min=override) if hasattr(params, '_replace')
-                    else _with_coherence_override(params, override),
-                )
-                if _revalidated:
-                    new_passed, new_rejected, new_vals = _revalidated
-                    state.passed_cluster_ids = new_passed
-                    state.rejected_cluster_ids = new_rejected
-                    state.validation_results = new_vals
-                    _cluster_val.status = StageStatus.CORRECTED
-                    _cluster_val.corrections_applied.append(f"coherence override → {override:.3f}")
-
-        logger.info(f"[verify:cluster] {_cluster_val.status} {_cluster_val.message} "
-                    f"strategic_score_mean={_cluster_adv.metrics.get('mean_strategic_score', 0):.3f}")
-
-        # Cross-stage consistency check + final report
-        _consistency = validate_pipeline_consistency(_stage_results)
-        log_pipeline_validation_report(_stage_results, _consistency)
+        # ── Zero-cluster fallback: re-validate with lowered coherence ─────────
+        if len(state.passed_cluster_ids) == 0 and len(state.clusters) > 0:
+            passed_clusters = state.passed_clusters()
+            coherences = [c.coherence_score for c in state.clusters if c.coherence_score > 0]
+            mean_coh = sum(coherences) / max(len(coherences), 1)
+            override = max(0.10, mean_coh * 0.8)
+            logger.info(
+                f"[cluster] All {len(state.clusters)} clusters failed validation "
+                f"(mean_coherence={mean_coh:.3f}). Re-validating with coherence override {override:.3f}"
+            )
+            from app.intelligence.cluster.orchestrator import _run_validation
+            _revalidated = await _run_validation(
+                state.clusters, state.filtered_articles, state.entity_groups,
+                _with_coherence_override(params, override),
+            )
+            if _revalidated:
+                new_passed, new_rejected, new_vals = _revalidated
+                state.passed_cluster_ids = new_passed
+                state.rejected_cluster_ids = new_rejected
+                state.validation_results = new_vals
+                logger.info(f"[cluster] After override: {len(new_passed)} passed")
 
         # ── Step 8: Synthesis (FIRST LLM CALL) ───────────────────────────────
         from app.intelligence.summarizer import synthesize_clusters
@@ -267,14 +178,6 @@ async def execute(
             state.passed_clusters(), state.filtered_articles, params
         )
         logger.info(f"[synthesis] {len(state.labeled_clusters)} labeled clusters")
-
-        # ── Verify synthesis (SPOC: label quality gate) ─────────────────────
-        _synth_val, _synth_adv = verify_synthesis(
-            state.labeled_clusters, state.filtered_articles,
-        )
-        _stage_results.append(_synth_val)
-        state.stage_advisories.append(_synth_adv.to_dict())
-        logger.info(f"[verify:synthesis] {_synth_val.status} {_synth_val.message}")
 
         # ── Step 8b: Critic Validation (AutoResearch quality gate) ─────────
         from app.intelligence.summarizer import critic_validate_clusters
@@ -468,30 +371,6 @@ async def _update_learning_loops(
         # flow via IntelligenceResult.nli_scores_by_source → orchestrator.
         # Store NLI scores on pipeline state for _build_result() to pick up.
         state._nli_scores_by_source = nli_scores_by_source
-
-        # ── Run HypothesisLearner if enough feedback ───────────────────────────
-        # SetFit (arXiv:2209.11055): closes the human feedback → NLI filter loop.
-        # Non-blocking: runs in background after pipeline completes.
-        try:
-            from app.learning.hypothesis_learner import HypothesisLearner
-            learner = HypothesisLearner()
-            updated = await learner.maybe_update(nli_mean_entailment=nli_mean)
-            if updated:
-                logger.info("[pipeline] NLI hypothesis updated by SetFit learner")
-                try:
-                    from app.learning.signal_bus import LearningSignalBus
-                    bus = LearningSignalBus()
-                    bus.publish_nli_filter(
-                        mean_entailment=nli_mean,
-                        rejection_rate=nli_rejection_rate,
-                        hypothesis_version=hypothesis_ver,
-                        hypothesis_updated=True,
-                        scores_by_source=nli_scores_by_source,
-                    )
-                except Exception:
-                    pass
-        except Exception as learner_exc:
-            logger.debug(f"[pipeline] HypothesisLearner failed (non-fatal): {learner_exc}")
 
     except Exception as exc:
         logger.warning(f"[pipeline] Learning update failed (non-fatal): {exc}")

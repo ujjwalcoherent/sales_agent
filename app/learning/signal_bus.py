@@ -11,7 +11,6 @@ Three-phase protocol prevents circular reads:
   Phase 3 — Each loop applies small cross-loop adjustments
 
 Active loops: Source Bandit, Company Bandit, Threshold Adapter, NLI Filter.
-Removed: WeightLearner (dead), MetaReasoner (decorative). See plan Phase A.
 
 Persisted to data/signal_bus.json between runs so next run starts warm.
 
@@ -190,7 +189,6 @@ class LearningSignalBus:
         Called after filter_articles() completes. Provides signals for:
         - Source Bandit: which sources produce high-entailment articles
         - Adaptive Thresholds: should nli_auto_accept be tightened/loosened?
-        - MetaReasoner: is filter quality above baseline (>0.60 mean entailment)?
         - Distribution shift detection: if mean drops >10% → trigger SetFit retraining
           (arXiv:2502.12965 — distribution shift survey recommends monitoring input dist.)
         """

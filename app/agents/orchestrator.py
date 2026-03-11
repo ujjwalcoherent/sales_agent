@@ -37,6 +37,10 @@ def _compute_actionability(severity: str, coherence: float, oss: float) -> float
       30% OSS (operational specificity: named entities + action verbs + numbers)
       30% coherence (cluster quality: tight clusters = reliable signal)
 
+    Severity ceiling: prevents low-importance trends from outranking high-severity
+    ones purely through cluster quality. A "negligible" trend should never surface
+    as top-priority, regardless of how tight its cluster is.
+
     Returns 0.0-1.0. Higher = more immediately actionable for B2B sales.
     """
     sev_str = severity.lower() if isinstance(severity, str) else (
@@ -44,7 +48,10 @@ def _compute_actionability(severity: str, coherence: float, oss: float) -> float
     )
     sev_map = {"high": 1.0, "medium": 0.6, "low": 0.3, "negligible": 0.1}
     sev_score = sev_map.get(sev_str, 0.4)
-    return round(0.40 * sev_score + 0.30 * oss + 0.30 * coherence, 3)
+    raw = 0.40 * sev_score + 0.30 * oss + 0.30 * coherence
+    # Ceiling: no trend can score higher than its severity permits
+    ceiling = {"high": 1.0, "medium": 0.85, "low": 0.55, "negligible": 0.25}
+    return round(min(raw, ceiling.get(sev_str, 0.65)), 3)
 
 
 def _compute_oss(cluster) -> float:
@@ -212,117 +219,6 @@ class GraphState(TypedDict):
     retry_counts: Dict[str, int]
     agent_reasoning: Dict[str, str]
     stage_advisories: Annotated[List[Dict], operator.add]  # Inter-stage communication
-
-
-# -- Fine-tuning auto-trigger --------------------------------------------------
-
-_FINETUNE_TRIGGER_EVERY = 200   # new examples between fine-tuning runs
-_FINETUNE_JOB_FILE = Path("data/finetune/finetune_job.json")
-
-
-def _maybe_trigger_finetune(dataset_total: int) -> None:
-    """Fire a background OpenAI fine-tuning job if dataset grew by 200+ examples.
-
-    Non-blocking: spawns a thread so the pipeline doesn't wait for the upload.
-    Checks the last_finetune_size stored in finetune_job.json to decide.
-    Uses the previous fine-tuned model as base for continued fine-tuning.
-    """
-    import json as _json
-    import os
-    import threading
-
-    try:
-        job = {}
-        if _FINETUNE_JOB_FILE.exists():
-            job = _json.loads(_FINETUNE_JOB_FILE.read_text(encoding="utf-8"))
-
-        last_size = job.get("last_finetune_size", 0)
-        pending_job = job.get("pending_job_id")
-
-        # Don't trigger if:
-        # - dataset hasn't grown enough since last fine-tune
-        # - a fine-tuning job is already in-flight
-        if dataset_total - last_size < _FINETUNE_TRIGGER_EVERY:
-            return
-        if pending_job:
-            # Check if it finished
-            try:
-                from openai import OpenAI
-                client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-                ft = client.fine_tuning.jobs.retrieve(pending_job)
-                if ft.status in ("running", "queued", "validating_files"):
-                    logger.info(f"[finetune] Job {pending_job} still {ft.status}, skipping trigger")
-                    return
-                if ft.fine_tuned_model:
-                    job["fine_tuned_model"] = ft.fine_tuned_model
-                    job["status"] = "succeeded"
-                job.pop("pending_job_id", None)
-                _FINETUNE_JOB_FILE.write_text(_json.dumps(job, indent=2), encoding="utf-8")
-            except Exception:
-                return  # Can't check, skip to be safe
-
-        # Use previous fine-tuned model as base (continued fine-tuning)
-        base_model = job.get("fine_tuned_model") or "gpt-4o-mini-2024-07-18"
-        logger.info(
-            f"[finetune] Triggering new fine-tuning job. "
-            f"Dataset: {dataset_total} examples (+{dataset_total - last_size} since last). "
-            f"Base: {base_model}"
-        )
-
-        def _run_finetune():
-            try:
-                import sys
-                from pathlib import Path as _Path
-                _root = _Path(__file__).parent.parent.parent
-                sys.path.insert(0, str(_root))
-                from scripts.finetune_b2b_classifier import (
-                    load_dynamic_dataset, load_anli_negatives,
-                    build_training_file,
-                )
-                import tempfile
-
-                examples = load_dynamic_dataset(_root / "data" / "dynamic_dataset.jsonl")
-                examples.extend(load_anli_negatives(n=400))
-
-                with tempfile.TemporaryDirectory() as tmp:
-                    from pathlib import Path as _P
-                    train_path, val_path = build_training_file(examples, _P(tmp))
-
-                    import os as _os
-                    from openai import OpenAI as _OAI
-                    from dotenv import load_dotenv
-                    load_dotenv()
-                    client = _OAI(api_key=_os.getenv("OPENAI_API_KEY"))
-
-                    with open(train_path, "rb") as f:
-                        tf = client.files.create(file=f, purpose="fine-tune")
-                    with open(val_path, "rb") as f:
-                        vf = client.files.create(file=f, purpose="fine-tune")
-
-                    new_job = client.fine_tuning.jobs.create(
-                        training_file=tf.id,
-                        validation_file=vf.id,
-                        model=base_model,
-                        hyperparameters={"n_epochs": 2},  # 2 epochs for incremental updates
-                        suffix="b2b-classifier",
-                    )
-                    # Persist new job info
-                    current = {}
-                    if _FINETUNE_JOB_FILE.exists():
-                        current = _json.loads(_FINETUNE_JOB_FILE.read_text(encoding="utf-8"))
-                    current["pending_job_id"] = new_job.id
-                    current["last_finetune_size"] = dataset_total
-                    current["status"] = "validating_files"
-                    _FINETUNE_JOB_FILE.write_text(_json.dumps(current, indent=2), encoding="utf-8")
-                    logger.info(f"[finetune] New job started: {new_job.id} on base {base_model}")
-            except Exception as e:
-                logger.warning(f"[finetune] Background fine-tuning failed: {e}")
-
-        t = threading.Thread(target=_run_finetune, daemon=True)
-        t.start()
-
-    except Exception as e:
-        logger.debug(f"[finetune] Trigger check failed: {e}")
 
 
 # -- Recording helper ----------------------------------------------------------
@@ -656,29 +552,6 @@ async def lead_gen_node(state: GraphState) -> dict:
         companies, contacts, outreach = [], [], []
         result = None
 
-
-    # -- SPOC Verify: company enrichment + contacts quality check --------
-    lead_sheets = getattr(deps, "_lead_sheets", [])
-    try:
-        from app.learning.pipeline_validator import (
-            verify_company_enrichment, verify_contacts,
-        )
-        if companies:
-            enrich_val, enrich_adv = verify_company_enrichment(companies, lead_sheets)
-            logger.info(f"[verify_enrichment] {enrich_val.message}")
-            # Remove triple-failure companies
-            if enrich_val.corrective_params.get("remove_triple_failures"):
-                bad_names = set(enrich_val.corrective_params.get("triple_failure_names", []))
-                pre = len(companies)
-                companies = [c for c in companies if (getattr(c, "name", "") or getattr(c, "company_name", "")) not in bad_names]
-                if pre - len(companies) > 0:
-                    logger.info(f"[verify_enrichment] Removed {pre - len(companies)} triple-failure companies")
-
-        if contacts:
-            contact_val, contact_adv = verify_contacts(contacts, lead_sheets)
-            logger.info(f"[verify_contacts] {contact_val.message}")
-    except Exception as exc:
-        logger.debug(f"Enrichment/contact verification skipped: {exc}")
 
     people = getattr(deps, "_person_profiles", [])
     _record(deps, "lead_gen_complete", {
@@ -1184,35 +1057,20 @@ async def lead_crystallize_node(state: GraphState) -> dict:
         except Exception as e:
             logger.debug(f"Company bandit ranking skipped: {e}")
 
-        # -- SPOC Verify-Then-Correct: lead quality check --
+        # ── Lead quality cleanup: remove description-as-name + low confidence ──
         try:
-            from app.learning.pipeline_validator import (
-                verify_lead_crystallization, should_correct, StageStatus,
-            )
-            val, adv = verify_lead_crystallization(
-                lead_sheets=all_leads,
-                trend_count=len(state.get("trends", [])),
-            )
-            logger.info(f"[verify_leads] {val.message}")
-
-            if should_correct(val):
-                pre_count = len(all_leads)
-                # Remove description-as-name leads
-                if val.corrective_params.get("remove_description_leads"):
-                    from app.agents.leads import is_company_description
-                    all_leads = [
-                        l for l in all_leads
-                        if not is_company_description(getattr(l, "company_name", "") or "")
-                    ]
-                # Remove very low confidence leads
-                if val.corrective_params.get("remove_low_confidence"):
-                    all_leads = [l for l in all_leads if getattr(l, "confidence", 0.5) >= 0.20]
-                removed = pre_count - len(all_leads)
-                if removed:
-                    adv.quality_level = "corrected"
-                    logger.info(f"[verify_leads] SPOC correction: removed {removed} bad leads")
+            from app.agents.leads import is_company_description
+            pre_count = len(all_leads)
+            all_leads = [
+                l for l in all_leads
+                if not is_company_description(getattr(l, "company_name", "") or "")
+                and getattr(l, "confidence", 0.5) >= 0.20
+            ]
+            removed = pre_count - len(all_leads)
+            if removed:
+                logger.info(f"[leads] Removed {removed} bad leads (description-as-name or low confidence)")
         except Exception as exc:
-            logger.debug(f"Lead verification skipped: {exc}")
+            logger.debug(f"Lead cleanup skipped: {exc}")
 
         deps._lead_sheets = all_leads
 
@@ -1282,9 +1140,8 @@ async def learning_update_node(state: GraphState) -> dict:
     # ║  PHASE 0: Snapshot learning state (AutoResearch pattern)       ║
     # ╚══════════════════════════════════════════════════════════════════╝
     from app.learning.experiment_tracker import (
-        ExperimentTracker, ExperimentRecord, Hypothesis,
+        ExperimentTracker, ExperimentRecord,
         snapshot_learning_state, restore_learning_state, cleanup_snapshot,
-        pick_next_hypothesis, mark_hypothesis_tested,
     )
     tracker = ExperimentTracker()
     snapshot_learning_state()
@@ -1423,13 +1280,16 @@ async def learning_update_node(state: GraphState) -> dict:
             # If sustained degradation detected, adapter.update() will no-op.
             quality_score = state.get("quality_score", 0.0) or 0.0
             adapter.record_quality(quality_score)
+            # Use previous run's system_confidence to modulate EMA alpha.
+            # Current run's confidence is computed in Phase 2 (after this block).
+            _sys_conf = getattr(previous_bus, "system_confidence", 0.5) if previous_bus else 0.5
             adapter.update(ThresholdUpdate(
                 observed_filter_accept_rate=_filter_accept_rate,
                 observed_coherence=_mean_coherence,
                 observed_pass_rate=_cluster_pass_rate,
                 observed_noise_rate=_noise_rate,
                 run_id=state.get("run_id", ""),
-            ))
+            ), system_confidence=_sys_conf)
             logger.info("[threshold_adapter] Updated from run metrics")
         else:
             logger.info("[threshold_adapter] Dampened — skipping update")
@@ -1644,18 +1504,8 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as e:
         logger.debug(f"Pipeline run recording skipped: {e}")
 
-    # -- 6c. Adaptive Thresholds: publish current state to bus ---------
-    try:
-        from app.learning.pipeline_metrics import compute_adaptive_thresholds, THRESHOLD_REGISTRY
-        thresholds = compute_adaptive_thresholds()
-        anomaly_flags = []
-        for name, at in THRESHOLD_REGISTRY.items():
-            if name in thresholds and at.is_anomaly(thresholds[name]):
-                anomaly_flags.append(f"{name}={thresholds[name]:.3f}")
-        # drift detection removed (detect_drift/detect_drift_ewma were called with empty dicts)
-        bus.publish_adaptive_thresholds(thresholds, anomaly_flags, [])
-    except Exception as e:
-        logger.debug(f"Adaptive thresholds publish skipped: {e}")
+    # Adaptive thresholds are handled by threshold_adapter.py (CUSUM-guarded).
+    # The duplicate EMA-based compute_adaptive_thresholds() was removed.
 
     # ── Backward cascade signals ────────────────────────────────────────
     # Propagate downstream quality (clusters, leads) back to upstream loops.
@@ -1777,67 +1627,9 @@ async def learning_update_node(state: GraphState) -> dict:
     avg_kb_hit = sum(s.kb_hit_rate for s in signals) / len(signals) if signals else 0.0
     mean_quality = (quality_sum / max(len(signals), 1)) if signals else 0.0
 
-    # ╔══════════════════════════════════════════════════════════════════╗
-    # ║  PHASE 4b: Dataset Enhancement  - auto-label from cluster signals ║
-    # ║  Extracts positive/negative examples from cluster coherence     ║
-    # ║  No human input needed  - self-improving from pipeline signals   ║
-    # ╚══════════════════════════════════════════════════════════════════╝
-    try:
-        from app.learning.dataset_enhancer import DatasetEnhancer
-        enhancer = DatasetEnhancer()
-
-        # Cold start: bootstrap from Reuters + AG News if dataset is empty (first run)
-        if enhancer.get_stats()["total"] == 0:
-            logger.info("[dataset_enhancer] Cold start: bootstrapping from Reuters + AG News...")
-            r_pos, r_neg = enhancer.bootstrap_from_reuters(n_per_class=30)
-            ag_pos, ag_neg = enhancer.bootstrap_from_ag_news(n_per_class=50)
-            logger.info(
-                f"[dataset_enhancer] Bootstrap complete: "
-                f"Reuters +{r_pos}/{r_neg}, AG News +{ag_pos}/{ag_neg}"
-            )
-
-        # Extract labels from this run's cluster quality signals
-        clusters = getattr(deps, "_clusters", [])
-        if clusters:
-            pos, neg = enhancer.extract_labels_from_clusters(clusters)
-            logger.info(f"[dataset_enhancer] Extracted from clusters: +{pos} pos, +{neg} neg")
-
-        # Trigger SetFit retraining if we have enough examples
-        if enhancer.should_trigger_retrain():
-            try:
-                from app.learning.hypothesis_learner import HypothesisLearner
-                learner = HypothesisLearner()
-                positives, negatives = enhancer.get_examples_for_setfit(max_per_class=64)
-                # Inject dataset examples into feedback store path
-                logger.info(
-                    f"[dataset_enhancer] Triggering SetFit retraining: "
-                    f"{len(positives)} pos / {len(negatives)} neg"
-                )
-                # Use HypothesisLearner's internal methods with our dataset examples
-                updated = await learner._train_and_update(positives, negatives)
-                if updated:
-                    logger.info("[dataset_enhancer] SetFit hypothesis updated from dataset")
-                else:
-                    logger.warning("[dataset_enhancer] SetFit update failed  - keeping current hypothesis")
-            except Exception as exc:
-                logger.warning(f"[dataset_enhancer] SetFit trigger failed: {exc}")
-
-        stats = enhancer.get_stats()
-        logger.info(
-            f"[dataset_enhancer] Dataset: total={stats['total']} "
-            f"pos={stats['positives']} neg={stats['negatives']} "
-            f"ready={stats['ready_for_retrain']}"
-        )
-
-        # ── Auto-trigger fine-tuning when dataset grows by 200+ examples ──
-        # Fires a background OpenAI fine-tuning job (non-blocking).
-        # Uses previous fine-tuned model as base if available (continued FT).
-        _maybe_trigger_finetune(stats["total"])
-
-    except Exception as exc:
-        logger.warning(f"Dataset enhancement skipped: {exc}")
-
-    # PHASE 4c: Experience Library — REMOVED (write-only, find_proven_fix never called)
+    # DatasetEnhancer + HypothesisLearner SetFit training — REMOVED
+    # (SetFit retraining never ran successfully in production; NLI hypothesis
+    # is loaded from data/filter_hypothesis.json and manually curated.)
 
     # ╔══════════════════════════════════════════════════════════════════╗
     # ║  PHASE 5: Persist bus + finalize                               ║
@@ -1884,12 +1676,9 @@ async def learning_update_node(state: GraphState) -> dict:
         actionable_rate = actionable_count / max(len(signals), 1)
         noise_rate_val = getattr(pipeline, "_noise_rate", 0.0) if pipeline else 0.0
 
-        # Check for active hypothesis
-        active_hyp = getattr(deps, "_active_hypothesis", None)
-
         experiment = ExperimentRecord(
             run_id=state.get("run_id", bus.run_id),
-            hypothesis=active_hyp.description if active_hyp else "",
+            hypothesis="",
             mean_oss=avg_oss,
             mean_coherence=getattr(pipeline, "_mean_coherence", 0.0) if pipeline else 0.0,
             noise_rate=noise_rate_val,
@@ -1908,20 +1697,6 @@ async def learning_update_node(state: GraphState) -> dict:
             cleanup_snapshot()
 
         tracker.record(experiment)
-
-        # Mark hypothesis outcome
-        if active_hyp and active_hyp.param_changes:
-            baseline = tracker.rolling_baseline()
-            result_delta = {}
-            if baseline:
-                result_delta = {
-                    "mean_oss": round(avg_oss - baseline["mean_oss"], 4),
-                    "actionable_rate": round(actionable_rate - baseline["actionable_rate"], 4),
-                }
-            hyp_status = f"tested:{experiment.status}"
-            mark_hypothesis_tested(
-                active_hyp.id, experiment.run_id, hyp_status, result_delta,
-            )
 
         oss_trend = tracker.trend("mean_oss")
         if oss_trend != "stable":
@@ -2089,28 +1864,6 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
     )
 
     deps._pipeline_t0 = _time.time()
-
-    # -- AutoResearch: load & apply top hypothesis for this run ---------
-    active_hypothesis = None
-    try:
-        from app.learning.experiment_tracker import pick_next_hypothesis
-        active_hypothesis = pick_next_hypothesis()
-        if active_hypothesis and active_hypothesis.param_changes:
-            logger.info(
-                f"AutoResearch: testing hypothesis '{active_hypothesis.description}' "
-                f"(params: {active_hypothesis.param_changes})"
-            )
-            # Apply param changes to adaptive thresholds for this run
-            from app.intelligence.config import load_adaptive_params
-            params = load_adaptive_params()
-            for key, value in active_hypothesis.param_changes.items():
-                if hasattr(params, key):
-                    setattr(params, key, value)
-            # Store modified params on deps for pipeline to use
-            deps._hypothesis_params = params
-            deps._active_hypothesis = active_hypothesis
-    except Exception as e:
-        logger.debug(f"Hypothesis loading skipped: {e}")
 
     initial_state: GraphState = {
         "deps": deps,
