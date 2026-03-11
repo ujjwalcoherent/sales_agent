@@ -117,7 +117,15 @@ class HunterTool:
                         return EmailFinderResult(error="Invalid API key", source="hunter")
 
                     elif response.status_code == 429:
-                        logger.warning("Hunter API: Rate limit exceeded")
+                        logger.warning("Hunter API: Rate limit exceeded — falling back to email pattern guess")
+                        guessed = await self.generate_email_pattern(clean_domain, first_name, last_name)
+                        if guessed:
+                            return EmailFinderResult(
+                                email=guessed,
+                                confidence=35,  # Low confidence — unverified guess
+                                source="pattern_guess",
+                                verified=False,
+                            )
                         return EmailFinderResult(error="Rate limit exceeded", source="hunter")
 
                     else:
@@ -219,9 +227,15 @@ class HunterTool:
                                 "confidence": item.get("confidence", 0)
                             })
                         return emails
+                    elif response.status_code == 429:
+                        logger.warning(
+                            f"Hunter domain_search rate limited (monthly quota exhausted). "
+                            f"Upgrade plan at https://hunter.io/pricing or wait for reset."
+                        )
+                        return []
         except Exception as e:
             logger.error(f"Hunter domain search error: {e}")
-        
+
         return []
     
     async def generate_email_pattern(

@@ -16,11 +16,41 @@ from ...config import get_settings, TREND_ROLE_MAPPING
 logger = logging.getLogger(__name__)
 
 
+_C_SUITE = frozenset({
+    "ceo", "cfo", "cto", "coo", "cmo", "cio", "ciso", "founder", "co-founder",
+    "cofounder", "managing director", "president", "owner",
+})
+# For large companies (>900 employees), C-suite doesn't read cold emails.
+# Target VP/Director/Head instead.
+_LARGE_COMPANY_THRESHOLD = 900
+
+
+def _filter_roles_by_size(roles: list[str], employee_count: int | None) -> list[str]:
+    """Re-order roles based on company size.
+
+    For companies >900 employees: demote pure C-suite titles to end of list
+    (keep if no alternatives exist). VP/Director/Head are primary targets.
+    For small companies (<100 employees): CEO/Founder IS the right person.
+    """
+    if not employee_count or employee_count <= _LARGE_COMPANY_THRESHOLD:
+        return roles  # Small/mid: C-suite is correct
+
+    # Large company: separate C-suite from VP/Director level
+    c_suite = [r for r in roles if any(kw in r.lower() for kw in _C_SUITE)]
+    non_c_suite = [r for r in roles if r not in c_suite]
+
+    if non_c_suite:
+        # VP/Director roles first, then C-suite as last resort
+        return non_c_suite + c_suite
+    return roles  # No alternatives — keep C-suite
+
+
 def match_roles_to_trend(
     trend_type: str,
     pain_point: str = "",
     who_needs_help: str = "",
     trend_title: str = "",
+    employee_count: int | None = None,
 ) -> list[str]:
     """Determine which roles to target based on the trend.
 
@@ -76,7 +106,8 @@ def match_roles_to_trend(
             seen.add(key)
             unique.append(r)
 
-    return unique[:8]  # Cap at 8 roles
+    filtered = _filter_roles_by_size(unique, employee_count)
+    return filtered[:8]  # Cap at 8 roles
 
 
 class ContactFinder:
@@ -216,8 +247,15 @@ class ContactFinder:
                         trend_title = getattr(trend, "trend_title", "") or "" if trend else ""
                         pain_point = " ".join(getattr(impact, "midsize_pain_points", []) or []) if impact else ""
                         who_needs_help = getattr(impact, "who_needs_help", "") or "" if impact else ""
+                        emp_count = getattr(company, "employee_count", None)
+                        if isinstance(emp_count, str):
+                            # Parse "500-1000" → take lower bound
+                            import re as _re
+                            m = _re.search(r"\d+", emp_count)
+                            emp_count = int(m.group()) if m else None
                         matched_roles = match_roles_to_trend(
                             trend_type, pain_point, who_needs_help, trend_title=trend_title,
+                            employee_count=emp_count,
                         )
                         if matched_roles:
                             target_roles = matched_roles
