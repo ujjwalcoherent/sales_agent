@@ -436,16 +436,21 @@ async def _resolve_domain(company_name: str, mock_mode: bool = False) -> str:
     except Exception as e:
         logger.debug(f"Clearbit domain lookup failed for '{company_name}': {e}")
 
-    # Step 2: Web search fallback (Tavily → DDG)
+    # Step 2: Web search fallback (Tavily → DDG) — timeout-guarded
     try:
         from app.tools.web.web_intel import search
         from app.tools.domain_utils import extract_clean_domain, is_valid_company_domain
 
-        results = await search(f"{company_name} official website", max_results=5)
+        results = await asyncio.wait_for(
+            search(f"{company_name} official website", max_results=5),
+            timeout=10.0,
+        )
         for r in results:
             d = extract_clean_domain(r.url)
             if d and is_valid_company_domain(d):
                 return d
+    except asyncio.TimeoutError:
+        logger.debug(f"Domain resolution timed out for '{company_name}'")
     except Exception as e:
         logger.debug(f"Domain resolution for '{company_name}' failed: {e}")
     return ""

@@ -238,8 +238,17 @@ class ContactFinder:
             async with semaphore:
                 try:
                     # Priority: company.target_roles (LLM-inferred) > trend match > defaults
+                    trend_title = ""
+                    who_needs_help = ""
+                    pain_point = ""
+                    trend_context = ""
                     if getattr(company, "target_roles", None):
                         target_roles = list(company.target_roles)
+                        # Still build trend_context from impact if available
+                        impact = impact_map.get(company.trend_id)
+                        trend = trend_map.get(company.trend_id)
+                        trend_title = getattr(trend, "trend_title", "") or "" if trend else ""
+                        who_needs_help = getattr(impact, "who_needs_help", "") or "" if impact else ""
                     else:
                         impact = impact_map.get(company.trend_id)
                         trend = trend_map.get(company.trend_id)
@@ -278,8 +287,18 @@ class ContactFinder:
                             target_roles = [r for r, _ in _ranked]
                         except Exception:
                             pass  # Graceful degradation: use original role order
+                    # Build trend context for trend-aware search + extraction
+                    _tc_parts = []
+                    if trend_title:
+                        _tc_parts.append(trend_title)
+                    if who_needs_help:
+                        _tc_parts.append(who_needs_help)
+                    elif pain_point:
+                        _tc_parts.append(pain_point[:150])
+                    trend_context = " | ".join(_tc_parts)[:200]
+
                     contacts = await self._find_contacts_for_company(
-                        company, target_roles, max_contacts
+                        company, target_roles, max_contacts, trend_context=trend_context,
                     )
                     logger.info(f"Found {len(contacts)} contacts at: {company.company_name}")
                     return contacts
@@ -306,7 +325,8 @@ class ContactFinder:
         self,
         company: CompanyData,
         target_roles: List[str],
-        limit: int
+        limit: int,
+        trend_context: str = "",
     ) -> List[ContactData]:
         """Find contacts at a company — tiered: decision-makers first, then influencers."""
         contacts = []
@@ -334,7 +354,7 @@ class ContactFinder:
             import asyncio as _aio
             needed = dm_limit - len(contacts)
             dm_search_results = await _aio.gather(
-                *[self._find_via_search(company, role) for role in dm_roles[:needed]],
+                *[self._find_via_search(company, role, trend_context=trend_context) for role in dm_roles[:needed]],
                 return_exceptions=True,
             )
             for i, result in enumerate(dm_search_results):
@@ -359,7 +379,7 @@ class ContactFinder:
             import asyncio as _aio
             needed = limit - len(contacts)
             inf_search_results = await _aio.gather(
-                *[self._find_via_search(company, role) for role in other_roles[:needed]],
+                *[self._find_via_search(company, role, trend_context=trend_context) for role in other_roles[:needed]],
                 return_exceptions=True,
             )
             for i, result in enumerate(inf_search_results):
@@ -496,16 +516,22 @@ class ContactFinder:
     async def _find_via_search(
         self,
         company: CompanyData,
-        role: str
+        role: str,
+        trend_context: str = "",
     ) -> Optional[ContactData]:
-        """Find a contact via web search.
+        """Find a contact via web search, using trend context for specificity.
 
-        Uses a broad leadership query (avoids LinkedIn keyword which DDG blocks),
+        Uses a trend-aware query (avoids LinkedIn keyword which DDG blocks),
         then LLM-extracts the specific role from the results.
         """
         country = getattr(self, '_country', 'India')
-        # Single combined query — avoid "LinkedIn" keyword (DDG blocks it)
-        query = f"{company.company_name} {role} {country} executive"
+        # Trend-aware query — specificity beats generic "executive" fishing
+        if trend_context:
+            # Use first 60 chars of trend context as search signal
+            short_ctx = trend_context[:60].split("|")[0].strip()
+            query = f"{company.company_name} {role} {short_ctx} {country}"
+        else:
+            query = f"{company.company_name} {role} {country} executive"
         try:
             data = await self.search_manager.web_search(query, max_results=5)
         except Exception as e:
@@ -518,7 +544,7 @@ class ContactFinder:
             "results": data.get("results", []),
         }
         contact_info = await self._extract_contact_from_search(
-            search_result, company.company_name, role
+            search_result, company.company_name, role, trend_context=trend_context,
         )
 
         if not contact_info.get("person_name"):
@@ -544,18 +570,30 @@ class ContactFinder:
         self,
         search_result: Dict,
         company_name: str,
-        target_role: str
+        target_role: str,
+        trend_context: str = "",
     ) -> Dict:
-        """Extract contact information from search results using LLM."""
+        """Extract a SINGLE relevant contact from search results.
+
+        Trend-aware: validates that the found person is responsible for
+        the specific business area described in trend_context, not just
+        any person with a similar title. Rejects noise aggressively.
+        """
         answer = search_result.get("search_answer", "")
         results = search_result.get("results", [])
-        
+
         result_text = "\n".join([
-            f"- {r.get('title', '')}: {r.get('content', '')}"
+            f"- {r.get('title', '')}: {r.get('content', '')[:200]}"
             for r in results
         ])
-        
-        prompt = f"""Extract contact information for the {target_role} at {company_name}.
+
+        trend_line = (
+            f"\nTREND CONTEXT (why we want this contact): {trend_context}"
+            if trend_context else ""
+        )
+
+        prompt = f"""You are extracting B2B sales contact information. Be STRICT — only return a person if you are confident they work at {company_name} in the {target_role} function.
+{trend_line}
 
 SEARCH ANSWER:
 {answer}
@@ -563,13 +601,15 @@ SEARCH ANSWER:
 SEARCH RESULTS:
 {result_text}
 
-Extract the following information as JSON:
-- person_name: Full name of the person (or empty string if not found)
-- role: Their exact job title
-- linkedin_url: LinkedIn profile URL if found
+RULES (follow exactly):
+1. Return ONLY a person currently employed at {company_name} — NOT at a partner, client, or competitor
+2. The person must own or influence the business area in TREND CONTEXT (if provided)
+3. Return empty person_name if the results mention: journalists, analysts, professors, politicians, or generic "executives" without a full name
+4. Return empty person_name if the person works at a news/media outlet (Forbes, ET, Mint, etc.)
+5. Never invent names — only extract from the search text above
 
-Only include information you are confident about.
-If no relevant person is found, return {{"person_name": ""}}"""
+Return JSON only:
+{{"person_name": "<full name or empty string>", "role": "<exact title>", "linkedin_url": "<url or empty>"}}"""
 
         try:
             result = await self.llm_service.generate_json(prompt=prompt)

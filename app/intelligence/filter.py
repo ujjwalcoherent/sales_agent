@@ -70,7 +70,8 @@ def _get_finetune_model() -> str | None:
     if _FINETUNE_MODEL_ID is not None:
         return _FINETUNE_MODEL_ID
 
-    job_file = Path("data/finetune/finetune_job.json")
+    # Use absolute path so this works regardless of CWD
+    job_file = Path(__file__).parent.parent.parent / "data" / "finetune" / "finetune_job.json"
     if not job_file.exists():
         return None
 
@@ -475,11 +476,22 @@ Example: KEEP, DROP, KEEP, KEEP, DROP"""
         prompt = f"""You are a B2B sales intelligence filter.{report_context}
 Target companies: {targets_str}
 
-Rule: KEEP only if a SPECIFIC NAMED COMPANY (not government/politician) is the primary actor.
+B2B ONLY: Keep articles about BUSINESS EVENTS at {targets_str}. Be strict.
 
-For each article below, respond with KEEP or DROP.
-KEEP = a specific company in {targets_str} is making a business move (earnings, product, strategy, deal, regulation targeting the company).
-DROP = article is about government policy, infrastructure by politicians, macro trends, or {targets_str} is not the primary subject (politics, sports, crime, celebrity).
+KEEP if:
+- A company in ({targets_str}) is the PRIMARY actor making a concrete B2B decision
+- Events: product launches, funding, M&A, enterprise contracts, regulatory action ON the company,
+  partnerships, hiring of C-suite, quarterly earnings, SaaS/cloud/tech updates
+
+DROP if ANY is true:
+- The company is only briefly mentioned, quoted, or referenced (not the primary subject)
+- Consumer product news (phones, apps, gadgets for end users)
+- Government policy, politician statements, military/geopolitical events
+- Sports, cricket, IPL, entertainment, celebrity, Bollywood
+- Crime, court cases unrelated to corporate governance
+- Stock tips, analyst forecasts, market commentary with no specific company action
+- PR fluff: rankings, awards, CSR events unless tied to a business deal
+- Article is about a person not affiliated with ({targets_str})
 
 Articles:
 {titles}
