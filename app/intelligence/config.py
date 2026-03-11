@@ -157,6 +157,7 @@ def get_region(code: str) -> RegionConfig:
 INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     "Cybersecurity": {
         "keywords": ["breach", "ransomware", "threat", "zero-day", "SIEM", "SOC", "endpoint", "CVE"],
+        "anchor_companies": ["CrowdStrike", "Palo Alto Networks", "Quick Heal", "Trellix", "Seqrite"],
         "1st_order": [
             "endpoint security", "network security", "identity management",
             "threat intelligence", "SIEM vendor", "cloud security", "zero trust",
@@ -171,6 +172,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Fintech": {
         "keywords": ["payment", "neobank", "digital banking", "insurtech", "wealthtech", "regtech", "UPI", "BNPL"],
+        "anchor_companies": ["Razorpay", "PhonePe", "Paytm", "CRED", "BharatPe"],
         "1st_order": [
             "payment processor", "digital wallet", "lending platform",
             "crypto exchange", "robo-advisor", "insurtech", "neobank",
@@ -186,6 +188,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Healthcare": {
         "keywords": ["drug", "clinical trial", "FDA", "biotech", "therapeutic", "pipeline", "pharma"],
+        "anchor_companies": ["Sun Pharma", "Cipla", "Dr Reddy's", "Biocon", "Lupin"],
         "1st_order": [
             "pharmaceutical manufacturer", "biotech company",
             "drug developer", "CRO", "specialty pharma", "medical devices",
@@ -198,8 +201,24 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
         "exclude": ["consumer goods", "technology", "finance", "retail", "entertainment"],
         "target_roles": ["Chief Medical Officer", "VP Clinical", "Head of R&D", "CTO"],
     },
+    "Pharmaceutical & Biotech": {
+        "keywords": ["pharma", "biotech", "drug approval", "clinical trial", "FDA", "CDSCO", "API", "biosimilar", "generics"],
+        "anchor_companies": ["Sun Pharma", "Cipla", "Dr Reddy's", "Biocon", "Lupin", "Divi's Laboratories"],
+        "1st_order": [
+            "pharmaceutical manufacturer", "biotech company", "API manufacturer",
+            "drug developer", "biosimilar maker", "specialty pharma",
+            "generic drug maker", "contract development and manufacturing",
+        ],
+        "2nd_order": [
+            "CRO", "clinical data management", "cold chain logistics",
+            "lab equipment maker", "pharma analytics software", "regulatory compliance",
+        ],
+        "exclude": ["consumer goods", "food", "finance", "retail", "entertainment", "IT services"],
+        "target_roles": ["VP R&D", "Head of Regulatory", "Chief Medical Officer", "VP Manufacturing", "CTO"],
+    },
     "Technology": {
         "keywords": ["SaaS", "cloud", "AI", "startup", "software", "semiconductor", "tech company", "data center"],
+        "anchor_companies": ["Infosys", "TCS", "Wipro", "HCL Technologies", "Tech Mahindra"],
         "1st_order": [
             "cloud infrastructure", "enterprise SaaS", "AI/ML platform",
             "developer tools", "data analytics", "IT services", "semiconductors",
@@ -212,6 +231,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Manufacturing": {
         "keywords": ["industrial", "automation", "supply chain", "ERP", "factory", "OEM", "precision"],
+        "anchor_companies": ["Tata Motors", "Mahindra", "Bharat Forge", "L&T", "Godrej Industries"],
         "1st_order": [
             "industrial automation", "automotive OEM", "aerospace & defense",
             "chemicals", "precision engineering", "contract manufacturing",
@@ -225,6 +245,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Energy": {
         "keywords": ["renewable", "solar", "EV", "battery", "grid", "oil", "gas", "power"],
+        "anchor_companies": ["Reliance Industries", "ONGC", "Adani Green", "Tata Power", "NTPC"],
         "1st_order": [
             "oil & gas", "renewables", "solar developer", "wind developer",
             "EV manufacturer", "battery maker", "power grid operator",
@@ -238,6 +259,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Retail & E-commerce": {
         "keywords": ["marketplace", "D2C", "quick commerce", "FMCG", "omnichannel", "loyalty"],
+        "anchor_companies": ["Flipkart", "Meesho", "Nykaa", "Mamaearth", "Blinkit"],
         "1st_order": [
             "D2C brand", "marketplace", "quick commerce", "grocery chain",
             "fashion retailer", "luxury brand",
@@ -251,6 +273,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Logistics & Supply Chain": {
         "keywords": ["freight", "warehouse", "3PL", "last-mile", "supply chain", "logistics"],
+        "anchor_companies": ["Delhivery", "Ecom Express", "Mahindra Logistics", "TCI Express", "Gati"],
         "1st_order": [
             "freight broker", "3PL", "last-mile delivery", "warehousing",
             "ocean freight", "air cargo",
@@ -264,6 +287,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Education": {
         "keywords": ["edtech", "e-learning", "LMS", "upskilling", "corporate training", "MOOCs"],
+        "anchor_companies": ["BYJU's", "Unacademy", "upGrad", "Coursera India", "Great Learning"],
         "1st_order": [
             "edtech platform", "LMS vendor", "online university",
             "corporate training provider", "coding bootcamp",
@@ -277,6 +301,7 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
     "Real Estate": {
         "keywords": ["proptech", "commercial real estate", "REIT", "co-working", "smart building"],
+        "anchor_companies": ["DLF", "Godrej Properties", "Prestige Group", "WeWork India", "Embassy REIT"],
         "1st_order": [
             "commercial real estate", "residential developer",
             "REIT", "co-working operator", "property management",
@@ -287,6 +312,34 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
         ],
         "exclude": ["pharma", "fintech", "gaming"],
         "target_roles": ["COO", "Head of Technology", "VP Digital", "CTO"],
+    },
+    "BFSI": {
+        "keywords": ["banking", "insurance", "NBFC", "lending", "mutual fund", "wealth management", "credit"],
+        "anchor_companies": ["HDFC Bank", "ICICI Bank", "Axis Bank", "SBI", "Bajaj Finance"],
+        "1st_order": [
+            "commercial bank", "private bank", "insurance company", "NBFC",
+            "mutual fund house", "wealth management firm", "credit bureau",
+        ],
+        "2nd_order": [
+            "core banking software", "insurance tech", "risk analytics",
+            "fraud detection platform", "KYC/AML vendor",
+        ],
+        "exclude": ["consumer goods", "pharma", "gaming", "entertainment"],
+        "target_roles": ["CTO", "CDO", "VP Digital", "Head of Risk", "CFO"],
+    },
+    "Media & Entertainment": {
+        "keywords": ["OTT", "streaming", "content", "digital media", "ad-tech", "broadcast"],
+        "anchor_companies": ["Zee Entertainment", "Sony LIV", "JioCinema", "Times Group", "Inox Media"],
+        "1st_order": [
+            "OTT platform", "broadcast network", "digital media company",
+            "content studio", "ad-tech platform", "gaming company",
+        ],
+        "2nd_order": [
+            "content distribution", "ad serving platform", "audience analytics",
+            "CDN provider", "media asset management",
+        ],
+        "exclude": ["pharma", "manufacturing", "logistics", "fintech"],
+        "target_roles": ["CTO", "VP Product", "Head of Engineering", "CDO"],
     },
 }
 
@@ -312,6 +365,16 @@ def get_industry_keywords(industry: str) -> Set[str]:
     """Get all search keywords for an industry."""
     cfg = INDUSTRY_TAXONOMY.get(industry, {})
     return set(kw.lower() for kw in cfg.get("keywords", [industry.lower()]))
+
+
+def get_industry_anchors(industry: str) -> List[str]:
+    """Get known anchor companies for an industry (for targeted news fetching).
+
+    Returns curated anchor companies from taxonomy if available.
+    Falls back to empty list — caller should use Tavily to discover dynamically.
+    """
+    cfg = INDUSTRY_TAXONOMY.get(industry, {})
+    return list(cfg.get("anchor_companies", []))
 
 
 def parse_industry(industry_str: str) -> tuple:
@@ -427,7 +490,6 @@ class ClusteringParams:
     hac_linkage: str = "average"
     hac_k_min: int = 5
     hac_k_max_ratio: float = 0.33          # k_max = n_articles // 3
-    hac_cophenetic_min: float = 0.70
     hac_outlier_silhouette: float = -0.1
     hac_max_articles: int = 50
     hac_min_articles: int = 5
@@ -449,8 +511,6 @@ class ClusteringParams:
     # ── Leiden (discovery mode — ungrouped articles) ──────────────────────────
     leiden_k: int = 20
     leiden_resolution: float = 1.0
-    leiden_optuna_trials: int = 15
-    leiden_optuna_timeout: int = 30
 
     # ── Cluster validation (math gate 6) ─────────────────────────────────────
     val_min_articles: int = 2

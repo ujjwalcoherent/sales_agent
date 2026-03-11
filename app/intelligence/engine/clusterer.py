@@ -28,7 +28,6 @@ Standalone test:
 """
 
 import logging
-import math
 import time
 from collections import Counter as _Counter
 from typing import Any, Dict, List, Optional, Tuple
@@ -459,11 +458,12 @@ def cluster_discovery(
     article_indices: List[int],
     articles: Optional[List[Any]] = None,
     params: Optional[ClusteringParams] = None,
-    optimize: bool = True,
+    optimize: bool = False,
 ) -> Tuple[List[ClusterResult], Dict[str, Any]]:
     """Discovery clustering for ungrouped articles using Leiden.
 
-    Uses existing cluster_leiden() with optional Optuna optimization.
+    Uses fixed resolution=1.0 (params.leiden_resolution) — Optuna tuning removed
+    because it ran 15 trials at ~2s each (~30s total), defeating the 5-10 min pipeline target.
     """
     if params is None:
         params = DEFAULT_PARAMS
@@ -475,31 +475,17 @@ def cluster_discovery(
 
     try:
         # Use local implementations (moved from app.trends.clustering in Phase 11)
-        from app.intelligence.engine.clusterer import cluster_leiden, optimize_leiden
+        from app.intelligence.engine.clusterer import cluster_leiden
     except ImportError:
         logger.warning("cluster_leiden not available, skipping discovery")
         return [], {"algorithm": "leiden", "error": "import_failed"}
 
     try:
-        if optimize and n >= 10:
-            opt_result = optimize_leiden(
-                embeddings,
-                n_trials=params.leiden_optuna_trials,
-                seed=42,
-                timeout=params.leiden_optuna_timeout,
-            )
-            labels, noise_count, leiden_metrics = cluster_leiden(
-                embeddings,
-                k=opt_result.get("k", params.leiden_k),
-                resolution=opt_result.get("resolution", params.leiden_resolution),
-                min_community_size=opt_result.get("min_community_size", 3),
-            )
-        else:
-            labels, noise_count, leiden_metrics = cluster_leiden(
-                embeddings,
-                k=params.leiden_k,
-                resolution=params.leiden_resolution,
-            )
+        labels, noise_count, leiden_metrics = cluster_leiden(
+            embeddings,
+            k=params.leiden_k,
+            resolution=params.leiden_resolution,
+        )
     except Exception as e:
         logger.warning("Leiden clustering failed: %s", e)
         return [], {"algorithm": "leiden", "error": str(e)}
@@ -938,236 +924,3 @@ def cluster_leiden(
     return labels, noise_count, metrics
 
 
-def optimize_leiden(
-    embeddings: np.ndarray,
-    n_trials: int = 15,
-    seed: int = 42,
-    warm_start_params: Optional[Dict[str, Any]] = None,
-    timeout: int = 30,
-    precomputed_sim: Optional[np.ndarray] = None,
-) -> Dict[str, Any]:
-    """Bayesian optimization of Leiden parameters using Optuna TPE."""
-    import optuna
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-
-    n = len(embeddings)
-    target_clusters = max(5, int(math.sqrt(n)))
-
-    if n >= 500:
-        min_comm_lo, min_comm_hi = 3, 6
-    elif n >= 200:
-        min_comm_lo, min_comm_hi = 2, 5
-    else:
-        min_comm_lo, min_comm_hi = 2, 4
-
-    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-    norms[norms == 0] = 1.0
-    emb_normed = embeddings / norms
-
-    def objective(trial):
-        k_lo = max(2, min(8, n - 2))
-        k_hi = max(k_lo, min(30, n - 1))
-        k = trial.suggest_int("k", k_lo, k_hi)
-        resolution = trial.suggest_float("resolution", 0.3, 3.0, log=True)
-        min_community = trial.suggest_int("min_community_size", min_comm_lo, min_comm_hi)
-        use_mutual = trial.suggest_categorical("mutual_knn", [True, False])
-
-        labels, _, metrics = cluster_leiden(
-            emb_normed, k=k, resolution=resolution, seed=seed,
-            min_community_size=min_community,
-            mutual_knn=use_mutual,
-            precomputed_sim=precomputed_sim,
-        )
-
-        n_clusters = metrics["n_clusters"]
-        noise_pct = metrics["noise_pct"]
-        modularity = metrics.get("modularity", 0)
-
-        quality = compute_leiden_quality(emb_normed, labels)
-        coherence = quality.get("avg_coherence", 0)
-        min_coherence = quality.get("min_coherence", 0)
-
-        if n_clusters == 0:
-            return 0.0
-
-        cluster_diff = n_clusters - target_clusters
-        if cluster_diff < 0:
-            cluster_penalty = abs(cluster_diff) / max(target_clusters, 1)
-        else:
-            cluster_penalty = 0.7 * cluster_diff / max(target_clusters, 1)
-        cluster_penalty = min(cluster_penalty, 1.0)
-
-        noise_floor, noise_ceiling = (0.05, 0.45) if n >= 200 else (0.10, 0.55)
-        noise_penalty = max(0, (noise_pct - noise_floor) / max(noise_ceiling - noise_floor, 0.01))
-        noise_penalty = min(noise_penalty, 1.0)
-
-        score = (
-            0.25 * coherence
-            + 0.15 * min(1.0, min_coherence / 0.35)
-            + 0.10 * max(0, modularity)
-            + 0.15 * (1 - cluster_penalty)
-            + 0.20 * (1 - noise_penalty)
-            + 0.10 * quality.get("silhouette_cosine", 0)
-            + 0.05 * min(1.0, n_clusters / max(target_clusters, 1))
-        )
-        return score
-
-    sampler = optuna.samplers.TPESampler(seed=seed)
-    study = optuna.create_study(direction="maximize", sampler=sampler)
-
-    if warm_start_params:
-        study.enqueue_trial({
-            "k": warm_start_params.get("k", 20),
-            "resolution": warm_start_params.get("resolution", 1.0),
-            "min_community_size": warm_start_params.get("min_community_size", 4),
-            "mutual_knn": warm_start_params.get("mutual_knn", True),
-        })
-
-    study.optimize(objective, n_trials=n_trials, timeout=timeout)
-
-    best = study.best_params
-    best["score"] = round(study.best_value, 4)
-    best["n_trials_completed"] = len(study.trials)
-
-    logger.info(
-        f"Optuna Leiden optimization: k={best['k']}, "
-        f"resolution={best['resolution']:.3f}, "
-        f"min_community={best['min_community_size']}, "
-        f"score={best['score']:.4f} "
-        f"({best['n_trials_completed']} trials)"
-    )
-    return best
-
-
-def compute_leiden_quality(
-    embeddings: np.ndarray,
-    labels: np.ndarray,
-) -> Dict[str, Any]:
-    """Compute quality metrics: silhouette, per-cluster coherence."""
-    from sklearn.metrics import silhouette_score
-    from app.tools.llm.embeddings import mean_pairwise_cosine
-
-    mask = labels >= 0
-    valid_embeddings = embeddings[mask]
-    valid_labels = labels[mask]
-
-    metrics: Dict[str, Any] = {}
-
-    if len(set(valid_labels)) > 1 and len(valid_labels) > 2:
-        try:
-            metrics["silhouette_cosine"] = float(
-                silhouette_score(valid_embeddings, valid_labels, metric="cosine")
-            )
-        except Exception:
-            pass
-
-    cluster_coherences = {}
-    for cid in sorted(set(valid_labels)):
-        cluster_embs = valid_embeddings[valid_labels == cid]
-        cluster_coherences[int(cid)] = mean_pairwise_cosine(cluster_embs)
-
-    metrics["cluster_coherences"] = cluster_coherences
-    if cluster_coherences:
-        coherence_vals = list(cluster_coherences.values())
-        metrics["avg_coherence"] = float(np.mean(coherence_vals))
-        metrics["min_coherence"] = float(np.min(coherence_vals))
-        metrics["coherence_p25"] = float(np.percentile(coherence_vals, 25))
-
-    return metrics
-
-
-def compute_meta_features(embeddings: np.ndarray) -> Dict[str, float]:
-    """Extract dataset meta-features for warm-starting Optuna."""
-    n = len(embeddings)
-    features: Dict[str, float] = {"n_articles": float(n)}
-
-    if n < 3:
-        return features
-
-    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-    norms[norms == 0] = 1.0
-    emb_norm = embeddings / norms
-
-    sample_size = min(200, n)
-    if n > sample_size:
-        rng = np.random.RandomState(42)
-        idx = rng.choice(n, sample_size, replace=False)
-        sample = emb_norm[idx]
-    else:
-        sample = emb_norm
-
-    sims = np.dot(sample, sample.T)
-    upper_tri = sims[np.triu_indices(len(sample), k=1)]
-
-    if len(upper_tri) > 0:
-        features["sim_mean"] = round(float(np.mean(upper_tri)), 4)
-        features["sim_std"] = round(float(np.std(upper_tri)), 4)
-        features["sim_p10"] = round(float(np.percentile(upper_tri, 10)), 4)
-        features["sim_p90"] = round(float(np.percentile(upper_tri, 90)), 4)
-
-    return features
-
-
-def load_best_params_for_data(
-    meta_features: Dict[str, float],
-    max_history: int = 20,
-    min_history: int = 5,
-) -> Optional[Dict[str, Any]]:
-    """Load best Optuna params from the most similar historical run."""
-    try:
-        from app.learning.pipeline_metrics import load_history
-        history = load_history(last_n=max_history)
-    except Exception:
-        return None
-
-    valid_runs = [
-        r for r in history
-        if r.get("optuna_best_params") and r.get("meta_features")
-    ]
-
-    if len(valid_runs) < min_history:
-        return _load_last_best_params()
-
-    feature_keys = ["n_articles", "sim_mean", "sim_std", "sim_p10", "sim_p90"]
-    current_vec = np.array([meta_features.get(k, 0.0) for k in feature_keys])
-
-    all_vecs = np.array([[mf.get(k, 0.0) for k in feature_keys]
-                         for mf in (r["meta_features"] for r in valid_runs)])
-
-    ranges = all_vecs.max(axis=0) - all_vecs.min(axis=0)
-    ranges[ranges < 0.001] = 1.0
-
-    current_norm = (current_vec - all_vecs.min(axis=0)) / ranges
-    history_norm = (all_vecs - all_vecs.min(axis=0)) / ranges
-
-    distances = np.linalg.norm(history_norm - current_norm, axis=1)
-    top_indices = np.argsort(distances)[:3]
-
-    top_dists = distances[top_indices]
-    weights = 1.0 / (top_dists + 0.01)
-    weights /= weights.sum()
-
-    param_keys = ["k", "resolution", "min_community_size"]
-    blended = {}
-    for pk in param_keys:
-        vals = [valid_runs[idx]["optuna_best_params"].get(pk, 0) for idx in top_indices]
-        blended[pk] = sum(v * w for v, w in zip(vals, weights))
-
-    blended["k"] = int(round(blended["k"]))
-    blended["min_community_size"] = int(round(blended["min_community_size"]))
-    blended["resolution"] = round(blended["resolution"], 4)
-
-    return blended
-
-
-def _load_last_best_params() -> Optional[Dict[str, Any]]:
-    """Load the last Optuna best params from pipeline run log."""
-    try:
-        from app.learning.pipeline_metrics import load_history
-        for record in reversed(load_history(last_n=5)):
-            optuna_params = record.get("optuna_best_params")
-            if optuna_params and isinstance(optuna_params, dict):
-                return optuna_params
-    except Exception:
-        pass
-    return None

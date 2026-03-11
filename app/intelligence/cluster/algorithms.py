@@ -201,8 +201,15 @@ def cluster_hac(
         else:
             gran = EventGranularity.NANO
 
+        if gran == EventGranularity.MAJOR:
+            label = f"{entity_name}: major event" if entity_name else f"major_cluster_{cluster_label}"
+        elif gran == EventGranularity.SUB:
+            label = f"{entity_name}: sub-event {cluster_label}" if entity_name else f"sub_cluster_{cluster_label}"
+        else:
+            label = f"{entity_name}: signal {cluster_label}" if entity_name else f"signal_{cluster_label}"
+
         clusters.append(ClusterResult(
-            label=f"{entity_name} event {cluster_label}" if entity_name else f"cluster_{cluster_label}",
+            label=label,
             article_indices=global_indices,
             article_count=len(global_indices),
             primary_entity=entity_name or None,
@@ -225,12 +232,12 @@ def cluster_hac(
         "best_threshold": round(float(best_t), 4),
         "outlier_count": len(outlier_indices),
         "noise_indices": noise_indices,
-        "sweep_results": sweep_results,
+        "n_sweep_candidates": len(sweep_results),
     }
 
     logger.info(
-        "HAC '%s': %d articles → %d clusters, sil=%.3f, coph=%.3f, noise=%d",
-        entity_name, n, len(clusters), best_sil, coph_r, len(noise_indices),
+        "HAC '%s': %d articles → %d clusters, sil=%.3f, coph=%.3f, noise=%d, sweep_steps=%d",
+        entity_name, n, len(clusters), best_sil, coph_r, len(noise_indices), len(sweep_results),
     )
     return clusters, noise_indices, metrics
 
@@ -345,13 +352,31 @@ def cluster_hdbscan_soft(
             noise_global_indices.extend(global_indices)
             continue
 
+        # EventGranularity assignment (matches HAC logic)
+        if n_clusters <= 2:
+            gran = EventGranularity.MAJOR
+        elif len(global_indices) >= n * 0.3:
+            gran = EventGranularity.MAJOR
+        elif len(global_indices) >= 3:
+            gran = EventGranularity.SUB
+        else:
+            gran = EventGranularity.NANO
+
+        if gran == EventGranularity.MAJOR:
+            label = f"{entity_name}: major event" if entity_name else f"major_cluster_{cluster_label}"
+        elif gran == EventGranularity.SUB:
+            label = f"{entity_name}: sub-event {cluster_label}" if entity_name else f"sub_cluster_{cluster_label}"
+        else:
+            label = f"{entity_name}: signal {cluster_label}" if entity_name else f"signal_{cluster_label}"
+
         clusters.append(ClusterResult(
-            label=f"{entity_name} event {cluster_label}" if entity_name else f"hdbscan_{cluster_label}",
+            label=label,
             article_indices=global_indices,
             article_count=len(global_indices),
             primary_entity=entity_name or None,
             entity_names=[entity_name] if entity_name else [],
             entity_groups=[entity_group_id] if entity_group_id else [],
+            event_granularity=gran,
             coherence_score=round(coherence, 4),
             algorithm="hdbscan_soft",
             is_entity_seeded=True,

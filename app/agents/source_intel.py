@@ -49,9 +49,8 @@ class SourceIntelResult(BaseModel):
 # ── System prompt ─────────────────────────────────────────────────────
 
 SOURCE_INTEL_PROMPT = """\
-You are the Source Intel Agent for a sales intelligence pipeline focused on \
-Indian market trends. Your job is to collect high-quality, recent news articles \
-for trend detection.
+You are the Source Intel Agent for a B2B sales intelligence pipeline. \
+Your job is to collect high-quality, recent news articles for trend detection.
 
 WORKFLOW:
 1. First, check source quality estimates to know which RSS sources are best.
@@ -299,9 +298,11 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
     # with a handful of live articles that prevent the deterministic mock set
     # from being injected later.  We jump straight to the fallback path.
     if deps.mock_mode:
-        articles = _make_mock_articles()
+        _scope = getattr(deps, "scope", None)
+        articles = _make_mock_articles(scope=_scope)
         deps._articles = articles
-        logger.info(f"Mock mode: injected {len(articles)} mock articles (agent skipped)")
+        _mode = getattr(_scope, "mode", "industry_first") if _scope else "industry_first"
+        logger.info(f"Mock mode: injected {len(articles)} mock articles for mode={_mode} (agent skipped)")
         fallback_result = SourceIntelResult(
             total_fetched=len(articles),
             total_after_dedup=len(articles),
@@ -392,17 +393,39 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
     return articles, embeddings, fallback_result
 
 
-from app.data.mock_articles import MOCK_ARTICLES_RAW as _MOCK_ARTICLES_RAW
+def _make_mock_articles(scope: Optional[Any] = None) -> List[NewsArticle]:
+    """Build NewsArticle objects from mock article data.
 
-
-def _make_mock_articles() -> List[NewsArticle]:
-    """Build NewsArticle objects from mock article data."""
+    Selects the appropriate mock dataset based on the discovery scope mode:
+      - company_first  → MOCK_ARTICLES_COMPANY_FIRST  (IT services / consulting)
+      - report_driven  → MOCK_ARTICLES_REPORT_DRIVEN  (5G / IoT / telecom)
+      - industry_first → MOCK_ARTICLES_RAW            (fintech / regulation)
+      - None           → MOCK_ARTICLES_RAW            (safe default)
+    """
+    from app.data.mock_articles import (
+        MOCK_ARTICLES_RAW,
+        MOCK_ARTICLES_COMPANY_FIRST,
+        MOCK_ARTICLES_REPORT_DRIVEN,
+    )
     from uuid import uuid4
     from datetime import datetime, timezone
 
+    if scope is not None:
+        mode = getattr(scope, "mode", "industry_first") or "industry_first"
+        # DiscoveryMode is a str-enum so comparing as string works for all variants
+        mode_str = str(mode).lower()
+        if "company_first" in mode_str:
+            raw = MOCK_ARTICLES_COMPANY_FIRST
+        elif "report_driven" in mode_str:
+            raw = MOCK_ARTICLES_REPORT_DRIVEN
+        else:
+            raw = MOCK_ARTICLES_RAW  # industry_first default
+    else:
+        raw = MOCK_ARTICLES_RAW
+
     now = datetime.now(timezone.utc)
     articles = []
-    for i, (title, content, source, event_type) in enumerate(_MOCK_ARTICLES_RAW):
+    for i, (title, content, source, event_type) in enumerate(raw):
         slug = source.lower().replace(" ", "-")
         a = NewsArticle(
             id=uuid4(),
