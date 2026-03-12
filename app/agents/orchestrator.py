@@ -659,6 +659,14 @@ async def causal_council_node(state: GraphState) -> dict:
                 "hop2_companies": ["STL (Sterlite Technologies)", "Tejas Networks"],
                 "hop2_mechanism": "Private 5G deployments need edge computing and IoT middleware integration",
             },
+            "space": {
+                "hop1_segment": "Mid-size Launch Providers and Rocket Startups (100-500 employees)",
+                "hop1_companies": ["Skyroot Aerospace", "Agnikul Cosmos"],
+                "hop1_mechanism": "SpaceX/Rocket Lab reusable rockets drive costs below $20M/flight — mid-size launch startups need market intelligence to compete",
+                "hop2_segment": "Satellite Constellation Operators and Aerospace Component Manufacturers",
+                "hop2_companies": ["Pixxel Space", "Dhruva Space"],
+                "hop2_mechanism": "Launch cost reduction expands addressable market for small-sat operators needing procurement advisory",
+            },
         }
 
         # Scope-aware default: if the pipeline is running for fintech/telecom,
@@ -670,6 +678,8 @@ async def causal_council_node(state: GraphState) -> dict:
             _scope_default = "fintech"
         elif any(kw in _scope_industry.lower() for kw in ["telecom", "5g", "iot", "manufacturing"]):
             _scope_default = "telecom"
+        elif any(kw in _scope_industry.lower() for kw in ["space", "aerospace", "rocket", "satellite"]):
+            _scope_default = "space"
         # Report-driven: check report_text for sector hints
         _report = getattr(_scope, "report_text", "") or ""
         if _scope_default == "it" and _report:
@@ -678,6 +688,8 @@ async def causal_council_node(state: GraphState) -> dict:
                 _scope_default = "fintech"
             elif any(kw in rl for kw in ["5g", "iot", "telecom", "manufacturing"]):
                 _scope_default = "telecom"
+            elif any(kw in rl for kw in ["rocket", "spacex", "satellite", "aerospace", "orbital", "carrier rocket", "launch"]):
+                _scope_default = "space"
 
         def _detect_sector(title: str) -> str:
             tl = title.lower()
@@ -686,6 +698,8 @@ async def causal_council_node(state: GraphState) -> dict:
                 return "it"
             if any(kw in tl for kw in ["kyc", "rbi", "nbfc", "fintech", "lending", "compliance"]):
                 return "fintech"
+            if any(kw in tl for kw in ["spacex", "rocket", "launch", "satellite", "aerospace", "orbital", "starship"]):
+                return "space"
             if any(kw in tl for kw in ["5g", "iot", "telecom", "private network", "sensor"]):
                 return "telecom"
             return _scope_default

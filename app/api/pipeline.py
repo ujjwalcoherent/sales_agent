@@ -266,15 +266,12 @@ async def start_pipeline(
         run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         run = run_manager.create_run(run_id)
 
-        # Decide: replay a recording or run the real pipeline
-        if body.mock_mode:
-            from app.tools.run_recorder import get_recording, get_latest_recording
-            recording_dir = None
-            if body.replay_run_id:
-                recording_dir = get_recording(body.replay_run_id)
-            if not recording_dir:
-                recording_dir = get_latest_recording()
-
+        # Replay a specific recording if requested (explicit replay_run_id only).
+        # Without replay_run_id, mock_mode falls through to _execute_pipeline
+        # which uses fast deterministic mock data (<1s), not slow replay (~15s).
+        if body.mock_mode and body.replay_run_id:
+            from app.tools.run_recorder import get_recording
+            recording_dir = get_recording(body.replay_run_id)
             if recording_dir:
                 background_tasks.add_task(_replay_pipeline, run, recording_dir)
                 return PipelineRunResponse(

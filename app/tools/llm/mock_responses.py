@@ -33,7 +33,9 @@ def get_mock_response(prompt: str, json_mode: bool = False) -> str:
         # ("Impact on {company_name}:") which would falsely match the impact branch.
         # Detect email by the leading "Write a personalized outreach email" pattern.
         if ("write" in prompt_lower and ("outreach email" in prompt_lower or "personalized" in prompt_lower)):
-            return json.dumps(_MOCK_EMAILS[prompt_hash % 3])
+            sector = _detect_sector(prompt_lower)
+            idx = {"fintech": 0, "it": 1, "telecom": 2, "space": 3}.get(sector, prompt_hash % len(_MOCK_EMAILS))
+            return json.dumps(_MOCK_EMAILS[idx % len(_MOCK_EMAILS)])
         # Cross-trend synthesis (compound impacts)
         if "compound" in prompt_lower and "simultaneously" in prompt_lower:
             return json.dumps(_MOCK_CROSS_TREND_SYNTHESIS)
@@ -66,7 +68,9 @@ def get_mock_response(prompt: str, json_mode: bool = False) -> str:
                 "linkedin_url": "https://linkedin.com/in/rahul-sharma"
             })
         elif "email" in prompt_lower or "outreach" in prompt_lower or "pitch" in prompt_lower:
-            return json.dumps(_MOCK_EMAILS[prompt_hash % 3])
+            sector = _detect_sector(prompt_lower)
+            idx = {"fintech": 0, "it": 1, "telecom": 2, "space": 3}.get(sector, prompt_hash % len(_MOCK_EMAILS))
+            return json.dumps(_MOCK_EMAILS[idx % len(_MOCK_EMAILS)])
 
     return "Mock LLM response for testing purposes."
 
@@ -151,7 +155,7 @@ def _build_structured_mock(system_prompt: str, user_prompt: str = "") -> str:
             return json.dumps(_MOCK_EMAILS[3])  # Space / carrier rocket
         else:
             # Hash-based selection for other prompts
-            idx = int(hashlib.md5(user_prompt.encode()).hexdigest()[:8], 16) % 3
+            idx = int(hashlib.md5(user_prompt.encode()).hexdigest()[:8], 16) % len(_MOCK_EMAILS)
             return json.dumps(_MOCK_EMAILS[idx])
 
     # Generic fallback — return a plain text response
