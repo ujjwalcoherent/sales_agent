@@ -9,17 +9,17 @@ Tables:
   - saved_companies: Company KB with enrichment from Wikidata/Wikipedia/Apollo
 """
 
+import hashlib
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
     create_engine, Column, String, Integer, Float, Text, DateTime, Boolean,
     event as sa_event,
 )
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from contextlib import contextmanager
 
 from .config import get_settings
@@ -141,6 +141,7 @@ class TrendModel(Base):
     trend_score = Column(Float, default=0.0)
     actionability_score = Column(Float, default=0.0)
     oss_score = Column(Float, default=0.0)
+    trend_level = Column(String(10), default="sub")  # "major" | "sub" | "minor"
     article_count = Column(Integer, default=0)
     event_5w1h = Column(Text)  # JSON object
     causal_chain = Column(Text)  # JSON array
@@ -555,6 +556,7 @@ class Database:
                 trend_score=getattr(trend, "trend_score", 0.0),
                 actionability_score=getattr(trend, "actionability_score", 0.0),
                 oss_score=getattr(trend, "oss_score", 0.0),
+                trend_level=getattr(trend, "trend_level", "sub"),
                 article_count=getattr(trend, "article_count", 0),
                 event_5w1h=json.dumps(getattr(trend, "event_5w1h", {})),
                 causal_chain=json.dumps(getattr(trend, "causal_chain", [])),
@@ -644,7 +646,7 @@ class Database:
                     existing.live_news = _sjd(company_data["live_news"])
                 existing.search_query = company_data.get("search_query", existing.search_query)
                 existing.search_type = company_data.get("search_type", existing.search_type)
-                existing.last_searched_at = datetime.utcnow()
+                existing.last_searched_at = datetime.now(timezone.utc)
             else:
                 row = SavedCompanyModel(
                     id=cid,
@@ -687,7 +689,7 @@ class Database:
                 return 0
             row.contacts = json.dumps(contacts)
             row.contacts_reasoning = reasoning
-            row.contacts_generated_at = datetime.utcnow()
+            row.contacts_generated_at = datetime.now(timezone.utc)
             return len(contacts)
 
     def get_saved_company(self, company_id: str) -> Optional[Dict]:
@@ -786,7 +788,7 @@ class Database:
             for row in rows:
                 if not row.last_searched_at:
                     continue
-                age = (datetime.utcnow() - row.last_searched_at).days
+                age = (datetime.now(timezone.utc) - row.last_searched_at).days
                 if age > max_age_days:
                     continue
                 has_enrichment = bool(getattr(row, "description", "") or getattr(row, "headquarters", ""))
@@ -803,7 +805,6 @@ class Database:
 
         Smart merge: only updates fields that are non-empty in new data.
         """
-        import hashlib
         cid = hashlib.md5(company_name.lower().encode()).hexdigest()[:12]
         profile["id"] = cid
         profile["company_name"] = company_name
@@ -821,7 +822,7 @@ class Database:
             if existing:
                 existing.user_name = profile_data.get("user_name", existing.user_name)
                 existing.profile_json = json.dumps(profile_data)
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = datetime.now(timezone.utc)
             else:
                 session.add(UserProfileModel(
                     profile_id=pid,
@@ -853,10 +854,12 @@ class Database:
                 results.append({
                     "profile_id": row.profile_id,
                     "user_name": row.user_name,
+                    "own_company": data.get("own_company", ""),
+                    "path_preference": data.get("path_preference", "auto"),
                     "region": data.get("region", "global"),
                     "target_industries": data.get("target_industries", []),
-                    "account_list_count": len(data.get("account_list", [])),
-                    "own_products_count": len(data.get("own_products", [])),
+                    "own_products": data.get("own_products", []),
+                    "account_list": data.get("account_list", []),
                     "updated_at": row.updated_at.isoformat() if row.updated_at else None,
                     "created_at": row.created_at.isoformat() if row.created_at else None,
                 })

@@ -27,10 +27,10 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ class ThresholdUpdate:
     """Observed optimal thresholds from one pipeline run."""
     # Filter
     observed_filter_accept_rate: Optional[float] = None    # fraction auto-accepted
-    observed_filter_reject_rate: Optional[float] = None    # fraction auto-rejected
 
     # Clustering quality
     observed_coherence: Optional[float] = None             # mean cluster coherence

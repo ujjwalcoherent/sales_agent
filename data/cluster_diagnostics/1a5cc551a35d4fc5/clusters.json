@@ -1,0 +1,8146 @@
+[
+  {
+    "cluster_id": "a9bdc699d378",
+    "label": "Indian event 0",
+    "article_count": 21,
+    "article_indices": [
+      34,
+      89,
+      127,
+      159,
+      168,
+      194,
+      223,
+      253,
+      256,
+      263,
+      272,
+      279,
+      315,
+      324,
+      333,
+      335,
+      358,
+      383,
+      388,
+      397,
+      402
+    ],
+    "primary_entity": "Indian",
+    "entity_names": [
+      "Indian"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.9364,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3642,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5218,
+    "algorithm": "hdbscan",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "977c649bc5b2",
+    "label": "Indian event 1",
+    "article_count": 17,
+    "article_indices": [
+      99,
+      139,
+      180,
+      185,
+      198,
+      226,
+      267,
+      277,
+      282,
+      293,
+      377,
+      378,
+      382,
+      386,
+      387,
+      392,
+      396
+    ],
+    "primary_entity": "Indian",
+    "entity_names": [
+      "Indian"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.7878,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6887,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.404,
+      "not_duplicate": 0.3108,
+      "outlier_ejection": 0.9412
+    },
+    "coherence_score": 0.3099,
+    "algorithm": "hdbscan",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "47e156cae910",
+    "label": "US event 0",
+    "article_count": 8,
+    "article_indices": [
+      127,
+      141,
+      222,
+      223,
+      358,
+      383,
+      391,
+      402
+    ],
+    "primary_entity": "US",
+    "entity_names": [
+      "US"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8382,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3824,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5507,
+    "algorithm": "hdbscan",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "2530f7a415a6",
+    "label": "US event 1",
+    "article_count": 5,
+    "article_indices": [
+      37,
+      70,
+      232,
+      335,
+      341
+    ],
+    "primary_entity": "US",
+    "entity_names": [
+      "US"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.9071,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7465,
+      "not_duplicate": 0.3242,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7284,
+    "algorithm": "hdbscan",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "4dfc9d4d9cae",
+    "label": "Artificial Intelligence event 6",
+    "article_count": 2,
+    "article_indices": [
+      249,
+      291
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "nano",
+    "confidence": 0.9207,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8907,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9255,
+      "not_duplicate": 0.5545,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4008,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8342,
+      "silhouette_score": 0.096,
+      "cut_threshold": 0.53,
+      "n_subclusters": 20,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "da51f53e2662",
+    "label": "Artificial Intelligence event 8",
+    "article_count": 2,
+    "article_indices": [
+      247,
+      264
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "technology",
+    "event_granularity": "nano",
+    "confidence": 0.9419,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9815,
+      "not_duplicate": 0.4375,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.548,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8342,
+      "silhouette_score": 0.096,
+      "cut_threshold": 0.53,
+      "n_subclusters": 20,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "790ec4dcba15",
+    "label": "Artificial Intelligence event 9",
+    "article_count": 2,
+    "article_indices": [
+      131,
+      164
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "funding",
+    "event_granularity": "nano",
+    "confidence": 0.9368,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9894,
+      "not_duplicate": 0.3782,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5326,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8342,
+      "silhouette_score": 0.096,
+      "cut_threshold": 0.53,
+      "n_subclusters": 20,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d5ca12ae544f",
+    "label": "Artificial Intelligence event 11",
+    "article_count": 6,
+    "article_indices": [
+      226,
+      270,
+      282,
+      336,
+      364,
+      412
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "technology",
+    "event_granularity": "sub",
+    "confidence": 0.8225,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3153,
+      "not_duplicate": 0.0761,
+      "outlier_ejection": 0.8333
+    },
+    "coherence_score": 0.4884,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8342,
+      "silhouette_score": 0.096,
+      "cut_threshold": 0.53,
+      "n_subclusters": 20,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ae3658b3f8c0",
+    "label": "Artificial Intelligence event 12",
+    "article_count": 5,
+    "article_indices": [
+      148,
+      243,
+      262,
+      338,
+      393
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "technology",
+    "event_granularity": "sub",
+    "confidence": 0.842,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9296,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4216,
+      "not_duplicate": 0.1745,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4183,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8342,
+      "silhouette_score": 0.096,
+      "cut_threshold": 0.53,
+      "n_subclusters": 20,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "54f409ee49dd",
+    "label": "Artificial Intelligence event 5",
+    "article_count": 2,
+    "article_indices": [
+      442,
+      445
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "nano",
+    "confidence": 0.8741,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4911,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8159,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8342,
+      "silhouette_score": 0.096,
+      "cut_threshold": 0.53,
+      "n_subclusters": 20,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "bc46c7b056d7",
+    "label": "Artificial Intelligence event 19",
+    "article_count": 3,
+    "article_indices": [
+      458,
+      459,
+      465
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "general",
+    "event_granularity": "sub",
+    "confidence": 0.8799,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.5491,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5428,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8342,
+      "silhouette_score": 0.096,
+      "cut_threshold": 0.53,
+      "n_subclusters": 20,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "c08f550a9174",
+    "label": "Middle Eastern event 1",
+    "article_count": 4,
+    "article_indices": [
+      82,
+      183,
+      216,
+      306
+    ],
+    "primary_entity": "Middle Eastern",
+    "entity_names": [
+      "Middle Eastern"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "sub",
+    "confidence": 0.8666,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8349,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8125,
+      "not_duplicate": 0.2662,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3757,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6605,
+      "silhouette_score": 0.0842,
+      "cut_threshold": 0.6,
+      "n_subclusters": 7,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "8ecc3d04b3d2",
+    "label": "Middle Eastern event 2",
+    "article_count": 8,
+    "article_indices": [
+      77,
+      160,
+      201,
+      222,
+      223,
+      235,
+      265,
+      397
+    ],
+    "primary_entity": "Middle Eastern",
+    "entity_names": [
+      "Middle Eastern"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8391,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3911,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4855,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6605,
+      "silhouette_score": 0.0842,
+      "cut_threshold": 0.6,
+      "n_subclusters": 7,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "22fb432ffe2b",
+    "label": "Middle Eastern event 3",
+    "article_count": 4,
+    "article_indices": [
+      161,
+      167,
+      195,
+      225
+    ],
+    "primary_entity": "Middle Eastern",
+    "entity_names": [
+      "Middle Eastern"
+    ],
+    "event_type": "pricing",
+    "event_granularity": "sub",
+    "confidence": 0.9138,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9715,
+      "not_duplicate": 0.1665,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5134,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6605,
+      "silhouette_score": 0.0842,
+      "cut_threshold": 0.6,
+      "n_subclusters": 7,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f2ada7aa2d2a",
+    "label": "Middle Eastern event 4",
+    "article_count": 2,
+    "article_indices": [
+      166,
+      218
+    ],
+    "primary_entity": "Middle Eastern",
+    "entity_names": [
+      "Middle Eastern"
+    ],
+    "event_type": "market_analysis",
+    "event_granularity": "nano",
+    "confidence": 0.9192,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9842,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9774,
+      "not_duplicate": 0.2537,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4429,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6605,
+      "silhouette_score": 0.0842,
+      "cut_threshold": 0.6,
+      "n_subclusters": 7,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "5c5cdbd1c939",
+    "label": "Middle Eastern event 5",
+    "article_count": 3,
+    "article_indices": [
+      112,
+      177,
+      240
+    ],
+    "primary_entity": "Middle Eastern",
+    "entity_names": [
+      "Middle Eastern"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "sub",
+    "confidence": 0.9183,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9513,
+      "not_duplicate": 0.2319,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5417,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6605,
+      "silhouette_score": 0.0842,
+      "cut_threshold": 0.6,
+      "n_subclusters": 7,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "4c03b8379bd5",
+    "label": "China event 1",
+    "article_count": 12,
+    "article_indices": [
+      23,
+      54,
+      57,
+      116,
+      206,
+      219,
+      246,
+      247,
+      250,
+      264,
+      287,
+      342
+    ],
+    "primary_entity": "China",
+    "entity_names": [
+      "China"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8734,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9904,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7389,
+      "not_duplicate": 0.0192,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4457,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8821,
+      "silhouette_score": 0.179,
+      "cut_threshold": 0.57,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "648745f7bf60",
+    "label": "West Asian event 1",
+    "article_count": 20,
+    "article_indices": [
+      34,
+      38,
+      42,
+      66,
+      89,
+      110,
+      174,
+      207,
+      228,
+      235,
+      253,
+      256,
+      281,
+      310,
+      313,
+      324,
+      335,
+      344,
+      357,
+      390
+    ],
+    "primary_entity": "West Asian",
+    "entity_names": [
+      "West Asian"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8022,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8642,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4109,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 0.95
+    },
+    "coherence_score": 0.3889,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7828,
+      "silhouette_score": 0.1272,
+      "cut_threshold": 0.65,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ffd0bc9038f5",
+    "label": "Nifty 50 event 1",
+    "article_count": 3,
+    "article_indices": [
+      101,
+      187,
+      222
+    ],
+    "primary_entity": "Nifty 50",
+    "entity_names": [
+      "Nifty 50"
+    ],
+    "event_type": "analysis",
+    "event_granularity": "major",
+    "confidence": 0.9034,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9586,
+      "not_duplicate": 0.0751,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5442,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8683,
+      "silhouette_score": 0.203,
+      "cut_threshold": 0.54,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "e168b134e452",
+    "label": "Nifty 50 event 2",
+    "article_count": 8,
+    "article_indices": [
+      83,
+      100,
+      105,
+      106,
+      130,
+      248,
+      252,
+      316
+    ],
+    "primary_entity": "Nifty 50",
+    "entity_names": [
+      "Nifty 50"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9038,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7961,
+      "not_duplicate": 0.2422,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6085,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8683,
+      "silhouette_score": 0.203,
+      "cut_threshold": 0.54,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "4d46b2e87142",
+    "label": "LNG event 1",
+    "article_count": 10,
+    "article_indices": [
+      35,
+      61,
+      89,
+      160,
+      182,
+      279,
+      297,
+      310,
+      315,
+      357
+    ],
+    "primary_entity": "LNG",
+    "entity_names": [
+      "LNG"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8746,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7027,
+      "not_duplicate": 0.0435,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8856,
+      "silhouette_score": 0.1602,
+      "cut_threshold": 0.57,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "82555b69ca96",
+    "label": "LNG event 2",
+    "article_count": 2,
+    "article_indices": [
+      167,
+      195
+    ],
+    "primary_entity": "LNG",
+    "entity_names": [
+      "LNG"
+    ],
+    "event_type": "pricing",
+    "event_granularity": "major",
+    "confidence": 0.8771,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9128,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9893,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4108,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8856,
+      "silhouette_score": 0.1602,
+      "cut_threshold": 0.57,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f3bad5c9e698",
+    "label": "Hormuz event 1",
+    "article_count": 3,
+    "article_indices": [
+      89,
+      297,
+      315
+    ],
+    "primary_entity": "Hormuz",
+    "entity_names": [
+      "Hormuz"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "sub",
+    "confidence": 0.8801,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8012,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8109,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8268,
+      "silhouette_score": 0.1593,
+      "cut_threshold": 0.51,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "7594f51db20a",
+    "label": "Hormuz event 2",
+    "article_count": 7,
+    "article_indices": [
+      34,
+      168,
+      256,
+      324,
+      333,
+      351,
+      383
+    ],
+    "primary_entity": "Hormuz",
+    "entity_names": [
+      "Hormuz"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8523,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.5229,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6156,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8268,
+      "silhouette_score": 0.1593,
+      "cut_threshold": 0.51,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "28aee14fc804",
+    "label": "Initial Public Offering event 1",
+    "article_count": 10,
+    "article_indices": [
+      15,
+      86,
+      142,
+      143,
+      145,
+      196,
+      197,
+      307,
+      312,
+      330
+    ],
+    "primary_entity": "Initial Public Offering",
+    "entity_names": [
+      "Initial Public Offering"
+    ],
+    "event_type": "ipo",
+    "event_granularity": "major",
+    "confidence": 0.8916,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9541,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7615,
+      "not_duplicate": 0.2692,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4294,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8211,
+      "silhouette_score": 0.1713,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "459190c7201a",
+    "label": "European event 1",
+    "article_count": 5,
+    "article_indices": [
+      20,
+      112,
+      216,
+      306,
+      398
+    ],
+    "primary_entity": "European",
+    "entity_names": [
+      "European"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8056,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8401,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3798,
+      "not_duplicate": 0.0763,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.378,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8503,
+      "silhouette_score": 0.0848,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "7e7d311c50e4",
+    "label": "European event 2",
+    "article_count": 3,
+    "article_indices": [
+      249,
+      360,
+      452
+    ],
+    "primary_entity": "European",
+    "entity_names": [
+      "European"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.7667,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5148,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6713,
+      "not_duplicate": 0.2089,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2317,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8503,
+      "silhouette_score": 0.0848,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "fdf96fbaa05a",
+    "label": "Google event 1",
+    "article_count": 6,
+    "article_indices": [
+      200,
+      249,
+      251,
+      259,
+      361,
+      365
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.7962,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6494,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6671,
+      "not_duplicate": 0.1714,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2922,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8135,
+      "silhouette_score": 0.0915,
+      "cut_threshold": 0.69,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "783f618a1167",
+    "label": "PMI event 1",
+    "article_count": 2,
+    "article_indices": [
+      337,
+      405
+    ],
+    "primary_entity": "PMI",
+    "entity_names": [
+      "PMI"
+    ],
+    "event_type": "economic_report",
+    "event_granularity": "nano",
+    "confidence": 0.8841,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6071,
+      "not_duplicate": 0.2339,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6591,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6471,
+      "silhouette_score": 0.0487,
+      "cut_threshold": 0.45,
+      "n_subclusters": 6,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "74c0fc6223fb",
+    "label": "Iranian event 1",
+    "article_count": 4,
+    "article_indices": [
+      162,
+      244,
+      279,
+      403
+    ],
+    "primary_entity": "Iranian",
+    "entity_names": [
+      "Iranian"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8435,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3929,
+      "not_duplicate": 0.042,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4586,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8047,
+      "silhouette_score": 0.1172,
+      "cut_threshold": 0.6,
+      "n_subclusters": 6,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "8d2fc9db16c8",
+    "label": "Iranian event 2",
+    "article_count": 2,
+    "article_indices": [
+      102,
+      157
+    ],
+    "primary_entity": "Iranian",
+    "entity_names": [
+      "Iranian"
+    ],
+    "event_type": "conflict",
+    "event_granularity": "nano",
+    "confidence": 0.9513,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.986,
+      "not_duplicate": 0.5275,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7833,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8047,
+      "silhouette_score": 0.1172,
+      "cut_threshold": 0.6,
+      "n_subclusters": 6,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "6242bb09695e",
+    "label": "Iranian event 3",
+    "article_count": 3,
+    "article_indices": [
+      59,
+      76,
+      81
+    ],
+    "primary_entity": "Iranian",
+    "entity_names": [
+      "Iranian"
+    ],
+    "event_type": "general",
+    "event_granularity": "sub",
+    "confidence": 0.9353,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9961,
+      "not_duplicate": 0.3564,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5274,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8047,
+      "silhouette_score": 0.1172,
+      "cut_threshold": 0.6,
+      "n_subclusters": 6,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "43fd80dc040c",
+    "label": "Asian event 1",
+    "article_count": 5,
+    "article_indices": [
+      162,
+      168,
+      174,
+      218,
+      240
+    ],
+    "primary_entity": "Asian",
+    "entity_names": [
+      "Asian"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8813,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9393,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.965,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4227,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9017,
+      "silhouette_score": 0.1305,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "223a2ff124a4",
+    "label": "Asian event 2",
+    "article_count": 4,
+    "article_indices": [
+      359,
+      360,
+      404,
+      407
+    ],
+    "primary_entity": "Asian",
+    "entity_names": [
+      "Asian"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8178,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7218,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6622,
+      "not_duplicate": 0.2117,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3248,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9017,
+      "silhouette_score": 0.1305,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "3d6dde57e51a",
+    "label": "Japan (all)",
+    "article_count": 4,
+    "article_indices": [
+      348,
+      349,
+      430,
+      431
+    ],
+    "primary_entity": "Japan",
+    "entity_names": [
+      "Japan"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.903,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8868,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7258,
+      "not_duplicate": 0.5872,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.399,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "08e7dcef0b6b",
+    "label": "Trump event 1",
+    "article_count": 2,
+    "article_indices": [
+      266,
+      275
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "nano",
+    "confidence": 0.9435,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9844,
+      "not_duplicate": 0.4509,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.817,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9348,
+      "silhouette_score": 0.1997,
+      "cut_threshold": 0.6,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "be9ea1fccce7",
+    "label": "Trump event 2",
+    "article_count": 2,
+    "article_indices": [
+      230,
+      304
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "nano",
+    "confidence": 0.9346,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8654,
+      "not_duplicate": 0.4807,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5371,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9348,
+      "silhouette_score": 0.1997,
+      "cut_threshold": 0.6,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a749ff6efd00",
+    "label": "Trump event 3",
+    "article_count": 3,
+    "article_indices": [
+      33,
+      60,
+      203
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "sub",
+    "confidence": 0.8465,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6855,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9538,
+      "not_duplicate": 0.2978,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3085,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9348,
+      "silhouette_score": 0.1997,
+      "cut_threshold": 0.6,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "85188632391d",
+    "label": "Trump event 4",
+    "article_count": 3,
+    "article_indices": [
+      458,
+      459,
+      465
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "general",
+    "event_granularity": "sub",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5428,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9348,
+      "silhouette_score": 0.1997,
+      "cut_threshold": 0.6,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "0a7ac51635ec",
+    "label": "Reserve Bank of India event 2",
+    "article_count": 8,
+    "article_indices": [
+      77,
+      201,
+      228,
+      235,
+      238,
+      268,
+      414,
+      415
+    ],
+    "primary_entity": "Reserve Bank of India",
+    "entity_names": [
+      "Reserve Bank of India"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8264,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.1989,
+      "not_duplicate": 0.0655,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5109,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8052,
+      "silhouette_score": 0.1819,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "7139490bf1d9",
+    "label": "Reserve Bank of India event 1",
+    "article_count": 3,
+    "article_indices": [
+      355,
+      384,
+      395
+    ],
+    "primary_entity": "Reserve Bank of India",
+    "entity_names": [
+      "Reserve Bank of India"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8492,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6859,
+      "not_duplicate": 0.5556,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.855,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8052,
+      "silhouette_score": 0.1819,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "5eb3d28cd7c7",
+    "label": "Reuters event 1",
+    "article_count": 2,
+    "article_indices": [
+      275,
+      449
+    ],
+    "primary_entity": "Reuters",
+    "entity_names": [
+      "Reuters"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7465,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.3791,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8888,
+      "not_duplicate": 0.1281,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1706,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7568,
+      "silhouette_score": 0.0553,
+      "cut_threshold": 0.69,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ba918c762d02",
+    "label": "Reuters event 2",
+    "article_count": 7,
+    "article_indices": [
+      34,
+      253,
+      283,
+      304,
+      331,
+      354,
+      437
+    ],
+    "primary_entity": "Reuters",
+    "entity_names": [
+      "Reuters"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.7636,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.529,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7041,
+      "not_duplicate": 0.1093,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.238,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7568,
+      "silhouette_score": 0.0553,
+      "cut_threshold": 0.69,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a142137ae472",
+    "label": "Dubai event 1",
+    "article_count": 6,
+    "article_indices": [
+      71,
+      90,
+      108,
+      259,
+      281,
+      409
+    ],
+    "primary_entity": "Dubai",
+    "entity_names": [
+      "Dubai"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8435,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.972,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3143,
+      "not_duplicate": 0.1902,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4374,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7604,
+      "silhouette_score": 0.0774,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "3820af0b1b51",
+    "label": "Amazon event 1",
+    "article_count": 3,
+    "article_indices": [
+      217,
+      224,
+      261
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "layoffs",
+    "event_granularity": "major",
+    "confidence": 0.9491,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9707,
+      "not_duplicate": 0.5205,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7806,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9888,
+      "silhouette_score": 0.3252,
+      "cut_threshold": 0.33,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Robotics & Automation",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "5f8144f33f6d",
+    "label": "the Middle East event 1",
+    "article_count": 2,
+    "article_indices": [
+      80,
+      160
+    ],
+    "primary_entity": "the Middle East",
+    "entity_names": [
+      "the Middle East"
+    ],
+    "event_type": "general",
+    "event_granularity": "nano",
+    "confidence": 0.9018,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9801,
+      "not_duplicate": 0.0376,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5962,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8355,
+      "silhouette_score": 0.0936,
+      "cut_threshold": 0.54,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d8d8b311447e",
+    "label": "the Middle East event 2",
+    "article_count": 2,
+    "article_indices": [
+      111,
+      244
+    ],
+    "primary_entity": "the Middle East",
+    "entity_names": [
+      "the Middle East"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "nano",
+    "confidence": 0.9045,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9498,
+      "not_duplicate": 0.0955,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5151,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8355,
+      "silhouette_score": 0.0936,
+      "cut_threshold": 0.54,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1ca9a7233a50",
+    "label": "the Middle East event 3",
+    "article_count": 3,
+    "article_indices": [
+      30,
+      48,
+      58
+    ],
+    "primary_entity": "the Middle East",
+    "entity_names": [
+      "the Middle East"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8573,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7711,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9941,
+      "not_duplicate": 0.1516,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.347,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8355,
+      "silhouette_score": 0.0936,
+      "cut_threshold": 0.54,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "e3f60dfba082",
+    "label": "Israeli event 1",
+    "article_count": 7,
+    "article_indices": [
+      33,
+      37,
+      81,
+      214,
+      223,
+      259,
+      402
+    ],
+    "primary_entity": "Israeli",
+    "entity_names": [
+      "Israeli"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7661,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7188,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3638,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3234,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8728,
+      "silhouette_score": 0.063,
+      "cut_threshold": 0.63,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d6066eb14936",
+    "label": "U.S. event 1",
+    "article_count": 6,
+    "article_indices": [
+      116,
+      136,
+      173,
+      335,
+      349,
+      448
+    ],
+    "primary_entity": "U.S.",
+    "entity_names": [
+      "U.S."
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7459,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4039,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7258,
+      "not_duplicate": 0.223,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1818,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6254,
+      "silhouette_score": 0.0479,
+      "cut_threshold": 0.69,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d076ab7bf557",
+    "label": "Rupee event 1",
+    "article_count": 5,
+    "article_indices": [
+      37,
+      215,
+      228,
+      232,
+      335
+    ],
+    "primary_entity": "Rupee",
+    "entity_names": [
+      "Rupee"
+    ],
+    "event_type": "market_response",
+    "event_granularity": "major",
+    "confidence": 0.8756,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.756,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7208,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7967,
+      "silhouette_score": 0.0892,
+      "cut_threshold": 0.48,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "7eaf385b7780",
+    "label": "Australian (all)",
+    "article_count": 4,
+    "article_indices": [
+      82,
+      177,
+      223,
+      354
+    ],
+    "primary_entity": "Australian",
+    "entity_names": [
+      "Australian"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.8322,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7964,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7181,
+      "not_duplicate": 0.1128,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3584,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "b59d89b0d10a",
+    "label": "the Strait of Hormuz event 1",
+    "article_count": 6,
+    "article_indices": [
+      253,
+      324,
+      358,
+      376,
+      388,
+      398
+    ],
+    "primary_entity": "the Strait of Hormuz",
+    "entity_names": [
+      "the Strait of Hormuz"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8456,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4556,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5757,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8739,
+      "silhouette_score": 0.1692,
+      "cut_threshold": 0.54,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "b9393d97415c",
+    "label": "Holi (all)",
+    "article_count": 4,
+    "article_indices": [
+      220,
+      355,
+      384,
+      395
+    ],
+    "primary_entity": "Holi",
+    "entity_names": [
+      "Holi"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8447,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4474,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5101,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1c0f047d7868",
+    "label": "Amphastar Pharmaceuticals (all)",
+    "article_count": 2,
+    "article_indices": [
+      419,
+      421
+    ],
+    "primary_entity": "Amphastar Pharmaceuticals",
+    "entity_names": [
+      "Amphastar Pharmaceuticals"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.8837,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.5872,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8904,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "03025f5fa176",
+    "label": "South Korean (all)",
+    "article_count": 4,
+    "article_indices": [
+      103,
+      244,
+      340,
+      443
+    ],
+    "primary_entity": "South Korean",
+    "entity_names": [
+      "South Korean"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8499,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8594,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7422,
+      "not_duplicate": 0.1083,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3868,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "2392c726abcb",
+    "label": "Russian (all)",
+    "article_count": 4,
+    "article_indices": [
+      147,
+      194,
+      253,
+      388
+    ],
+    "primary_entity": "Russian",
+    "entity_names": [
+      "Russian"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.852,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4636,
+      "not_duplicate": 0.0561,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.525,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "4732b7d2d1d2",
+    "label": "Featured Stories event 1",
+    "article_count": 3,
+    "article_indices": [
+      458,
+      459,
+      465
+    ],
+    "primary_entity": "Featured Stories",
+    "entity_names": [
+      "Featured Stories"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5428,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9633,
+      "silhouette_score": 0.2115,
+      "cut_threshold": 0.57,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "e07122448946",
+    "label": "Featured Stories event 2",
+    "article_count": 2,
+    "article_indices": [
+      461,
+      464
+    ],
+    "primary_entity": "Featured Stories",
+    "entity_names": [
+      "Featured Stories"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "nano",
+    "confidence": 0.8561,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.3111,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4783,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9633,
+      "silhouette_score": 0.2115,
+      "cut_threshold": 0.57,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "af9a84f289b6",
+    "label": "Featured Stories event 3",
+    "article_count": 2,
+    "article_indices": [
+      457,
+      462
+    ],
+    "primary_entity": "Featured Stories",
+    "entity_names": [
+      "Featured Stories"
+    ],
+    "event_type": "funding",
+    "event_granularity": "nano",
+    "confidence": 0.8537,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.2869,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5047,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9633,
+      "silhouette_score": 0.2115,
+      "cut_threshold": 0.57,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "38e6eeb9134d",
+    "label": "Qatar event 1",
+    "article_count": 4,
+    "article_indices": [
+      61,
+      89,
+      279,
+      315
+    ],
+    "primary_entity": "Qatar",
+    "entity_names": [
+      "Qatar"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8796,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7963,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7207,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.991,
+      "silhouette_score": 0.2839,
+      "cut_threshold": 0.45,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1921a8ccd7aa",
+    "label": "Gulf event 1",
+    "article_count": 3,
+    "article_indices": [
+      216,
+      281,
+      389
+    ],
+    "primary_entity": "Gulf",
+    "entity_names": [
+      "Gulf"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8528,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9892,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4698,
+      "not_duplicate": 0.0855,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4451,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7061,
+      "silhouette_score": 0.0853,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "acd37b9fb5c3",
+    "label": "Gulf event 2",
+    "article_count": 3,
+    "article_indices": [
+      81,
+      173,
+      259
+    ],
+    "primary_entity": "Gulf",
+    "entity_names": [
+      "Gulf"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.814,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6502,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9301,
+      "not_duplicate": 0.0842,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2926,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7061,
+      "silhouette_score": 0.0853,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "eaca95d6f4a4",
+    "label": "Coal India (all)",
+    "article_count": 4,
+    "article_indices": [
+      104,
+      133,
+      153,
+      195
+    ],
+    "primary_entity": "Coal India",
+    "entity_names": [
+      "Coal India"
+    ],
+    "event_type": "market_performance",
+    "event_granularity": "major",
+    "confidence": 0.9099,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9718,
+      "not_duplicate": 0.1277,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5385,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Materials",
+      "level_2": "Mining & Commodities",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "37ed32a6d0ee",
+    "label": "Reliance (all)",
+    "article_count": 3,
+    "article_indices": [
+      106,
+      202,
+      225
+    ],
+    "primary_entity": "Reliance",
+    "entity_names": [
+      "Reliance"
+    ],
+    "event_type": "market_performance",
+    "event_granularity": "major",
+    "confidence": 0.9101,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9569,
+      "not_duplicate": 0.144,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6251,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Conglomerate",
+      "level_2": "Diversified Conglomerate",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "67f66f544bee",
+    "label": "Canada (all)",
+    "article_count": 4,
+    "article_indices": [
+      147,
+      223,
+      305,
+      358
+    ],
+    "primary_entity": "Canada",
+    "entity_names": [
+      "Canada"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.7768,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5936,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7258,
+      "not_duplicate": 0.0579,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2671,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "9cc2d33ef56f",
+    "label": "OpenAI (all)",
+    "article_count": 4,
+    "article_indices": [
+      148,
+      192,
+      242,
+      243
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.9061,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9587,
+      "not_duplicate": 0.1025,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4909,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Artificial Intelligence",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a0a669c80c46",
+    "label": "Dario Amodei (all)",
+    "article_count": 3,
+    "article_indices": [
+      151,
+      192,
+      242
+    ],
+    "primary_entity": "Dario Amodei",
+    "entity_names": [
+      "Dario Amodei"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.8961,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9614,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7383,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "b9ef6ff57ae2",
+    "label": "Apple (all)",
+    "article_count": 2,
+    "article_indices": [
+      154,
+      245
+    ],
+    "primary_entity": "Apple",
+    "entity_names": [
+      "Apple"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8729,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9615,
+      "not_duplicate": 0.5174,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6163,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Consumer Electronics",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "a075a2fa0799",
+    "label": "MacBook Neo (all)",
+    "article_count": 3,
+    "article_indices": [
+      154,
+      245,
+      299
+    ],
+    "primary_entity": "MacBook Neo",
+    "entity_names": [
+      "MacBook Neo"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8105,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8554,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6164,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "2ae112518b2f",
+    "label": "Pixel (all)",
+    "article_count": 3,
+    "article_indices": [
+      245,
+      288,
+      361
+    ],
+    "primary_entity": "Pixel",
+    "entity_names": [
+      "Pixel"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.7907,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.8999,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7258,
+      "not_duplicate": 0.181,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4049,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d58da195a420",
+    "label": "FDA (all)",
+    "article_count": 4,
+    "article_indices": [
+      276,
+      425,
+      433,
+      446
+    ],
+    "primary_entity": "FDA",
+    "entity_names": [
+      "FDA"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8223,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.55,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8873,
+      "not_duplicate": 0.4605,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2475,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "130376b78de6",
+    "label": "ANI Pharmaceuticals’s (all)",
+    "article_count": 2,
+    "article_indices": [
+      417,
+      418
+    ],
+    "primary_entity": "ANI Pharmaceuticals’s",
+    "entity_names": [
+      "ANI Pharmaceuticals’s"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.8609,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.3586,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7848,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a09dbd1e1b7b",
+    "label": "CNS Pharmaceuticals (all)",
+    "article_count": 2,
+    "article_indices": [
+      422,
+      423
+    ],
+    "primary_entity": "CNS Pharmaceuticals",
+    "entity_names": [
+      "CNS Pharmaceuticals"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.8733,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4831,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8037,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f7b20ead0587",
+    "label": "Quest Diagnostics Names (all)",
+    "article_count": 3,
+    "article_indices": [
+      439,
+      442,
+      445
+    ],
+    "primary_entity": "Quest Diagnostics Names",
+    "entity_names": [
+      "Quest Diagnostics Names"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6091,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "7d5dfee9ea98",
+    "label": "El Mencho (all)",
+    "article_count": 2,
+    "article_indices": [
+      454,
+      455
+    ],
+    "primary_entity": "El Mencho",
+    "entity_names": [
+      "El Mencho"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8867,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.6174,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9259,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "b32894f8c939",
+    "label": "Modern Healthcare News event 1",
+    "article_count": 3,
+    "article_indices": [
+      458,
+      459,
+      465
+    ],
+    "primary_entity": "Modern Healthcare News",
+    "entity_names": [
+      "Modern Healthcare News"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5428,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9761,
+      "silhouette_score": 0.2194,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "3fdf9fc5b0e3",
+    "label": "Modern Healthcare News event 2",
+    "article_count": 3,
+    "article_indices": [
+      461,
+      462,
+      464
+    ],
+    "primary_entity": "Modern Healthcare News",
+    "entity_names": [
+      "Modern Healthcare News"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4797,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9761,
+      "silhouette_score": 0.2194,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "6ad760ac9a63",
+    "label": "Vikas Lifecare (all)",
+    "article_count": 2,
+    "article_indices": [
+      1,
+      2
+    ],
+    "primary_entity": "Vikas Lifecare",
+    "entity_names": [
+      "Vikas Lifecare"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8828,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.5775,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8729,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Materials",
+      "level_2": "Diversified",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "dbde1101ac19",
+    "label": "Venmax Drugs and Pharmaceuticals (all)",
+    "article_count": 3,
+    "article_indices": [
+      9,
+      10,
+      11
+    ],
+    "primary_entity": "Venmax Drugs and Pharmaceuticals",
+    "entity_names": [
+      "Venmax Drugs and Pharmaceuticals"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8599,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.349,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7558,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "212b10010ba8",
+    "label": "Venezuelan (all)",
+    "article_count": 3,
+    "article_indices": [
+      33,
+      125,
+      203
+    ],
+    "primary_entity": "Venezuelan",
+    "entity_names": [
+      "Venezuelan"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8744,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9161,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9538,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4122,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "86c691e75fe5",
+    "label": "GAIL (all)",
+    "article_count": 3,
+    "article_indices": [
+      61,
+      182,
+      310
+    ],
+    "primary_entity": "GAIL",
+    "entity_names": [
+      "GAIL"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8804,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8036,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6458,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "160b9fbffc2f",
+    "label": "The Times of IndiaChina event 1",
+    "article_count": 3,
+    "article_indices": [
+      166,
+      206,
+      313
+    ],
+    "primary_entity": "The Times of IndiaChina",
+    "entity_names": [
+      "The Times of IndiaChina"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8508,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8161,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8245,
+      "not_duplicate": 0.143,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3672,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9425,
+      "silhouette_score": 0.0469,
+      "cut_threshold": 0.66,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1a03ef2b5a77",
+    "label": "Samsung (all)",
+    "article_count": 3,
+    "article_indices": [
+      191,
+      356,
+      365
+    ],
+    "primary_entity": "Samsung",
+    "entity_names": [
+      "Samsung"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8755,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9377,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6635,
+      "not_duplicate": 0.2471,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.422,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "f6f009ae59b1",
+    "label": "Larsen & Toubro (all)",
+    "article_count": 3,
+    "article_indices": [
+      214,
+      332,
+      346
+    ],
+    "primary_entity": "Larsen & Toubro",
+    "entity_names": [
+      "Larsen & Toubro"
+    ],
+    "event_type": "market_movement",
+    "event_granularity": "major",
+    "confidence": 0.9063,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7914,
+      "not_duplicate": 0.2716,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6385,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "0d2a509a68ec",
+    "label": "Fed (all)",
+    "article_count": 2,
+    "article_indices": [
+      230,
+      304
+    ],
+    "primary_entity": "Fed",
+    "entity_names": [
+      "Fed"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.8865,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8654,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5371,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "2c53203692a8",
+    "label": "Android (all)",
+    "article_count": 3,
+    "article_indices": [
+      251,
+      288,
+      361
+    ],
+    "primary_entity": "Android",
+    "entity_names": [
+      "Android"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.7684,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.8811,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7312,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3965,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Mobile Operating Systems",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "ac4afd2e0f39",
+    "label": "Microsoft (all)",
+    "article_count": 2,
+    "article_indices": [
+      302,
+      435
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "security_threat",
+    "event_granularity": "major",
+    "confidence": 0.8457,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.65,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8109,
+      "not_duplicate": 0.5215,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2925,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "fe8a8fd79922",
+    "label": "D2C (all)",
+    "article_count": 2,
+    "article_indices": [
+      327,
+      413
+    ],
+    "primary_entity": "D2C",
+    "entity_names": [
+      "D2C"
+    ],
+    "event_type": "growth",
+    "event_granularity": "major",
+    "confidence": 0.8641,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.465,
+      "not_duplicate": 0.1758,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.547,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Consumer Services",
+      "level_2": "E-commerce & D2C Brands",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "fbe638bddbd3",
+    "label": "Neysa (all)",
+    "article_count": 3,
+    "article_indices": [
+      350,
+      374,
+      400
+    ],
+    "primary_entity": "Neysa",
+    "entity_names": [
+      "Neysa"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8821,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6549,
+      "not_duplicate": 0.1665,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7421,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Startups & Venture Capital",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "bdb7ace0d11e",
+    "label": "Otsuka Medical Devices (all)",
+    "article_count": 2,
+    "article_indices": [
+      430,
+      431
+    ],
+    "primary_entity": "Otsuka Medical Devices",
+    "entity_names": [
+      "Otsuka Medical Devices"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8268,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0175,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9841,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "587460bf49de",
+    "label": "Mexico (all)",
+    "article_count": 2,
+    "article_indices": [
+      454,
+      455
+    ],
+    "primary_entity": "Mexico",
+    "entity_names": [
+      "Mexico"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9259,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "161eb62ddc10",
+    "label": "PAN (all)",
+    "article_count": 2,
+    "article_indices": [
+      1,
+      2
+    ],
+    "primary_entity": "PAN",
+    "entity_names": [
+      "PAN"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8729,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Finance",
+      "level_2": "Regulatory & Legal",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "323f1876f037",
+    "label": "the Strait of (all)",
+    "article_count": 4,
+    "article_indices": [
+      34,
+      89,
+      173,
+      324
+    ],
+    "primary_entity": "the Strait of",
+    "entity_names": [
+      "the Strait of"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8666,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9556,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7771,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.43,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ee744204ef9e",
+    "label": "Goldman Sachs (all)",
+    "article_count": 3,
+    "article_indices": [
+      34,
+      168,
+      324
+    ],
+    "primary_entity": "Goldman Sachs",
+    "entity_names": [
+      "Goldman Sachs"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8777,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7771,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6081,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "8a19b83a6fc2",
+    "label": "Phone (all)",
+    "article_count": 2,
+    "article_indices": [
+      45,
+      55
+    ],
+    "primary_entity": "Phone",
+    "entity_names": [
+      "Phone"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9395,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.998,
+      "not_duplicate": 0.3967,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8483,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Mobile Devices",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "f012bac663d7",
+    "label": "Khamenei (all)",
+    "article_count": 3,
+    "article_indices": [
+      50,
+      59,
+      178
+    ],
+    "primary_entity": "Khamenei",
+    "entity_names": [
+      "Khamenei"
+    ],
+    "event_type": "diplomatic",
+    "event_granularity": "major",
+    "confidence": 0.9059,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9679,
+      "not_duplicate": 0.0913,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6093,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "49449cd8587b",
+    "label": "Tehran (all)",
+    "article_count": 4,
+    "article_indices": [
+      60,
+      76,
+      173,
+      280
+    ],
+    "primary_entity": "Tehran",
+    "entity_names": [
+      "Tehran"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8476,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8004,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8916,
+      "not_duplicate": 0.0831,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3602,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "bd6094f26793",
+    "label": "VC (all)",
+    "article_count": 3,
+    "article_indices": [
+      72,
+      164,
+      374
+    ],
+    "primary_entity": "VC",
+    "entity_names": [
+      "VC"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.855,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9517,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.598,
+      "not_duplicate": 0.0729,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4283,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "2828565b5218",
+    "label": "Amitabh Kant's (all)",
+    "article_count": 2,
+    "article_indices": [
+      80,
+      159
+    ],
+    "primary_entity": "Amitabh Kant's",
+    "entity_names": [
+      "Amitabh Kant's"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.898,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9804,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.848,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "b8c83d093dc4",
+    "label": "Gujarat (all)",
+    "article_count": 2,
+    "article_indices": [
+      94,
+      310
+    ],
+    "primary_entity": "Gujarat",
+    "entity_names": [
+      "Gujarat"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.7787,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.522,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8096,
+      "not_duplicate": 0.1722,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2349,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f07076c106c3",
+    "label": "Rajya Sabha (all)",
+    "article_count": 4,
+    "article_indices": [
+      96,
+      118,
+      144,
+      210
+    ],
+    "primary_entity": "Rajya Sabha",
+    "entity_names": [
+      "Rajya Sabha"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.9608,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9625,
+      "not_duplicate": 0.6453,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5041,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Government & Politics",
+      "level_2": "Legislative Body",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "656f7ee2fba5",
+    "label": "BSE Sensex (all)",
+    "article_count": 4,
+    "article_indices": [
+      100,
+      104,
+      105,
+      130
+    ],
+    "primary_entity": "BSE Sensex",
+    "entity_names": [
+      "BSE Sensex"
+    ],
+    "event_type": "market_performance",
+    "event_granularity": "major",
+    "confidence": 0.8995,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9948,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6447,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "ca951bbf72b2",
+    "label": "Nifty Metal (all)",
+    "article_count": 3,
+    "article_indices": [
+      104,
+      155,
+      212
+    ],
+    "primary_entity": "Nifty Metal",
+    "entity_names": [
+      "Nifty Metal"
+    ],
+    "event_type": "market_movement",
+    "event_granularity": "major",
+    "confidence": 0.8972,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9636,
+      "not_duplicate": 0.0087,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6614,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Politics",
+      "level_2": "Politician",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "c237d284b6a4",
+    "label": "Force Motors (all)",
+    "article_count": 2,
+    "article_indices": [
+      121,
+      128
+    ],
+    "primary_entity": "Force Motors",
+    "entity_names": [
+      "Force Motors"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9383,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9989,
+      "not_duplicate": 0.3845,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9243,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Consumer Goods",
+      "level_2": "Beverages & Spirits",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "480a6074b0d9",
+    "label": "Mint Explainer (all)",
+    "article_count": 4,
+    "article_indices": [
+      127,
+      268,
+      376,
+      381
+    ],
+    "primary_entity": "Mint Explainer",
+    "entity_names": [
+      "Mint Explainer"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8025,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7161,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.5668,
+      "not_duplicate": 0.1683,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3222,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "adde49d7118f",
+    "label": "UK (all)",
+    "article_count": 3,
+    "article_indices": [
+      140,
+      326,
+      451
+    ],
+    "primary_entity": "UK",
+    "entity_names": [
+      "UK"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.7803,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5076,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7686,
+      "not_duplicate": 0.2659,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2284,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "cf03e59da2ed",
+    "label": "Pentagon (all)",
+    "article_count": 2,
+    "article_indices": [
+      151,
+      242
+    ],
+    "primary_entity": "Pentagon",
+    "entity_names": [
+      "Pentagon"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8211,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9614,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6911,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Finance",
+      "level_2": "Economic & Market Analysis",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "e90fdeee11b6",
+    "label": "Vedanta (all)",
+    "article_count": 3,
+    "article_indices": [
+      153,
+      155,
+      212
+    ],
+    "primary_entity": "Vedanta",
+    "entity_names": [
+      "Vedanta"
+    ],
+    "event_type": "market_movement",
+    "event_granularity": "major",
+    "confidence": 0.8977,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9768,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6125,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f97f53a989ed",
+    "label": "Azerbaijani (all)",
+    "article_count": 2,
+    "article_indices": [
+      156,
+      157
+    ],
+    "primary_entity": "Azerbaijani",
+    "entity_names": [
+      "Azerbaijani"
+    ],
+    "event_type": "conflict",
+    "event_granularity": "major",
+    "confidence": 0.9,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7872,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "6b46f01830da",
+    "label": "Adani Total Gas (all)",
+    "article_count": 2,
+    "article_indices": [
+      161,
+      167
+    ],
+    "primary_entity": "Adani Total Gas",
+    "entity_names": [
+      "Adani Total Gas"
+    ],
+    "event_type": "pricing",
+    "event_granularity": "major",
+    "confidence": 0.8998,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9976,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8689,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Government",
+      "level_2": "Financial Regulation",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "1560af277e11",
+    "label": "Morgan Stanley (all)",
+    "article_count": 2,
+    "article_indices": [
+      205,
+      260
+    ],
+    "primary_entity": "Morgan Stanley",
+    "entity_names": [
+      "Morgan Stanley"
+    ],
+    "event_type": "layoffs",
+    "event_granularity": "major",
+    "confidence": 0.9351,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9648,
+      "not_duplicate": 0.3867,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7975,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "18d3d12a7b3d",
+    "label": "Bengaluru’s (all)",
+    "article_count": 3,
+    "article_indices": [
+      254,
+      284,
+      373
+    ],
+    "primary_entity": "Bengaluru’s",
+    "entity_names": [
+      "Bengaluru’s"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8678,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8946,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6669,
+      "not_duplicate": 0.2745,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4026,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "dcea29407e1a",
+    "label": "Investing.com (all)",
+    "article_count": 4,
+    "article_indices": [
+      286,
+      289,
+      329,
+      342
+    ],
+    "primary_entity": "Investing.com",
+    "entity_names": [
+      "Investing.com"
+    ],
+    "event_type": "economic",
+    "event_granularity": "major",
+    "confidence": 0.7762,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.7903,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8733,
+      "not_duplicate": 0.1634,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3556,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "bae91aa6afb5",
+    "label": "Tata Steel (all)",
+    "article_count": 2,
+    "article_indices": [
+      316,
+      332
+    ],
+    "primary_entity": "Tata Steel",
+    "entity_names": [
+      "Tata Steel"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.8275,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9745,
+      "not_duplicate": 0.0501,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6801,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Energy",
+      "level_2": "LNG & Oil Production",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "6f37752918bb",
+    "label": "Fino Payment Bank (all)",
+    "article_count": 2,
+    "article_indices": [
+      321,
+      408
+    ],
+    "primary_entity": "Fino Payment Bank",
+    "entity_names": [
+      "Fino Payment Bank"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8563,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.5484,
+      "not_duplicate": 0.3477,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.668,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "164ef98129d8",
+    "label": "Ventripoint Diagnostics (all)",
+    "article_count": 2,
+    "article_indices": [
+      428,
+      440
+    ],
+    "primary_entity": "Ventripoint Diagnostics",
+    "entity_names": [
+      "Ventripoint Diagnostics"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.872,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4705,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "0f08f07c2339",
+    "label": "LG Consulting Solutions (all)",
+    "article_count": 2,
+    "article_indices": [
+      428,
+      440
+    ],
+    "primary_entity": "LG Consulting Solutions",
+    "entity_names": [
+      "LG Consulting Solutions"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "e32ceaa5a4f9",
+    "label": "Otsuka Medical Devices/Otsuka Pharmaceutical: Paradise Ultrasound Renal Denervation System (all)",
+    "article_count": 2,
+    "article_indices": [
+      430,
+      431
+    ],
+    "primary_entity": "Otsuka Medical Devices/Otsuka Pharmaceutical: Paradise Ultrasound Renal Denervation System",
+    "entity_names": [
+      "Otsuka Medical Devices/Otsuka Pharmaceutical: Paradise Ultrasound Renal Denervation System"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9841,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "5a5fbfb3c680",
+    "label": "exit Elevance Health (all)",
+    "article_count": 3,
+    "article_indices": [
+      458,
+      459,
+      465
+    ],
+    "primary_entity": "exit Elevance Health",
+    "entity_names": [
+      "exit Elevance Health"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5428,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "dccc3cccc658",
+    "label": "Paytm (all)",
+    "article_count": 2,
+    "article_indices": [
+      19,
+      189
+    ],
+    "primary_entity": "Paytm",
+    "entity_names": [
+      "Paytm"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8613,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9587,
+      "not_duplicate": 0.4043,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6117,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "7a5fee6a884b",
+    "label": "MOU (all)",
+    "article_count": 2,
+    "article_indices": [
+      21,
+      420
+    ],
+    "primary_entity": "MOU",
+    "entity_names": [
+      "MOU"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.8098,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4599,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9974,
+      "not_duplicate": 0.4508,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2069,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "474bb0f68252",
+    "label": "Bombay Stock Exchange (all)",
+    "article_count": 3,
+    "article_indices": [
+      21,
+      43,
+      83
+    ],
+    "primary_entity": "Bombay Stock Exchange",
+    "entity_names": [
+      "Bombay Stock Exchange"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.7799,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.7577,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9884,
+      "not_duplicate": 0.1665,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3409,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "55fc02b47511",
+    "label": "Bank of India (all)",
+    "article_count": 2,
+    "article_indices": [
+      28,
+      77
+    ],
+    "primary_entity": "Bank of India",
+    "entity_names": [
+      "Bank of India"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8573,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8108,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9904,
+      "not_duplicate": 0.0554,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3649,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "5b9302e6efd7",
+    "label": "Swiss (all)",
+    "article_count": 2,
+    "article_indices": [
+      31,
+      334
+    ],
+    "primary_entity": "Swiss",
+    "entity_names": [
+      "Swiss"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.8048,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.541,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7558,
+      "not_duplicate": 0.4395,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2434,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f4cac072b8f4",
+    "label": "GCC (all)",
+    "article_count": 3,
+    "article_indices": [
+      31,
+      174,
+      412
+    ],
+    "primary_entity": "GCC",
+    "entity_names": [
+      "GCC"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.7859,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7684,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.2572,
+      "not_duplicate": 0.1806,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3458,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "627b34925b7e",
+    "label": "Vikram Misri (all)",
+    "article_count": 2,
+    "article_indices": [
+      50,
+      59
+    ],
+    "primary_entity": "Vikram Misri",
+    "entity_names": [
+      "Vikram Misri"
+    ],
+    "event_type": "diplomatic",
+    "event_granularity": "major",
+    "confidence": 0.8999,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9988,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8178,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "9e80c22ca019",
+    "label": "the Persian Gulf (all)",
+    "article_count": 3,
+    "article_indices": [
+      57,
+      265,
+      358
+    ],
+    "primary_entity": "the Persian Gulf",
+    "entity_names": [
+      "the Persian Gulf"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8709,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7066,
+      "not_duplicate": 0.0023,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.465,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "475a7c578204",
+    "label": "Barcelona (all)",
+    "article_count": 2,
+    "article_indices": [
+      62,
+      117
+    ],
+    "primary_entity": "Barcelona",
+    "entity_names": [
+      "Barcelona"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9311,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9893,
+      "not_duplicate": 0.3216,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4854,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "8dc10613454f",
+    "label": "UAE (all)",
+    "article_count": 2,
+    "article_indices": [
+      71,
+      409
+    ],
+    "primary_entity": "UAE",
+    "entity_names": [
+      "UAE"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8314,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3143,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5091,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d2a0a0d9cbe1",
+    "label": "IBM (all)",
+    "article_count": 2,
+    "article_indices": [
+      78,
+      84
+    ],
+    "primary_entity": "IBM",
+    "entity_names": [
+      "IBM"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.7373,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.2921,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.9988,
+      "not_duplicate": 0.4769,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1314,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a43e7a03f9ce",
+    "label": "Adani Ports (all)",
+    "article_count": 2,
+    "article_indices": [
+      83,
+      233
+    ],
+    "primary_entity": "Adani Ports",
+    "entity_names": [
+      "Adani Ports"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.8974,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.953,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.949,
+      "not_duplicate": 0.1424,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4288,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Politics",
+      "level_2": "Legislative Body",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "5a2885663ecf",
+    "label": "QatarEnergy (all)",
+    "article_count": 3,
+    "article_indices": [
+      89,
+      182,
+      279
+    ],
+    "primary_entity": "QatarEnergy",
+    "entity_names": [
+      "QatarEnergy"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.89,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9003,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.679,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "df0e56814a9e",
+    "label": "Electric Vehicle (all)",
+    "article_count": 2,
+    "article_indices": [
+      93,
+      271
+    ],
+    "primary_entity": "Electric Vehicle",
+    "entity_names": [
+      "Electric Vehicle"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.887,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8098,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9169,
+      "not_duplicate": 0.4286,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3644,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "183a461dfa68",
+    "label": "Flamingo Transworld (all)",
+    "article_count": 2,
+    "article_indices": [
+      94,
+      113
+    ],
+    "primary_entity": "Flamingo Transworld",
+    "entity_names": [
+      "Flamingo Transworld"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.9108,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.996,
+      "not_duplicate": 0.1122,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9135,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "bd5d42318099",
+    "label": "Investing.com India (all)",
+    "article_count": 3,
+    "article_indices": [
+      105,
+      166,
+      275
+    ],
+    "primary_entity": "Investing.com India",
+    "entity_names": [
+      "Investing.com India"
+    ],
+    "event_type": "market_performance",
+    "event_granularity": "major",
+    "confidence": 0.733,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6751,
+      "entity_consistency": 0.5556,
+      "temporal_proximity": 0.9073,
+      "not_duplicate": 0.124,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3038,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "aace10ef81c3",
+    "label": "Global Markets (all)",
+    "article_count": 3,
+    "article_indices": [
+      112,
+      177,
+      219
+    ],
+    "primary_entity": "Global Markets",
+    "entity_names": [
+      "Global Markets"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.8211,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9608,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4966,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "db6d625ba1ee",
+    "label": "Q2 (all)",
+    "article_count": 2,
+    "article_indices": [
+      121,
+      128
+    ],
+    "primary_entity": "Q2",
+    "entity_names": [
+      "Q2"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8999,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9989,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9243,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "0947e8aaf324",
+    "label": "Vodafone Idea (all)",
+    "article_count": 2,
+    "article_indices": [
+      124,
+      186
+    ],
+    "primary_entity": "Vodafone Idea",
+    "entity_names": [
+      "Vodafone Idea"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9398,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9797,
+      "not_duplicate": 0.4184,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8104,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "cd3e6a18d953",
+    "label": "JSW Infrastructure (all)",
+    "article_count": 2,
+    "article_indices": [
+      134,
+      233
+    ],
+    "primary_entity": "JSW Infrastructure",
+    "entity_names": [
+      "JSW Infrastructure"
+    ],
+    "event_type": "investment_growth",
+    "event_granularity": "major",
+    "confidence": 0.8679,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8509,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9591,
+      "not_duplicate": 0.0932,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3829,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "407d6d321d26",
+    "label": "FY26 (all)",
+    "article_count": 2,
+    "article_indices": [
+      137,
+      352
+    ],
+    "primary_entity": "FY26",
+    "entity_names": [
+      "FY26"
+    ],
+    "event_type": "market_recovery",
+    "event_granularity": "major",
+    "confidence": 0.8243,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7378,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7356,
+      "not_duplicate": 0.1625,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.332,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "9edc97b21f48",
+    "label": "MacBooks (all)",
+    "article_count": 2,
+    "article_indices": [
+      154,
+      299
+    ],
+    "primary_entity": "MacBooks",
+    "entity_names": [
+      "MacBooks"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8105,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8554,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6366,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "71cf8b1eb66a",
+    "label": "Citi (all)",
+    "article_count": 2,
+    "article_indices": [
+      195,
+      309
+    ],
+    "primary_entity": "Citi",
+    "entity_names": [
+      "Citi"
+    ],
+    "event_type": "investment_advice",
+    "event_granularity": "major",
+    "confidence": 0.7969,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5826,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8422,
+      "not_duplicate": 0.1708,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2622,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "00bfcb157c52",
+    "label": "PhonePe (all)",
+    "article_count": 2,
+    "article_indices": [
+      196,
+      325
+    ],
+    "primary_entity": "PhonePe",
+    "entity_names": [
+      "PhonePe"
+    ],
+    "event_type": "ipo",
+    "event_granularity": "major",
+    "confidence": 0.8987,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8163,
+      "not_duplicate": 0.1704,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7598,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "b998a1a36b50",
+    "label": "Miami (all)",
+    "article_count": 2,
+    "article_indices": [
+      200,
+      424
+    ],
+    "primary_entity": "Miami",
+    "entity_names": [
+      "Miami"
+    ],
+    "event_type": "real_estate",
+    "event_granularity": "major",
+    "confidence": 0.7498,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.2736,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9516,
+      "not_duplicate": 0.3629,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1231,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "55ad248a7153",
+    "label": "Bitcoin (all)",
+    "article_count": 2,
+    "article_indices": [
+      213,
+      311
+    ],
+    "primary_entity": "Bitcoin",
+    "entity_names": [
+      "Bitcoin"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.9233,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8462,
+      "not_duplicate": 0.3865,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5576,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d51221df9110",
+    "label": "Ethereum (all)",
+    "article_count": 2,
+    "article_indices": [
+      213,
+      311
+    ],
+    "primary_entity": "Ethereum",
+    "entity_names": [
+      "Ethereum"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.8846,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8462,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5576,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f57cb11efbba",
+    "label": "SEDEMAC Mechatronics (all)",
+    "article_count": 2,
+    "article_indices": [
+      229,
+      330
+    ],
+    "primary_entity": "SEDEMAC Mechatronics",
+    "entity_names": [
+      "SEDEMAC Mechatronics"
+    ],
+    "event_type": "ipo",
+    "event_granularity": "major",
+    "confidence": 0.8917,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.824,
+      "not_duplicate": 0.0929,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7772,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "cd8dd837594f",
+    "label": "Nvidia (all)",
+    "article_count": 2,
+    "article_indices": [
+      259,
+      437
+    ],
+    "primary_entity": "Nvidia",
+    "entity_names": [
+      "Nvidia"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8509,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7309,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9165,
+      "not_duplicate": 0.2656,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3289,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "59d6bebc7b07",
+    "label": "Scott Bessent (all)",
+    "article_count": 2,
+    "article_indices": [
+      266,
+      275
+    ],
+    "primary_entity": "Scott Bessent",
+    "entity_names": [
+      "Scott Bessent"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8984,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9844,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.817,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d0063f968d17",
+    "label": "Spain (all)",
+    "article_count": 2,
+    "article_indices": [
+      314,
+      331
+    ],
+    "primary_entity": "Spain",
+    "entity_names": [
+      "Spain"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.8255,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5807,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9709,
+      "not_duplicate": 0.3327,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2613,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "2764fb9bc0e2",
+    "label": "Forex FactoryEurozone (all)",
+    "article_count": 3,
+    "article_indices": [
+      317,
+      323,
+      329
+    ],
+    "primary_entity": "Forex FactoryEurozone",
+    "entity_names": [
+      "Forex FactoryEurozone"
+    ],
+    "event_type": "economic",
+    "event_granularity": "major",
+    "confidence": 0.8374,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9829,
+      "not_duplicate": 0.1416,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5643,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "c820260cca18",
+    "label": "Before Coffee (all)",
+    "article_count": 2,
+    "article_indices": [
+      399,
+      404
+    ],
+    "primary_entity": "Before Coffee",
+    "entity_names": [
+      "Before Coffee"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8378,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9824,
+      "not_duplicate": 0.1452,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9266,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "21fc241f7438",
+    "label": "N.J. (all)",
+    "article_count": 3,
+    "article_indices": [
+      425,
+      439,
+      445
+    ],
+    "primary_entity": "N.J.",
+    "entity_names": [
+      "N.J."
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7882,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.853,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3838,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "5a52ca7e5f1d",
+    "label": "Otsuka Pharmaceutical Co. (all)",
+    "article_count": 2,
+    "article_indices": [
+      430,
+      431
+    ],
+    "primary_entity": "Otsuka Pharmaceutical Co.",
+    "entity_names": [
+      "Otsuka Pharmaceutical Co."
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9841,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "dd591323999c",
+    "label": "Chicago (all)",
+    "article_count": 2,
+    "article_indices": [
+      441,
+      448
+    ],
+    "primary_entity": "Chicago",
+    "entity_names": [
+      "Chicago"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.6708,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.2124,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4266,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.0956,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "8fc8517ea67e",
+    "label": "Eli Lilly's (all)",
+    "article_count": 2,
+    "article_indices": [
+      449,
+      461
+    ],
+    "primary_entity": "Eli Lilly's",
+    "entity_names": [
+      "Eli Lilly's"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.791,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9505,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.1171,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4277,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "7a963d5020fa",
+    "label": "CommonSpirit (all)",
+    "article_count": 3,
+    "article_indices": [
+      457,
+      462,
+      463
+    ],
+    "primary_entity": "CommonSpirit",
+    "entity_names": [
+      "CommonSpirit"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8117,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9468,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.426,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "6d9765b40763",
+    "label": "Adjudication Order (all)",
+    "article_count": 2,
+    "article_indices": [
+      6,
+      14
+    ],
+    "primary_entity": "Adjudication Order",
+    "entity_names": [
+      "Adjudication Order"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8641,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.3914,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.586,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "bb43361f216f",
+    "label": "Beijing (all)",
+    "article_count": 2,
+    "article_indices": [
+      23,
+      250
+    ],
+    "primary_entity": "Beijing",
+    "entity_names": [
+      "Beijing"
+    ],
+    "event_type": "strategy",
+    "event_granularity": "major",
+    "confidence": 0.8181,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9314,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7355,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "68ea29d6bd9d",
+    "label": "Ola (all)",
+    "article_count": 2,
+    "article_indices": [
+      26,
+      254
+    ],
+    "primary_entity": "Ola",
+    "entity_names": [
+      "Ola"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.855,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8155,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9244,
+      "not_duplicate": 0.0871,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.367,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "fe4eace1b330",
+    "label": "Hyderabad (all)",
+    "article_count": 2,
+    "article_indices": [
+      31,
+      366
+    ],
+    "primary_entity": "Hyderabad",
+    "entity_names": [
+      "Hyderabad"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.7634,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5263,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6064,
+      "not_duplicate": 0.2115,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2368,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f590c9a77923",
+    "label": "Democrats (all)",
+    "article_count": 2,
+    "article_indices": [
+      33,
+      136
+    ],
+    "primary_entity": "Democrats",
+    "entity_names": [
+      "Democrats"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.816,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5828,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9792,
+      "not_duplicate": 0.2243,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2622,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f44e09739b4e",
+    "label": "East (all)",
+    "article_count": 2,
+    "article_indices": [
+      34,
+      324
+    ],
+    "primary_entity": "East",
+    "entity_names": [
+      "East"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.8777,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7771,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5673,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "654804031a47",
+    "label": "IndiaOil (all)",
+    "article_count": 2,
+    "article_indices": [
+      34,
+      324
+    ],
+    "primary_entity": "IndiaOil",
+    "entity_names": [
+      "IndiaOil"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.8777,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7771,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5673,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "221b258c3aa4",
+    "label": "Maharashtra (all)",
+    "article_count": 2,
+    "article_indices": [
+      36,
+      94
+    ],
+    "primary_entity": "Maharashtra",
+    "entity_names": [
+      "Maharashtra"
+    ],
+    "event_type": "contract_award",
+    "event_granularity": "major",
+    "confidence": 0.8428,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7522,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9885,
+      "not_duplicate": 0.0594,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3385,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "52c8d6a243a7",
+    "label": "Cera Sanitary (all)",
+    "article_count": 2,
+    "article_indices": [
+      49,
+      182
+    ],
+    "primary_entity": "Cera Sanitary",
+    "entity_names": [
+      "Cera Sanitary"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.8336,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7083,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9657,
+      "not_duplicate": 0.0998,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3187,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "1fe5acfefc11",
+    "label": "Persian Gulf (all)",
+    "article_count": 2,
+    "article_indices": [
+      57,
+      306
+    ],
+    "primary_entity": "Persian Gulf",
+    "entity_names": [
+      "Persian Gulf"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8263,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7415,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8079,
+      "not_duplicate": 0.1017,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3337,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ab9e66580649",
+    "label": "the Federal Reserve's (all)",
+    "article_count": 2,
+    "article_indices": [
+      58,
+      230
+    ],
+    "primary_entity": "the Federal Reserve's",
+    "entity_names": [
+      "the Federal Reserve's"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.7795,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.807,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.946,
+      "not_duplicate": 0.0816,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3632,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "7e8cb1641558",
+    "label": "Thailand (all)",
+    "article_count": 2,
+    "article_indices": [
+      65,
+      69
+    ],
+    "primary_entity": "Thailand",
+    "entity_names": [
+      "Thailand"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8056,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4416,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9989,
+      "not_duplicate": 0.4532,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1987,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "7fc90ff9c0fa",
+    "label": "Patel (all)",
+    "article_count": 2,
+    "article_indices": [
+      74,
+      227
+    ],
+    "primary_entity": "Patel",
+    "entity_names": [
+      "Patel"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8803,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7922,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9503,
+      "not_duplicate": 0.3726,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3565,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "465fb1289c91",
+    "label": "Mazagon Dock (all)",
+    "article_count": 2,
+    "article_indices": [
+      83,
+      123
+    ],
+    "primary_entity": "Mazagon Dock",
+    "entity_names": [
+      "Mazagon Dock"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.8313,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9919,
+      "not_duplicate": 0.0708,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5016,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "d72815da917f",
+    "label": "Congress (all)",
+    "article_count": 2,
+    "article_indices": [
+      96,
+      210
+    ],
+    "primary_entity": "Congress",
+    "entity_names": [
+      "Congress"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.8213,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9625,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5679,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "6bbac9079abb",
+    "label": "Bloomberg (all)",
+    "article_count": 2,
+    "article_indices": [
+      100,
+      457
+    ],
+    "primary_entity": "Bloomberg",
+    "entity_names": [
+      "Bloomberg"
+    ],
+    "event_type": "market_recovery",
+    "event_granularity": "major",
+    "confidence": 0.7895,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5099,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9818,
+      "not_duplicate": 0.1384,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2295,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1b2173f455f0",
+    "label": "Nakhchivan International Airport (all)",
+    "article_count": 2,
+    "article_indices": [
+      102,
+      157
+    ],
+    "primary_entity": "Nakhchivan International Airport",
+    "entity_names": [
+      "Nakhchivan International Airport"
+    ],
+    "event_type": "conflict",
+    "event_granularity": "major",
+    "confidence": 0.8986,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.986,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7833,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f5e3a7b15377",
+    "label": "Mideast (all)",
+    "article_count": 2,
+    "article_indices": [
+      111,
+      313
+    ],
+    "primary_entity": "Mideast",
+    "entity_names": [
+      "Mideast"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8857,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8086,
+      "not_duplicate": 0.0484,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4719,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ed5c71068d38",
+    "label": "Washington (all)",
+    "article_count": 2,
+    "article_indices": [
+      116,
+      424
+    ],
+    "primary_entity": "Washington",
+    "entity_names": [
+      "Washington"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.786,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.451,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9789,
+      "not_duplicate": 0.2535,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2029,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "f7024e690b85",
+    "label": "Nitish (all)",
+    "article_count": 2,
+    "article_indices": [
+      118,
+      144
+    ],
+    "primary_entity": "Nitish",
+    "entity_names": [
+      "Nitish"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.8993,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9932,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6999,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "fddf8aa95db3",
+    "label": "Jack Daniel's (all)",
+    "article_count": 2,
+    "article_indices": [
+      120,
+      257
+    ],
+    "primary_entity": "Jack Daniel's",
+    "entity_names": [
+      "Jack Daniel's"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.9481,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9401,
+      "not_duplicate": 0.5411,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8814,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "0203aac2b3d8",
+    "label": "Brown-Forman (all)",
+    "article_count": 2,
+    "article_indices": [
+      120,
+      257
+    ],
+    "primary_entity": "Brown-Forman",
+    "entity_names": [
+      "Brown-Forman"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.894,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9401,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8814,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "e15d14f732d8",
+    "label": "DoT (all)",
+    "article_count": 2,
+    "article_indices": [
+      124,
+      186
+    ],
+    "primary_entity": "DoT",
+    "entity_names": [
+      "DoT"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.898,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9797,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8104,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "4e91a0206950",
+    "label": "Chinese (all)",
+    "article_count": 2,
+    "article_indices": [
+      136,
+      342
+    ],
+    "primary_entity": "Chinese",
+    "entity_names": [
+      "Chinese"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7838,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5449,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7614,
+      "not_duplicate": 0.2147,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2452,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "e8a106e60b90",
+    "label": "Republicans (all)",
+    "article_count": 2,
+    "article_indices": [
+      136,
+      230
+    ],
+    "primary_entity": "Republicans",
+    "entity_names": [
+      "Republicans"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7904,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5185,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9618,
+      "not_duplicate": 0.1463,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2333,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "0b3a71c5c374",
+    "label": "Nasdaq (all)",
+    "article_count": 2,
+    "article_indices": [
+      140,
+      419
+    ],
+    "primary_entity": "Nasdaq",
+    "entity_names": [
+      "Nasdaq"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8156,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6502,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9732,
+      "not_duplicate": 0.0578,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2926,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "562d9c6d545c",
+    "label": "Kashmir (all)",
+    "article_count": 2,
+    "article_indices": [
+      178,
+      368
+    ],
+    "primary_entity": "Kashmir",
+    "entity_names": [
+      "Kashmir"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.7553,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4476,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6382,
+      "not_duplicate": 0.2957,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2014,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "46502e143029",
+    "label": "Iran War (all)",
+    "article_count": 2,
+    "article_indices": [
+      182,
+      202
+    ],
+    "primary_entity": "Iran War",
+    "entity_names": [
+      "Iran War"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.9027,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.992,
+      "not_duplicate": 0.0351,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4956,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "03f4a5093110",
+    "label": "CNBC (all)",
+    "article_count": 2,
+    "article_indices": [
+      186,
+      309
+    ],
+    "primary_entity": "CNBC",
+    "entity_names": [
+      "CNBC"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7798,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5432,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8382,
+      "not_duplicate": 0.1013,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2445,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "789e45afc00a",
+    "label": "Kalaari Capital (all)",
+    "article_count": 2,
+    "article_indices": [
+      190,
+      255
+    ],
+    "primary_entity": "Kalaari Capital",
+    "entity_names": [
+      "Kalaari Capital"
+    ],
+    "event_type": "research",
+    "event_granularity": "major",
+    "confidence": 0.929,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9623,
+      "not_duplicate": 0.3282,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9048,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "49828249a0f3",
+    "label": "The Indian Rupee (all)",
+    "article_count": 2,
+    "article_indices": [
+      232,
+      235
+    ],
+    "primary_entity": "The Indian Rupee",
+    "entity_names": [
+      "The Indian Rupee"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8249,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9988,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7193,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "981329032194",
+    "label": "The Reserve Bank of India (all)",
+    "article_count": 2,
+    "article_indices": [
+      235,
+      238
+    ],
+    "primary_entity": "The Reserve Bank of India",
+    "entity_names": [
+      "The Reserve Bank of India"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8249,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9991,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6411,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "790c71d47b6b",
+    "label": "State Bank of India (all)",
+    "article_count": 2,
+    "article_indices": [
+      237,
+      308
+    ],
+    "primary_entity": "State Bank of India",
+    "entity_names": [
+      "State Bank of India"
+    ],
+    "event_type": "investment_advice",
+    "event_granularity": "major",
+    "confidence": 0.809,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.572,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8627,
+      "not_duplicate": 0.297,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2574,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a8065438debc",
+    "label": "Korea (all)",
+    "article_count": 2,
+    "article_indices": [
+      240,
+      356
+    ],
+    "primary_entity": "Korea",
+    "entity_names": [
+      "Korea"
+    ],
+    "event_type": "market_reaction",
+    "event_granularity": "major",
+    "confidence": 0.7789,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6591,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.768,
+      "not_duplicate": 0.2062,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2966,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d129d9bbe999",
+    "label": "Bessent (all)",
+    "article_count": 2,
+    "article_indices": [
+      266,
+      275
+    ],
+    "primary_entity": "Bessent",
+    "entity_names": [
+      "Bessent"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8984,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9844,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.817,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "6006567c2311",
+    "label": "US Treasury (all)",
+    "article_count": 2,
+    "article_indices": [
+      266,
+      275
+    ],
+    "primary_entity": "US Treasury",
+    "entity_names": [
+      "US Treasury"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8984,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9844,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.817,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "912d437c10d8",
+    "label": "Qatar Halts Production (all)",
+    "article_count": 2,
+    "article_indices": [
+      297,
+      315
+    ],
+    "primary_entity": "Qatar Halts Production",
+    "entity_names": [
+      "Qatar Halts Production"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.896,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9596,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8801,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "750bb0dbefe2",
+    "label": "Forex FactoryWith (all)",
+    "article_count": 2,
+    "article_indices": [
+      304,
+      363
+    ],
+    "primary_entity": "Forex FactoryWith",
+    "entity_names": [
+      "Forex FactoryWith"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.7174,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.7169,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.8326,
+      "not_duplicate": 0.1328,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3226,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "5c36610c54a0",
+    "label": "Naukri (all)",
+    "article_count": 2,
+    "article_indices": [
+      345,
+      364
+    ],
+    "primary_entity": "Naukri",
+    "entity_names": [
+      "Naukri"
+    ],
+    "event_type": "hiring",
+    "event_granularity": "major",
+    "confidence": 0.9046,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8851,
+      "not_duplicate": 0.1605,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8057,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "b410818ebc8e",
+    "label": "Q4 CY2025 (all)",
+    "article_count": 2,
+    "article_indices": [
+      418,
+      419
+    ],
+    "primary_entity": "Q4 CY2025",
+    "entity_names": [
+      "Q4 CY2025"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5967,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1901b1d6ba54",
+    "label": "NASDAQAMPH (all)",
+    "article_count": 2,
+    "article_indices": [
+      419,
+      421
+    ],
+    "primary_entity": "NASDAQAMPH",
+    "entity_names": [
+      "NASDAQAMPH"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8904,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ff6f7d96d587",
+    "label": "BioSpace (all)",
+    "article_count": 2,
+    "article_indices": [
+      425,
+      438
+    ],
+    "primary_entity": "BioSpace",
+    "entity_names": [
+      "BioSpace"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.747,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.6471,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.1021,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2912,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "4f93bd1358d2",
+    "label": "SECAUCUS (all)",
+    "article_count": 2,
+    "article_indices": [
+      425,
+      445
+    ],
+    "primary_entity": "SECAUCUS",
+    "entity_names": [
+      "SECAUCUS"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7246,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.5982,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2692,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "e080ac0894a7",
+    "label": "the U.S. Food and Drug Administration (all)",
+    "article_count": 2,
+    "article_indices": [
+      425,
+      433
+    ],
+    "primary_entity": "the U.S. Food and Drug Administration",
+    "entity_names": [
+      "the U.S. Food and Drug Administration"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7892,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.8528,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0102,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3838,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "feb117598f7d",
+    "label": "Ventripoint (all)",
+    "article_count": 2,
+    "article_indices": [
+      428,
+      440
+    ],
+    "primary_entity": "Ventripoint",
+    "entity_names": [
+      "Ventripoint"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "6df42cc516f5",
+    "label": "Collaboration with Providence Health Care Ventures (all)",
+    "article_count": 2,
+    "article_indices": [
+      428,
+      440
+    ],
+    "primary_entity": "Collaboration with Providence Health Care Ventures",
+    "entity_names": [
+      "Collaboration with Providence Health Care Ventures"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "fb225b5de474",
+    "label": "Fierce Biotech (all)",
+    "article_count": 2,
+    "article_indices": [
+      434,
+      442
+    ],
+    "primary_entity": "Fierce Biotech",
+    "entity_names": [
+      "Fierce Biotech"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.728,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.5778,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0852,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.26,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d4bd7ed7e0fa",
+    "label": "Americans (all)",
+    "article_count": 2,
+    "article_indices": [
+      435,
+      446
+    ],
+    "primary_entity": "Americans",
+    "entity_names": [
+      "Americans"
+    ],
+    "event_type": "investment",
+    "event_granularity": "major",
+    "confidence": 0.6643,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.2753,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.2051,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1239,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "05927cb5ba98",
+    "label": "NYSE (all)",
+    "article_count": 2,
+    "article_indices": [
+      439,
+      445
+    ],
+    "primary_entity": "NYSE",
+    "entity_names": [
+      "NYSE"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5386,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "a64b3cb9baa6",
+    "label": "DGX (all)",
+    "article_count": 2,
+    "article_indices": [
+      439,
+      445
+    ],
+    "primary_entity": "DGX",
+    "entity_names": [
+      "DGX"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5386,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "23ac287071b9",
+    "label": "Mexican (all)",
+    "article_count": 2,
+    "article_indices": [
+      454,
+      455
+    ],
+    "primary_entity": "Mexican",
+    "entity_names": [
+      "Mexican"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9259,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "aa8533e9b1e9",
+    "label": "Tenet’s Conifer (all)",
+    "article_count": 2,
+    "article_indices": [
+      457,
+      462
+    ],
+    "primary_entity": "Tenet’s Conifer",
+    "entity_names": [
+      "Tenet’s Conifer"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5047,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a81ec1e91c2f",
+    "label": "Conifer (all)",
+    "article_count": 2,
+    "article_indices": [
+      457,
+      462
+    ],
+    "primary_entity": "Conifer",
+    "entity_names": [
+      "Conifer"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5047,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "27a6d58a10e7",
+    "label": "COO Brian Evanko (all)",
+    "article_count": 2,
+    "article_indices": [
+      457,
+      462
+    ],
+    "primary_entity": "COO Brian Evanko",
+    "entity_names": [
+      "COO Brian Evanko"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5047,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "caeddf91407d",
+    "label": "Peter Haytaian (all)",
+    "article_count": 2,
+    "article_indices": [
+      458,
+      459
+    ],
+    "primary_entity": "Peter Haytaian",
+    "entity_names": [
+      "Peter Haytaian"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5239,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "54671514948b",
+    "label": "Elevance Health (all)",
+    "article_count": 2,
+    "article_indices": [
+      458,
+      459
+    ],
+    "primary_entity": "Elevance Health",
+    "entity_names": [
+      "Elevance Health"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5239,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "14b938d0609a",
+    "label": "Kaiser Permanente (all)",
+    "article_count": 2,
+    "article_indices": [
+      461,
+      464
+    ],
+    "primary_entity": "Kaiser Permanente",
+    "entity_names": [
+      "Kaiser Permanente"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4783,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1a31423616ab",
+    "label": "Beth Israel Lahey Health (all)",
+    "article_count": 2,
+    "article_indices": [
+      461,
+      464
+    ],
+    "primary_entity": "Beth Israel Lahey Health",
+    "entity_names": [
+      "Beth Israel Lahey Health"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4783,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "3bd8a4c37504",
+    "label": "discovery_0",
+    "article_count": 12,
+    "article_indices": [
+      40,
+      52,
+      92,
+      115,
+      119,
+      122,
+      129,
+      171,
+      208,
+      353,
+      369,
+      401
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.5472,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4206,
+      "entity_consistency": 0.1389,
+      "temporal_proximity": 0.3689,
+      "not_duplicate": 0.2735,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1892,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "e773204ceb15",
+    "label": "discovery_1",
+    "article_count": 11,
+    "article_indices": [
+      25,
+      44,
+      68,
+      85,
+      114,
+      135,
+      165,
+      169,
+      209,
+      318,
+      339
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.6057,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4395,
+      "entity_consistency": 0.1515,
+      "temporal_proximity": 0.7451,
+      "not_duplicate": 0.4104,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1978,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "4281b14105bb",
+    "label": "discovery_2",
+    "article_count": 10,
+    "article_indices": [
+      17,
+      18,
+      87,
+      91,
+      150,
+      170,
+      172,
+      221,
+      273,
+      372
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.6759,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.752,
+      "entity_consistency": 0.3333,
+      "temporal_proximity": 0.5938,
+      "not_duplicate": 0.1188,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3384,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "10b024876a73",
+    "label": "discovery_3",
+    "article_count": 10,
+    "article_indices": [
+      64,
+      426,
+      427,
+      429,
+      432,
+      444,
+      447,
+      453,
+      456,
+      466
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.6348,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5663,
+      "entity_consistency": 0.1667,
+      "temporal_proximity": 0.9892,
+      "not_duplicate": 0.2097,
+      "outlier_ejection": 0.9
+    },
+    "coherence_score": 0.2548,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "1200f07e26ef",
+    "label": "discovery_4",
+    "article_count": 9,
+    "article_indices": [
+      27,
+      47,
+      97,
+      98,
+      132,
+      211,
+      236,
+      296,
+      347
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.6435,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6695,
+      "entity_consistency": 0.1852,
+      "temporal_proximity": 0.7356,
+      "not_duplicate": 0.1559,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3013,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "9d012f4d1f2c",
+    "label": "discovery_5",
+    "article_count": 9,
+    "article_indices": [
+      32,
+      158,
+      176,
+      290,
+      292,
+      300,
+      328,
+      343,
+      410
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.6508,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5705,
+      "entity_consistency": 0.5556,
+      "temporal_proximity": 0.2871,
+      "not_duplicate": 0.2949,
+      "outlier_ejection": 0.8889
+    },
+    "coherence_score": 0.2567,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "f0d7ecee7f46",
+    "label": "discovery_6",
+    "article_count": 9,
+    "article_indices": [
+      0,
+      3,
+      4,
+      5,
+      7,
+      8,
+      12,
+      75,
+      294
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7577,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7788,
+      "entity_consistency": 0.5556,
+      "temporal_proximity": 0.8417,
+      "not_duplicate": 0.1766,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3505,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "01ac0b5fad10",
+    "label": "discovery_7",
+    "article_count": 7,
+    "article_indices": [
+      39,
+      56,
+      146,
+      295,
+      301,
+      303,
+      320
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.682,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5216,
+      "entity_consistency": 0.4762,
+      "temporal_proximity": 0.7858,
+      "not_duplicate": 0.2779,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2347,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "881092ea169f",
+    "label": "discovery_8",
+    "article_count": 7,
+    "article_indices": [
+      13,
+      51,
+      53,
+      126,
+      163,
+      188,
+      367
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.6622,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4728,
+      "entity_consistency": 0.4762,
+      "temporal_proximity": 0.5977,
+      "not_duplicate": 0.3899,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2127,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "151f8be7a526",
+    "label": "discovery_9",
+    "article_count": 6,
+    "article_indices": [
+      63,
+      204,
+      234,
+      285,
+      298,
+      319
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.7023,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4601,
+      "entity_consistency": 0.5556,
+      "temporal_proximity": 0.7906,
+      "not_duplicate": 0.4716,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.207,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

@@ -1,0 +1,173 @@
+{
+  "signal_count": 8,
+  "avg_oss": 0.0,
+  "avg_kb_hit": 0.333,
+  "signals": [
+    {
+      "trend_title": "Emami Agrotech Targets ₹2,000 Crore HoReCa Revenue",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Moneyview Doubles Down on Default Guarantees",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.3333333333333333,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "None",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Saudi Aramco $3 Billion Buyback Amid Profit Drop",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Anthropic's Pentagon Contract Fallout and Growth",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Yann LeCun's AMI Raises $1 Billion",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Newtrace Raises $6.3M for Green Hydrogen Electrodes",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.3333333333333333,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Renault Launches Bridger SUV in India",
+      "event_type": "intelligence",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    }
+  ],
+  "signal_bus": {
+    "system_confidence": 0.5552,
+    "exploration_budget": 0.4448,
+    "learning_path": "outcome",
+    "total_drift": 0.0,
+    "source_degraded": [],
+    "feedback_distribution": {
+      "good_trend": 0,
+      "already_knew": 2,
+      "bad_trend": 6
+    },
+    "reasoning_grade": "C",
+    "reasoning_quality": 0.5,
+    "strategy_adjustments": {
+      "source_intel": {
+        "adopt_real_time_source_relevance_scoring": true,
+        "implement_dynamic_source_weighting": true,
+        "improve_noise_detection": true
+      },
+      "analysis": {
+        "drop_trends": [
+          "None",
+          "Emami Agrotech Targets ₹2,000 Crore HoReCa Revenue",
+          "Moneyview Doubles Down on Default Guarantees"
+        ],
+        "boost_trends": [
+          "Zoff Foods $2 Million JM Financial Investment",
+          "OpenAI Acquires Promptfoo for AI Security",
+          "Anthropic's Pentagon Contract Fallout and Growth"
+        ]
+      },
+      "lead_gen": {
+        "personalization_tips": [
+          "Include role-specific pain points in outreach messages.",
+          "Use personalized email content referencing recent company news or challenges."
+        ],
+        "targeting_improvements": [
+          "Prioritize leads with available contacts and higher confidence scores.",
+          "Refine criteria to focus on companies matching ideal customer profiles."
+        ]
+      }
+    }
+  },
+  "retrospective": {
+    "grade": "C",
+    "summary": "This run demonstrated some progress in lead generation and trend detection but was hampered by low trend quality and coherence, indicating that core improvements in source relevance and analysis specificity are still lacking. The system's confidence remains moderate, reflecting uncertainty in insights. While some hypotheses are addressed, overall trend actionability remains limited, and the low OSS scores suggest that the system is producing overly generic insights that may not effectively support outreach efforts.",
+    "successes": [
+      "Generated 33 leads, indicating effective outreach potential despite quality issues.",
+      "Detected 11 trends, showing the system's ability to identify emerging patterns.",
+      "Maintained a moderate system confidence of 0.5662, suggesting some stability in insights."
+    ],
+    "failures": [
+      "Trend quality remains very low (mean OSS 0.000), indicating that the detected trends are too generic or vague for actionable use, likely due to insufficient relevance scoring and clustering refinement.",
+      "Analysis quality is poor (0.20), reflecting that the trends lack specificity and coherence, undermining their usefulness for targeted outreach.",
+      "Source intelligence quality is high (0.75), but concerns about bias and lack of dynamic relevance scoring suggest that source prioritization is not effectively translating into better trend quality."
+    ],
+    "improvement_plan": [
+      {
+        "target": "analysis",
+        "action": "Integrate industry-specific and recent company news data to enhance trend specificity.",
+        "expected_impact": "Generate more targeted, relevant trends for outreach.",
+        "priority": "high"
+      },
+      {
+        "target": "source_intel",
+        "action": "Implement real-time source relevance scoring with adaptive algorithms to dynamically prioritize high-quality, timely sources.",
+        "expected_impact": "Increase trend relevance and data freshness, leading to more actionable insights.",
+        "priority": "high"
+      },
+      {
+        "target": "clustering algorithms",
+        "action": "Refine clustering techniques, possibly incorporating supervised methods to improve trend coherence.",
+        "expected_impact": "Produce clearer, more actionable trends.",
+        "priority": "high"
+      }
+    ]
+  },
+  "log_messages": []
+}

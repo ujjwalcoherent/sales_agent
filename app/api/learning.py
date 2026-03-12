@@ -1,9 +1,9 @@
-"""Learning status API — exposes all 8 self-learning loop states."""
+"""Learning status API — exposes all 6 self-learning loop states."""
 
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ DATA_DIR = Path("data")
 
 
 class LearningStatusResponse(BaseModel):
-    """Full learning system state — all 8 loops."""
+    """Full learning system state — all 6 loops."""
     source_bandit: Dict[str, Any] = Field(default_factory=dict)
     company_bandit: Dict[str, Any] = Field(default_factory=dict)
     adaptive_thresholds: Dict[str, Any] = Field(default_factory=dict)
@@ -80,9 +80,7 @@ async def learning_status():
             ],
         }
 
-    # 2. Weight Learner — current learned weights
-    # File stores weights directly at top level (actionability, trend_score, ...)
-    # 3. Company Bandit — (size, event_type) arms
+    # 2. Company Bandit — (size, event_type) arms
     # File stores arms directly at top level or nested under "arms"
     company_data = _load_json(DATA_DIR / "company_bandit.json")
     company_bandit = {}

@@ -9,8 +9,9 @@ import asyncio
 import logging
 import json
 import csv
+import re
 import time as _time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, TypedDict, Annotated
 import operator
@@ -27,6 +28,13 @@ from ..config import get_settings
 from ..database import get_database
 
 logger = logging.getLogger(__name__)
+
+# Pre-compiled regex for _compute_oss() — called once per cluster per run.
+_RE_OSS_NUMBERS = re.compile(r'\$[\d.]+[BMK]?|\d+%|\d{4}')
+_RE_OSS_ACTION = re.compile(
+    r'\b(launch|acquir|rais|expand|partner|invest|hire|layoff|regulat|approv|fund|merge|deploy|integrat|adopt)\w*',
+    re.IGNORECASE,
+)
 
 
 def _compute_actionability(severity: str, coherence: float, oss: float) -> float:
@@ -63,14 +71,10 @@ def _compute_oss(cluster) -> float:
       25% has quantitative data ($, %, year)
       15% has industry classification
     """
-    import re
     text = f"{getattr(cluster, 'label', '')} {getattr(cluster, 'summary', '')}"
     has_entity = bool(getattr(cluster, 'primary_entity', None) or getattr(cluster, 'entity_names', []))
-    has_numbers = bool(re.search(r'\$[\d.]+[BMK]?|\d+%|\d{4}', text))
-    has_action = bool(re.search(
-        r'\b(launch|acquir|rais|expand|partner|invest|hire|layoff|regulat|approv|fund|merge|deploy|integrat|adopt)\w*',
-        text, re.I,
-    ))
+    has_numbers = bool(_RE_OSS_NUMBERS.search(text))
+    has_action = bool(_RE_OSS_ACTION.search(text))
     has_industry = bool(getattr(cluster, 'industry', None))
     return round(0.35 * has_entity + 0.25 * has_action + 0.25 * has_numbers + 0.15 * has_industry, 3)
 
@@ -91,7 +95,6 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
       Fallback: coherence >= 0.70 -> HIGH, 0.50-0.70 -> MEDIUM, < 0.50 -> LOW
     """
     from ..schemas.sales import TrendData
-    from ..schemas import Severity
 
     if intel is None:
         return []
@@ -165,6 +168,9 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
         trend_type = _normalize_event_type(_type_text)
 
         try:
+            _oss = _compute_oss(cluster)
+            _act = _compute_actionability(severity, coherence, _oss)
+            _level = "major" if _act >= 0.65 else ("minor" if _act < 0.40 else "sub")
             trends.append(TrendData(
                 id=getattr(cluster, "cluster_id", str(len(trends))),
                 trend_title=label,  # always non-empty after guard above
@@ -181,18 +187,13 @@ def _intelligence_clusters_to_trends(intel: Any) -> List["TrendData"]:
                 affected_companies=[entity] if entity else [],
                 affected_regions=[],
                 trend_score=coherence,
-                actionability_score=_compute_actionability(
-                    severity, coherence, _compute_oss(cluster),
-                ),
-                oss_score=_compute_oss(cluster),
+                oss_score=_oss,
+                actionability_score=_act,
+                trend_level=_level,
                 article_count=len(article_indices),
                 article_snippets=[],
                 evidence_snippets=(
                     cluster.evidence_chain.key_snippets
-                    if getattr(cluster, "evidence_chain", None) else []
-                ),
-                evidence_companies=(
-                    cluster.evidence_chain.companies_cited
                     if getattr(cluster, "evidence_chain", None) else []
                 ),
             ))
@@ -218,7 +219,6 @@ class GraphState(TypedDict):
     current_step: str
     retry_counts: Dict[str, int]
     agent_reasoning: Dict[str, str]
-    stage_advisories: Annotated[List[Dict], operator.add]  # Inter-stage communication
     quality_score: float  # From quality_validation_node → learning_update_node (CUSUM)
 
 
@@ -340,7 +340,8 @@ async def analysis_node(state: GraphState) -> dict:
     _record(deps, "analysis_complete", {
         "trends": [
             {"id": t.id, "title": t.trend_title, "type": t.trend_type,
-             "score": t.trend_score, "oss": t.oss_score, "articles": t.article_count}
+             "score": t.trend_score, "oss": t.oss_score, "articles": t.article_count,
+             "trend_level": t.trend_level, "actionability_score": t.actionability_score}
             for t in trends
         ],
         "trend_count": len(trends),
@@ -625,6 +626,105 @@ async def causal_council_node(state: GraphState) -> dict:
     errors = []
     causal_results = []
 
+    # In mock mode produce synthetic causal results so the full pipeline
+    # (crystallizer → lead_gen) runs end-to-end without real LLM/search calls.
+    if getattr(deps, "mock_mode", False):
+        logger.info("Causal council: mock mode — generating synthetic causal chains")
+        from app.agents.causal_council import CausalChainResult, CausalHop
+        impacts = state.get("impacts", [])
+
+        # Mode-aware mock companies — match companies to trend content
+        _MOCK_HOPS = {
+            "it": {
+                "hop1_segment": "Mid-size IT Services Companies (5K-30K employees)",
+                "hop1_companies": ["Mphasis", "Persistent Systems"],
+                "hop1_mechanism": "GenAI contract consolidation by TCS/Infosys compresses deal pipeline for mid-tier IT firms",
+                "hop2_segment": "Regional Software Consultancies (50-150 employees)",
+                "hop2_companies": ["Happiest Minds", "Zensar Technologies"],
+                "hop2_mechanism": "First-order firms outsource niche vertical AI work to smaller consultancies",
+            },
+            "fintech": {
+                "hop1_segment": "Mid-size Digital Lending NBFCs (100-500 employees)",
+                "hop1_companies": ["Lendingkart", "Easebuzz"],
+                "hop1_mechanism": "RBI KYC mandate requires compliance overhaul within 90 days — most lack internal teams",
+                "hop2_segment": "RegTech and Identity Verification Providers",
+                "hop2_companies": ["Signzy", "IDfy"],
+                "hop2_mechanism": "KYC compliance demand drives 3x pipeline growth for verification vendors",
+            },
+            "telecom": {
+                "hop1_segment": "Mid-size Manufacturers adopting 5G IoT (200-1000 employees)",
+                "hop1_companies": ["Endurance Technologies", "Sundram Fasteners"],
+                "hop1_mechanism": "Enterprise 5G rollout in 80 cities creates demand for private network deployments on factory floors",
+                "hop2_segment": "IoT Platform and System Integration Companies",
+                "hop2_companies": ["STL (Sterlite Technologies)", "Tejas Networks"],
+                "hop2_mechanism": "Private 5G deployments need edge computing and IoT middleware integration",
+            },
+        }
+
+        # Scope-aware default: if the pipeline is running for fintech/telecom,
+        # use that as the fallback when trend title doesn't contain sector keywords.
+        _scope = getattr(deps, "scope", None)
+        _scope_industry = getattr(_scope, "industry", "") or ""
+        _scope_default = "it"
+        if any(kw in _scope_industry.lower() for kw in ["fintech", "bfsi", "banking", "lending"]):
+            _scope_default = "fintech"
+        elif any(kw in _scope_industry.lower() for kw in ["telecom", "5g", "iot", "manufacturing"]):
+            _scope_default = "telecom"
+        # Report-driven: check report_text for sector hints
+        _report = getattr(_scope, "report_text", "") or ""
+        if _scope_default == "it" and _report:
+            rl = _report.lower()
+            if any(kw in rl for kw in ["fintech", "nbfc", "rbi", "lending"]):
+                _scope_default = "fintech"
+            elif any(kw in rl for kw in ["5g", "iot", "telecom", "manufacturing"]):
+                _scope_default = "telecom"
+
+        def _detect_sector(title: str) -> str:
+            tl = title.lower()
+            # IT first — company names are most specific
+            if any(kw in tl for kw in ["tcs", "infosys", "wipro", "hcl", "genai", "it services"]):
+                return "it"
+            if any(kw in tl for kw in ["kyc", "rbi", "nbfc", "fintech", "lending", "compliance"]):
+                return "fintech"
+            if any(kw in tl for kw in ["5g", "iot", "telecom", "private network", "sensor"]):
+                return "telecom"
+            return _scope_default
+
+        synthetic_results = []
+        for impact in impacts:
+            trend_title = impact.get("trend_title", "Market Trend") if isinstance(impact, dict) else getattr(impact, "trend_title", "Market Trend")
+            sector = _detect_sector(trend_title)
+            hops = _MOCK_HOPS[sector]
+            chain = CausalChainResult(
+                event_summary=trend_title,
+                event_type="market_shift",
+                reasoning=f"Mock causal chain: {hops['hop1_mechanism'][:100]}",
+                hops=[
+                    CausalHop(
+                        hop=1, segment=hops["hop1_segment"],
+                        lead_type="pain", mechanism=hops["hop1_mechanism"],
+                        urgency_weeks=8, geo_hint="Mumbai, Bangalore, Pune",
+                        employee_band="sme", confidence=0.75,
+                        companies_found=hops["hop1_companies"],
+                    ),
+                    CausalHop(
+                        hop=2, segment=hops["hop2_segment"],
+                        lead_type="opportunity", mechanism=hops["hop2_mechanism"],
+                        urgency_weeks=12, geo_hint="Hyderabad, Chennai",
+                        employee_band="sme", confidence=0.60,
+                        companies_found=hops["hop2_companies"],
+                    ),
+                ],
+            )
+            synthetic_results.append(chain)
+        deps._causal_results = synthetic_results
+        logger.info(f"Causal council: {len(synthetic_results)} synthetic chains generated")
+        return {
+            "errors": [],
+            "current_step": "causal_council_complete",
+            "agent_reasoning": {**state.get("agent_reasoning", {}), "causal_council": f"mock: {len(synthetic_results)} chains"},
+        }
+
     impacts = state.get("impacts", [])
     if not impacts:
         logger.warning("Causal council: no impacts  - skipping")
@@ -636,7 +736,7 @@ async def causal_council_node(state: GraphState) -> dict:
 
     try:
         from app.agents.causal_council import run_causal_council
-        from app.agents.deps import LearningSignal, HopSignal
+        from app.agents.deps import LearningSignal
         from app.tools.llm.providers import ProviderManager
 
         pm = ProviderManager()
@@ -668,8 +768,7 @@ async def causal_council_node(state: GraphState) -> dict:
 
         # Parallel causal council — run all impacts concurrently.
         # Semaphore limits concurrency to avoid LLM rate limits.
-        import asyncio as _aio
-        _causal_sem = _aio.Semaphore(3)
+        _causal_sem = asyncio.Semaphore(3)
 
         async def _run_one_causal(impact):
             async with _causal_sem:
@@ -685,6 +784,9 @@ async def causal_council_node(state: GraphState) -> dict:
                 keywords = (td.keywords if td else []) or list(impact.midsize_pain_points[:5])
                 oss_score = (td.oss_score if td else 0.0) or 0.0
 
+                # In mock mode pass search_manager=None so web_search_companies
+                # returns "Web search unavailable" (BM25 article search still works)
+                _search_mgr = None if getattr(deps, "mock_mode", False) else deps.search_manager
                 chain = await run_causal_council(
                     trend_title=trend_title,
                     trend_summary=trend_summary,
@@ -692,31 +794,17 @@ async def causal_council_node(state: GraphState) -> dict:
                     keywords=keywords,
                     geo=geo_label,
                     provider_manager=pm,
-                    search_manager=deps.search_manager,
+                    search_manager=_search_mgr,
                 )
 
                 # Record per-trend quality metrics for the learning loop
                 hops_with_companies = sum(1 for h in chain.hops if h.companies_found)
-                hop_sigs = [
-                    HopSignal(
-                        hop=h.hop,
-                        segment=h.segment,
-                        lead_type=h.lead_type,
-                        confidence=h.confidence,
-                        companies_found=len(h.companies_found),
-                        tool_calls=0,
-                        mechanism_specificity=min(1.0, len(h.mechanism.split()) / 15.0),
-                    )
-                    for h in chain.hops
-                ]
                 sig = LearningSignal(
                     trend_title=trend_title,
                     event_type=event_type,
                     oss_score=oss_score,
                     hops_generated=len(chain.hops),
-                    hop_signals=hop_sigs,
                     kb_hit_rate=hops_with_companies / len(chain.hops) if chain.hops else 0.0,
-                    source_article_ids=[a.get("id", "") for a in articles[:20] if isinstance(a, dict)],
                     run_id=state.get("run_id", ""),
                 )
 
@@ -726,7 +814,7 @@ async def causal_council_node(state: GraphState) -> dict:
                 )
                 return chain, sig
 
-        results = await _aio.gather(
+        results = await asyncio.gather(
             *[_run_one_causal(imp) for imp in impacts[:_max_impacts]],
             return_exceptions=True,
         )
@@ -747,7 +835,7 @@ async def causal_council_node(state: GraphState) -> dict:
         # something to work with.
         if total_hops == 0 and impacts:
             logger.warning("Causal council: 0 hops from all trends  - building synthetic hops from impact data")
-            from app.agents.causal_council import CausalChainResult, CausalHop, _build_synthetic_hops
+            from app.agents.causal_council import _build_synthetic_hops
 
             trends = state.get("trends", [])
             trend_by_id = {td.id: td for td in trends}
@@ -820,6 +908,8 @@ async def _resolve_companies_for_hops(deps, causal_results):
     3. Feed search results to LLM for structured extraction
     This grounds output in real web data instead of LLM hallucination.
     """
+    if getattr(deps, "mock_mode", False):
+        return  # Skip external searches in mock mode — no real companies to resolve
     llm = deps.llm_service
     search_mgr = deps.search_manager
     segments_to_resolve = []
@@ -916,16 +1006,28 @@ are found in the results for a segment, return an empty companies array for that
 Respond with the JSON array only."""
 
     try:
-        result = await llm.generate_json(
-            prompt=prompt,
-            system_prompt="You are a business intelligence analyst. Extract real company names "
-                          "from search results. Never invent companies not found in the data.",
+        from app.schemas.llm_outputs import SegmentResolutionListLLM
+        _RESOLVE_SYS = (
+            "You are a business intelligence analyst. Extract real company names "
+            "from search results. Never invent companies not found in the data."
         )
-
-        # Parse result  - could be a list or {"results": [...]}
-        items = result if isinstance(result, list) else result.get("results", result.get("segments", []))
-        if not isinstance(items, list):
-            items = []
+        # Track A: typed structured output — validates index/name fields, coerces list→dict
+        try:
+            llm_result = await llm.run_structured(
+                prompt=prompt,
+                system_prompt=_RESOLVE_SYS,
+                output_type=SegmentResolutionListLLM,
+            )
+            items = [
+                {"index": s.index, "companies": [c.model_dump() for c in s.companies]}
+                for s in llm_result.segments
+            ]
+        except Exception as _e_struct:
+            logger.debug(f"Company resolution structured output failed ({_e_struct}), using generate_json")
+            raw = await llm.generate_json(prompt=prompt, system_prompt=_RESOLVE_SYS)
+            items = raw if isinstance(raw, list) else raw.get("results", raw.get("segments", []))
+            if not isinstance(items, list):
+                items = []
 
         resolved_count = 0
         for item in items:
@@ -1007,6 +1109,7 @@ async def lead_crystallize_node(state: GraphState) -> dict:
 
     # -- Fetch company-specific news for resolved companies --
     company_news: dict[str, list] = {}
+    mock_mode = getattr(deps, "mock_mode", False)
     try:
         unique_companies: set[str] = set()
         for chain in causal_results:
@@ -1016,7 +1119,7 @@ async def lead_crystallize_node(state: GraphState) -> dict:
                         if not name.startswith("["):
                             unique_companies.add(name)
 
-        if unique_companies and deps.search_manager:
+        if unique_companies and deps.search_manager and not mock_mode:
             sem = asyncio.Semaphore(5)
 
             async def _fetch_news(name: str):
@@ -1227,8 +1330,6 @@ async def learning_update_node(state: GraphState) -> dict:
                     _cid = _title_to_cluster.get(sig.trend_title)
                     if _cid is not None:
                         cluster_oss[_cid] = sig.oss_score
-                    else:
-                        cluster_oss[hash(sig.trend_title) % 10000] = sig.oss_score
             else:
                 for idx, sig in enumerate(signals):
                     cluster_oss[idx] = sig.oss_score
@@ -1278,30 +1379,17 @@ async def learning_update_node(state: GraphState) -> dict:
                 _n_input = getattr(_pipeline, "_n_input", 0) if _pipeline else 0
                 _n_filtered = getattr(_pipeline, "_n_filtered", 0) if _pipeline else 0
                 _nli_rej = (1.0 - _n_filtered / max(_n_input, 1)) if _n_input > 0 else 0.0
+                from app.intelligence.engine.nli_filter import get_hypothesis_version
                 bus.publish_nli_filter(
                     mean_entailment=_nli_mean,
                     rejection_rate=_nli_rej,
-                    hypothesis_version="v0",
+                    hypothesis_version=get_hypothesis_version(),
                     scores_by_source=_nli_src,
                 )
     except Exception as e:
         logger.warning(f"Source bandit update failed: {e}")
 
-    # -- 1b. Record cluster signals for weight auto-learning -----------
-    try:
-        if cluster_quality and cluster_oss:
-            from app.learning.pipeline_metrics import record_cluster_signals
-            n_logged = record_cluster_signals(
-                run_id=state.get("run_id", bus.run_id if hasattr(bus, 'run_id') else ""),
-                cluster_signals=cluster_quality,
-                cluster_oss=cluster_oss,
-            )
-            if n_logged:
-                logger.info(f"Logged {n_logged} cluster signal records for weight learning")
-    except Exception as e:
-        logger.debug(f"Cluster signal logging skipped: {e}")
-
-    # -- 1c. ThresholdAdapter: EMA-based threshold adaptation (was DEAD) ---
+    # -- 1b. ThresholdAdapter: EMA-based threshold adaptation ---
     try:
         from app.learning.threshold_adapter import get_threshold_adapter, ThresholdUpdate
 
@@ -1356,7 +1444,6 @@ async def learning_update_node(state: GraphState) -> dict:
             if _noise_rate is not None and _noise_rate > 0.40:
                 _drift.append("high_noise")
             bus.publish_adaptive_thresholds(
-                thresholds=dict(adapter._thresholds),
                 anomalies=_anomalies,
                 drift=_drift,
             )
@@ -1366,7 +1453,6 @@ async def learning_update_node(state: GraphState) -> dict:
         logger.warning(f"ThresholdAdapter update failed: {e}")
 
     # -- 2. Trend Memory: publish lifecycle distribution to bus ----------
-    stale_pruned = 0
     try:
         # The TrendPipeline stores memory results in pipeline.metrics["memory"]
         # with lifecycle_counts and avg_novelty computed during the temporalize layer.
@@ -1405,7 +1491,7 @@ async def learning_update_node(state: GraphState) -> dict:
             avg_novelty = sum(s.oss_score for s in signals) / max(len(signals), 1)
 
         if sum(lifecycle_counts.values()) > 0:
-            bus.publish_trend_memory(lifecycle_counts, avg_novelty, stale_pruned)
+            bus.publish_trend_memory(lifecycle_counts, avg_novelty)
             logger.info(
                 f"Trend memory published: {lifecycle_counts}, "
                 f"avg_novelty={avg_novelty:.3f}"
@@ -1417,10 +1503,6 @@ async def learning_update_node(state: GraphState) -> dict:
 
     # -- 4. Persist learning signals to JSONL -----------------------------
     try:
-        import json
-        from pathlib import Path
-        from datetime import datetime, timezone
-
         signals_file = Path("data/learning_signals.jsonl")
         run_id = state.get("run_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
         with open(signals_file, "a", encoding="utf-8") as f:
@@ -1465,8 +1547,9 @@ async def learning_update_node(state: GraphState) -> dict:
                 if _cid and _prev_lead_quality.get(_cid, 1.0) < 0.3:
                     reward *= 0.7  # Penalize arms associated with low-quality clusters
 
-                company_bandit.update(arm_id, reward)
+                company_bandit.update(arm_id, reward, save=False)
                 updated_arms.add(arm_id)
+            company_bandit._save()  # One write after all updates (not one per lead)
             logger.info(f"Company bandit: updated {len(updated_arms)} arms from {len(lead_sheets)} leads")
 
             # PUBLISH to bus (all arms, not just updated this run)
@@ -1477,7 +1560,7 @@ async def learning_update_node(state: GraphState) -> dict:
     except Exception as e:
         logger.debug(f"Company bandit update skipped: {e}")
 
-    # -- 5b. ContactBandit: reward update from lead sheets (was DEAD) -----
+    # -- 5b. ContactBandit: reward update from lead sheets -------------------
     try:
         lead_sheets = getattr(deps, "_lead_sheets", [])
         if lead_sheets:
@@ -1626,7 +1709,6 @@ async def learning_update_node(state: GraphState) -> dict:
 
             bus.publish_backward_signals(
                 cluster_coherence_by_source=coherence_by_source or None,
-                cluster_noise_rate=noise_rate,
                 lead_quality_per_cluster=lead_quality_by_cluster or None,
             )
             if coherence_by_source:
@@ -1694,9 +1776,8 @@ async def learning_update_node(state: GraphState) -> dict:
 
     avg_oss = sum(s.oss_score for s in signals) / len(signals) if signals else 0.0
     avg_kb_hit = sum(s.kb_hit_rate for s in signals) / len(signals) if signals else 0.0
-    mean_quality = (quality_sum / max(len(signals), 1)) if signals else 0.0
 
-    # DatasetEnhancer + HypothesisLearner SetFit training — REMOVED
+    # HypothesisLearner (SetFit) deleted — dataset_enhancer.py is label-only accumulator
     # (SetFit retraining never ran successfully in production; NLI hypothesis
     # is loaded from data/filter_hypothesis.json and manually curated.)
 
@@ -1705,8 +1786,7 @@ async def learning_update_node(state: GraphState) -> dict:
     # ╚══════════════════════════════════════════════════════════════════╝
 
     # Save bus state for next run
-    from datetime import datetime, timezone as _tz
-    bus.timestamp = datetime.now(_tz.utc).isoformat()
+    bus.timestamp = datetime.now(timezone.utc).isoformat()
     bus.save()
 
     # -- Summary ----------------------------------------------------------
@@ -1775,8 +1855,6 @@ async def learning_update_node(state: GraphState) -> dict:
         logger.debug(f"Experiment tracking skipped: {e}")
         cleanup_snapshot()
 
-    retro_summary = ""
-
     return {
         "errors": [],
         "current_step": "learning_update_complete",
@@ -1784,7 +1862,7 @@ async def learning_update_node(state: GraphState) -> dict:
             **state.get("agent_reasoning", {}),
             "learning_update": (
                 f"{len(signals)} signals | avg_oss={avg_oss:.3f} | "
-                f"avg_kb_hit={avg_kb_hit:.1%} | bus: {bus.summary()}{retro_summary}"
+                f"avg_kb_hit={avg_kb_hit:.1%} | bus: {bus.summary()}"
             ),
         },
     }
@@ -1809,13 +1887,13 @@ def create_pipeline_graph():
 
     workflow = StateGraph(GraphState)
 
-    workflow.add_node("source_intel",        source_intel_node,      retry=_api_retry)
+    workflow.add_node("source_intel",        source_intel_node,      retry_policy=_api_retry)
     workflow.add_node("analysis",            analysis_node)
-    workflow.add_node("impact",              impact_node,            retry=_api_retry)
+    workflow.add_node("impact",              impact_node,            retry_policy=_api_retry)
     workflow.add_node("quality_validation",  quality_validation_node)
-    workflow.add_node("causal_council",      causal_council_node,    retry=_api_retry)
+    workflow.add_node("causal_council",      causal_council_node,    retry_policy=_api_retry)
     workflow.add_node("lead_crystallize",    lead_crystallize_node)
-    workflow.add_node("lead_gen",            lead_gen_node,          retry=_api_retry)
+    workflow.add_node("lead_gen",            lead_gen_node,          retry_policy=_api_retry)
     workflow.add_node("learning_update",     learning_update_node)   # Always runs at end
 
     workflow.add_edge(START, "source_intel")
@@ -1902,7 +1980,7 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
     scope: Optional DiscoveryScope from CLI  - sets region/hours/mode/companies/products.
            When None, falls back to global settings (FastAPI path).
     """
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     run_id = start_time.strftime("%Y%m%d_%H%M%S")
 
     logger.info("Starting Multi-Agent Sales Intelligence Pipeline")
@@ -1919,9 +1997,9 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
     from ..tools.llm.providers import provider_health, ProviderManager
     provider_health.reset_for_new_run()
     ProviderManager.reset_cooldowns()
-    # Clear NLI score cache so stale scores from a previous hypothesis don't persist.
-    from ..intelligence.engine.nli_filter import clear_score_cache
-    clear_score_cache()
+    # Clear NLI score cache only when the hypothesis has changed (saves ~2-5s on stable runs).
+    from ..intelligence.engine.nli_filter import clear_score_cache_if_hypothesis_changed
+    clear_score_cache_if_hypothesis_changed()
     logger.info("Provider health + cooldowns + NLI cache reset for new run")
 
     from .deps import AgentDeps
@@ -1946,7 +2024,6 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
         "current_step": "init",
         "retry_counts": {},
         "agent_reasoning": {},
-        "stage_advisories": [],
     }
 
     # Thread ID ties checkpointer snapshots to this pipeline run
@@ -1999,7 +2076,7 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
 
         output_file = await save_outputs(final_state, run_id)
 
-        runtime = (datetime.utcnow() - start_time).total_seconds()
+        runtime = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         reasoning = final_state.get("agent_reasoning", {})
         for agent_name, reason in reasoning.items():
@@ -2030,7 +2107,7 @@ async def run_pipeline(mock_mode: bool = False, log_callback=None, scope=None) -
         return PipelineResult(
             status="error",
             errors=[str(e)],
-            run_time_seconds=(datetime.utcnow() - start_time).total_seconds(),
+            run_time_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
         )
 
 
@@ -2048,6 +2125,9 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
     outreach_list = state.get("outreach_emails", [])
 
     trend_map = {t.id: t for t in trends}
+    # company.trend_id is set to trend_title (not trend.id) in leads.py —
+    # build a secondary lookup by title so the join works.
+    trend_by_title = {t.trend_title: t for t in trends}
     impact_map = {i.trend_id: i for i in impacts}
     company_map = {c.id: c for c in companies}
     contact_map = {c.id: c for c in contacts}
@@ -2057,8 +2137,11 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
         contact = contact_map.get(outreach.contact_id)
         company = company_map.get(contact.company_id) if contact else None
         trend_id = company.trend_id if company else ""
-        trend = trend_map.get(trend_id)
-        imp = impact_map.get(trend_id) if trend_id else None
+        trend = trend_map.get(trend_id) or trend_by_title.get(trend_id)
+        # Impact lookup: try trend_id directly, then resolve via matched trend
+        imp = impact_map.get(trend_id)
+        if not imp and trend:
+            imp = impact_map.get(trend.id)
         lead = {
             "id": outreach.id,
             "trend": {
@@ -2139,7 +2222,7 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump({
             "run_id": run_id,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "total_leads": len(leads),
             "leads": leads,
         }, f, indent=2, ensure_ascii=False, default=_json_default)
@@ -2154,7 +2237,7 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
         with open(call_sheets_file, "w", encoding="utf-8") as f:
             json.dump({
                 "run_id": run_id,
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "total_call_sheets": len(lead_sheets),
                 "call_sheets": [
                     {
@@ -2227,7 +2310,7 @@ async def save_outputs(state: GraphState, run_id: str) -> str:
 
     run_report = {
         "run_id": run_id,
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "total_trends": len(trends),
             "total_impacts": len(impacts),

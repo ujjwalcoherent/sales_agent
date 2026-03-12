@@ -18,15 +18,28 @@ Next step: DedupAgent (now merged in this file — intelligence/fetch.py)
 import asyncio
 import json
 import logging
+import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 from app.intelligence.config import ClusteringParams
-from app.intelligence.models import DiscoveryScope, RawArticle
+from app.intelligence.models import Article, DedupResult, DiscoveryScope, RawArticle
 
 logger = logging.getLogger(__name__)
+
+_RE_REPORT_CAPS = re.compile(
+    r'\b([A-Z]{2,}(?:\s+[A-Z][a-z]+)+|'   # ALLCAPS + Title: "HDFC Bank"
+    r'[A-Z][A-Za-z]*(?:[A-Z][a-z]+)+|'    # CamelCase: "BharatPe"
+    r'[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'  # Multi-word Title: "Tata Motors"
+)
+_RE_REPORT_PHRASE = re.compile(
+    r'\b([a-z]+ (?:sector|market|industry|technology|finance|startup|platform|service))\b',
+    re.IGNORECASE,
+)
+_RE_REPORT_SENTENCE = re.compile(r'[.!?\n]')
 
 
 @dataclass
@@ -326,7 +339,6 @@ async def _fetch_tavily_or_ddg(query: str, cutoff: datetime) -> List[RawArticle]
 def _parse_feed_date(entry) -> Optional[datetime]:
     """Parse published date from feedparser entry."""
     try:
-        import time
         for field in ("published_parsed", "updated_parsed"):
             parsed = getattr(entry, field, None)
             if parsed:
@@ -365,33 +377,54 @@ async def _extract_report_entities_llm(report_text: str, region: str = "IN") -> 
 
     One LLM call at pipeline start. Returns companies, industries, topics
     for routing to appropriate fetch functions (Google News RSS, RSS feeds).
-    Graceful fallback to regex if LLM unavailable.
 
-    Research note: structured entity extraction over raw regex improves recall
-    for multi-word company names and disambiguates industry signals from topic signals.
+    Track A: run_structured() with ReportEntitiesLLM (pydantic-ai typed output).
+    Track B: generate(json_mode=True) + manual json.loads() fallback.
+    Track C: regex extraction if both LLM paths fail.
     """
-    # Truncate to first 2000 chars (enough for entity extraction, avoids huge prompts)
-    text = report_text[:2000]
+    # Market reports put company names 4-6K chars in (after market overview).
+    # 6000 chars captures the competitive landscape while keeping prompt costs low.
+    text = report_text[:6000]
 
-    prompt = (
+    sys_prompt = (
+        "You extract business entities from analyst report text. "
+        "Return companies (proper names, max 6), industries (sector names, max 3), "
+        "and topics (actionable themes, 3-5 words each, max 4)."
+    )
+    user_prompt = (
         f"Extract entities from this business/analyst report text for a B2B sales intelligence system.\n\n"
         f"Report (region: {region}):\n{text}\n\n"
-        "Return JSON with exactly these keys:\n"
-        '{"companies": ["list of company names mentioned"], '
-        '"industries": ["list of industry sectors mentioned"], '
-        '"topics": ["list of key business topics/themes, 3-5 words each"]}\n\n'
         "Rules:\n"
         "- companies: proper company names only (e.g. 'Infosys', 'HDFC Bank', 'TCS'). Max 6.\n"
         "- industries: sector names (e.g. 'IT Services', 'Fintech', 'Healthcare'). Max 3.\n"
-        "- topics: specific actionable themes (e.g. 'AI chip demand surge', '5G enterprise adoption'). Max 4.\n"
-        "- Return ONLY valid JSON, nothing else."
+        "- topics: specific actionable themes (e.g. 'AI chip demand surge', '5G enterprise adoption'). Max 4."
     )
 
     try:
         from app.tools.llm.llm_service import LLMService
+        from app.schemas.llm_outputs import ReportEntitiesLLM
         llm = LLMService()
-        raw = await llm.generate(prompt, temperature=0.1, max_tokens=300, json_mode=True)
 
+        # Track A: run_structured with pydantic-ai typed output
+        try:
+            result = await llm.run_structured(
+                prompt=user_prompt,
+                system_prompt=sys_prompt,
+                output_type=ReportEntitiesLLM,
+            )
+            return ReportEntities(
+                companies=[c for c in result.companies[:6] if c],
+                industries=[i for i in result.industries[:3] if i],
+                topics=[t for t in result.topics[:4] if t],
+            )
+        except Exception as e_struct:
+            logger.debug(f"[fetch] Structured entity extraction failed ({e_struct}), trying generate_json")
+
+        # Track B: generate with json_mode fallback
+        raw = await llm.generate(
+            user_prompt + "\n\nReturn ONLY valid JSON with keys: companies, industries, topics.",
+            temperature=0.1, max_tokens=300, json_mode=True,
+        )
         data = json.loads(raw)
         return ReportEntities(
             companies=[str(c).strip() for c in data.get("companies", [])[:6] if c],
@@ -400,7 +433,7 @@ async def _extract_report_entities_llm(report_text: str, region: str = "IN") -> 
         )
     except Exception as exc:
         logger.warning(f"[fetch] LLM entity extraction failed: {exc}, falling back to regex")
-        # Fallback: use the existing _extract_report_queries() regex approach
+        # Track C: regex extraction
         queries = _extract_report_queries(report_text, region=region, max_queries=4)
         return ReportEntities(topics=queries)
 
@@ -414,19 +447,12 @@ def _extract_report_queries(report_text: str, region: str = "IN", max_queries: i
 
     No LLM call — fast, deterministic, runs before any model is loaded.
     """
-    import re
-
     queries = []
     _STOPWORDS = {"india", "market", "sector", "company", "companies", "the", "and", "for",
                   "their", "that", "this", "with", "from", "have", "which", "amid"}
     # 1. Multi-word noun phrases: Title Case, CamelCase, or ALLCAPS + word combos
     # Matches: "Tata Motors", "HDFC Bank", "BharatPe", "PhonePe", "Tata Consultancy Services"
-    caps_pattern = re.compile(
-        r'\b([A-Z]{2,}(?:\s+[A-Z][a-z]+)+|'   # ALLCAPS + Title: "HDFC Bank"
-        r'[A-Z][A-Za-z]*(?:[A-Z][a-z]+)+|'     # CamelCase: "BharatPe", "PhonePe"
-        r'[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'  # Multi-word Title: "Tata Motors"
-    )
-    caps_matches = caps_pattern.findall(report_text)
+    caps_matches = _RE_REPORT_CAPS.findall(report_text)
     seen: set = set()
     for m in caps_matches:
         if m not in seen and len(m) >= 5 and m.lower() not in _STOPWORDS:
@@ -437,10 +463,7 @@ def _extract_report_queries(report_text: str, region: str = "IN", max_queries: i
 
     # 2. If not enough from proper nouns, extract key noun-phrases (industry, market, sector)
     if len(queries) < 2:
-        phrase_pattern = re.compile(
-            r'\b([a-z]+ (?:sector|market|industry|technology|finance|startup|platform|service))\b', re.I
-        )
-        phrases = [m.group(0).strip() for m in phrase_pattern.finditer(report_text)]
+        phrases = [m.group(0).strip() for m in _RE_REPORT_PHRASE.finditer(report_text)]
         for p in dict.fromkeys(phrases):  # dedup preserving order
             if p not in queries:
                 queries.append(p)
@@ -450,7 +473,7 @@ def _extract_report_queries(report_text: str, region: str = "IN", max_queries: i
     # 3. Fallback: if still no queries, use first meaningful sentence fragment
     if not queries:
         # Split on sentence boundaries, pick 2-4 noun-heavy fragments
-        sentences = re.split(r'[.!?\n]', report_text)
+        sentences = _RE_REPORT_SENTENCE.split(report_text)
         for sent in sentences:
             sent = sent.strip()
             if 10 <= len(sent) <= 100:
@@ -547,15 +570,6 @@ References:
   Manber & Wu (1994): 0.80-0.85 threshold for near-duplicate document detection.
   Manning, Raghavan & Schütze (2008): TF-IDF cosine for information retrieval.
 """
-
-import logging
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Set, Tuple
-
-from app.intelligence.config import ClusteringParams
-from app.intelligence.models import Article, DedupResult, RawArticle
-
-logger = logging.getLogger(__name__)
 
 _EPOCH_UTC = datetime(1970, 1, 1, tzinfo=timezone.utc)
 

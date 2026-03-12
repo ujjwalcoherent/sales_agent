@@ -1,0 +1,157 @@
+[
+  {
+    "cluster_id": "f81707c8caea",
+    "label": "Tata Power (all)",
+    "article_count": 4,
+    "article_indices": [
+      103,
+      104,
+      109,
+      111
+    ],
+    "primary_entity": "Tata Power",
+    "entity_names": [
+      "Tata Power"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.9021,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9085,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4088,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "3f1a964effb5",
+    "label": "Neysa (all)",
+    "article_count": 2,
+    "article_indices": [
+      69,
+      75
+    ],
+    "primary_entity": "Neysa",
+    "entity_names": [
+      "Neysa"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8667,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.783,
+      "not_duplicate": 0.6338,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8148,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "6dc9edb79a12",
+    "label": "SGS (all)",
+    "article_count": 3,
+    "article_indices": [
+      86,
+      101,
+      110
+    ],
+    "primary_entity": "SGS",
+    "entity_names": [
+      "SGS"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.8693,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4431,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "da1e469a57a7",
+    "label": "Major Car Brands (all)",
+    "article_count": 2,
+    "article_indices": [
+      106,
+      107
+    ],
+    "primary_entity": "Major Car Brands",
+    "entity_names": [
+      "Major Car Brands"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8839,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.5892,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9779,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "37f59cbfd3f9",
+    "label": "Reliance event 1",
+    "article_count": 6,
+    "article_indices": [
+      93,
+      96,
+      97,
+      98,
+      99,
+      100
+    ],
+    "primary_entity": "Reliance",
+    "entity_names": [
+      "Reliance"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.7294,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.5699,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4532,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2564,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7308,
+      "silhouette_score": -0.1025,
+      "cut_threshold": 0.78,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  }
+]

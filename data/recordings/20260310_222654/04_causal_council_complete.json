@@ -1,0 +1,341 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Reliance Industries is boosting LPG production at its Jamnagar Refinery to stabilize domestic supply amidst global energy market fluctuations, also reallocating natural gas from the KG-D6 Basin to priority sectors with government compliance. This impacts the supply chain including mid-size LPG distributors, bottling plants, and industrial users of LPG and natural gas in India.",
+      "event_type": "regulation",
+      "reasoning": "Step 1: Directly implicated is Reliance Industries itself, especially its Jamnagar Refinery LPG and petrochemical operations adjusting production volumes and resource allocation due to the announced boost in LPG output and KG-D6 natural gas reallocation, which is a near-immediate impact (2 weeks).\n\nStep 2: Mid-size LPG distributors and bottling plants in India with 50-500 employees buy LPG from Reliance and bottlers. These companies face supply volatility and potential price hikes, causing pain ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size refining and petrochemical operations at Reliance Industries Jamnagar Refinery",
+          "lead_type": "opportunity",
+          "mechanism": "Reliance Industries increases LPG production and reallocates natural gas, requiring adjustments to production volumes and resource allocation to meet domestic demand and regulatory requirements.",
+          "companies_found": [
+            "Reliance Industries Jamnagar Refinery"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size LPG distributors and LPG bottling plants across India (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Mid-size LPG distributors and bottling plants face supply volatility risk and price spikes due to changes in Reliance's production and allocation strategies, impacting their inventory and pricing strategies, potentially causing lost sales and customer dissatisfaction.",
+          "companies_found": [
+            "Confidence Petroleum India Limited",
+            "Arun Gas Service"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size industrial chemical companies and manufacturing plants using LPG and natural gas as feedstock or fuel (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Industrial users of LPG and natural gas face increased fuel costs and operational disruptions if they do not adapt procurement to the evolving supply and price dynamics from distributors and bottling plants experiencing impacts from Reliance's production changes.",
+          "companies_found": [
+            "Megha City Gas Distribution",
+            "Goa Natural Gas Pvt. Ltd."
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "IndiGo's CEO Pieter Elbers resigned suddenly in March 2026 after a major operational meltdown in December 2025. This event caused immediate leadership void and operational instability at IndiGo, leading to disrupted airline operations and declining customer trust. The fallout affected multiple suppliers and intermediaries in IndiGo's operational supply chain and market ecosystem, with cascading impacts on flight scheduling, supplier demand, and travel agencies.",
+      "event_type": "general",
+      "reasoning": "The analysis begins with the direct news event of IndiGo's CEO resignation and operational meltdown causing immediate leadership and operational disruption (Hop 1). This is directly linked to IndiGo airline itself (about 2000-5000 employees), which faces immediate leadership pain. The next causative step (Hop 2) includes mid-size flight operations suppliers such as ground handling, catering, and maintenance companies, which experience pain from reduced demand due to IndiGo operational issues. Re",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "IndiGo airline operations, leadership",
+          "lead_type": "pain",
+          "mechanism": "The sudden CEO resignation and operational meltdown create a leadership vacuum and operational instability directly impacting IndiGo's ability to manage flights and customer trust.",
+          "companies_found": [
+            "IndiGo"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size IndiGo flight operations suppliers: ground handling, catering, and maintenance SMEs in India",
+          "lead_type": "pain",
+          "mechanism": "The disruption in IndiGo's operations reduces demand from its suppliers for ground handling, catering, and aircraft maintenance services, causing revenues and operational challenges.",
+          "companies_found": [
+            "Global Flight Handling Services Pvt Ltd",
+            "Indigo Catering And Services Pvt Ltd",
+            "Indamer Aviation Private Limited"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size travel management and travel agencies in India reliant on IndiGo bookings",
+          "lead_type": "pain",
+          "mechanism": "Reduced IndiGo flights and customer trust lead to lower booking volumes for travel agencies and corporate travel management companies, resulting in revenue loss and client churn risk.",
+          "companies_found": [
+            "SME travel management companies in India",
+            "FCM Travel India"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "IndiGo CEO Pieter Elbers resigned in early March 2026, with Rahul Bhatia as interim CEO. Despite the volatile market from geopolitical tensions, IndiGo's stock rose 4%, signaling positive investor sentiment. This impacts IndiGo's operational decisions and contract negotiations downstream.",
+      "event_type": "price_change",
+      "reasoning": "The CEO resignation at IndiGo is first order impact affecting IndiGo directly by changing leadership, causing uncertainty but also a positive stock price jump indicating investor optimism. IndiGo's altered strategic decisions and contract negotiations cascade to its immediate suppliers like airline catering and ground handling SMEs that contract with IndiGo. Market turbulence and contract adjustments create risks of reduced volume or renegotiations for these suppliers. In turn, these changes imp",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "IndiGo Airlines (mid-sized airline in India, 1000-3000 employees)",
+          "lead_type": "intelligence",
+          "mechanism": "Leadership change causing uncertainty in contracts and service demand, but positive stock price impacts IndiGo's market valuation and operational outlook directly.",
+          "companies_found": [
+            "IndiGo"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Indian airline catering and ground handling SMEs supplying IndiGo, e.g., TajSATS Air Catering (medium, 200-800 employees), SSD Aviation Techno (ground support, 50-200 employees)",
+          "lead_type": "pain",
+          "mechanism": "IndiGo's strategic shifts and contract renegotiations affect demand for catering and ground handling services, causing potential contract or volume uncertainty for these suppliers.",
+          "companies_found": [
+            "TajSATS Air Catering",
+            "SSD Aviation Techno"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Indian air cargo logistics SMEs and airport facility management SMEs dependent on ground handling and catering companies, e.g., CargoCorridors (logistics SME, 50-300 employees)",
+          "lead_type": "risk",
+          "mechanism": "If catering and ground handling firms experience volume fluctuations or contract delays, air cargo logistics and facility management SMEs might face operational disruptions or demand uncertainty.",
+          "companies_found": [
+            "CargoCorridors"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Microsoft launched Copilot Cowork integrated into Microsoft 365 applications and introduced the Microsoft 365 E7 subscription with advanced AI and cybersecurity features. This expands Microsoft's AI-driven enterprise software offerings and pressures mid-size Indian companies to upgrade their subscriptions and invest in workforce training for AI tools. Software vendors and system integrators face competitive pressure to innovate and capture market share.",
+      "event_type": "technology",
+      "reasoning": "Step 1: The news centers on Microsoft's product launch of Copilot Cowork and the E7 AI-enabled subscription, directly impacting Microsoft 365 integrators and consulting firms helping customers make the upgrade in India.\n\nStep 2: These integrators buy or compete with Indian software vendors and AI cybersecurity firms that must innovate to integrate or differentiate from Microsoft's enhancements, facing market share pressure.\n\nStep 3: Software firms and integrators increasing AI adoption generate ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Microsoft 365 system integrators and consulting firms in India, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Microsoft's launch directly increases demand for integration and consulting services to help companies upgrade to Microsoft 365 E7 and implement Copilot Cowork.",
+          "companies_found": [
+            "DevBay Technologies",
+            "Ensun",
+            "Embee"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size Indian software vendors and AI cybersecurity firms, 100-500 employees",
+          "lead_type": "pain",
+          "mechanism": "These firms must enhance product offerings with AI and cybersecurity features to compete with Microsoft 365 E7, or risk losing market share in the SME segment.",
+          "companies_found": [
+            "TinkerTech Solutions",
+            "Aegis Cyber Security"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME IT training and corporate training providers specializing in AI and digital skills, 50-200 employees",
+          "lead_type": "opportunity",
+          "mechanism": "As mid-size companies upgrade subscriptions and adopt AI, training firms will see increased demand to train workforce in AI tools and cybersecurity practices.",
+          "companies_found": [
+            "Stalwart Learning",
+            "AI Corporate Training Institute"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "OpenAI's acquisition of Promptfoo enhances its AI testing and security capabilities, improving its ability to deploy safe AI in critical operations. This leads to safer AI products benefiting mid-size healthcare and fintech companies in India integrating AI, reducing risks of failures and compliance issues.",
+      "event_type": "technology",
+      "reasoning": "The acquisition of Promptfoo by OpenAI (Hop 1) is a direct event increasing AI testing and security capability offerings particularly for mid-size startups in India, which focus on AI safety and regulatory compliance. This represents an opportunity to those companies supplying AI testing services as demand will increase. The safer AI tests provided benefit mid-size healthcare AI software companies integrating AI products tested for safety (Hop 2). These companies reduce operational risks and reg",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "AI testing and security startups mid-size in India",
+          "lead_type": "opportunity",
+          "mechanism": "OpenAI acquiring Promptfoo directly benefits AI testing and security startups with enhanced demand for their services due to heightened focus on AI safety and compliance.",
+          "companies_found": [
+            "QualiTlabs",
+            "Fractal Analytics",
+            "Haptik AI"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "mid-size healthcare AI software providers in India",
+          "lead_type": "opportunity",
+          "mechanism": "Healthcare AI providers buying advanced AI testing security solutions from startups like Promptfoo benefit by improved product safety and compliance, thereby reducing operational risks.",
+          "companies_found": [
+            "Qure AI",
+            "Daffodil Health"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "mid-size fintech AI software providers in India",
+          "lead_type": "opportunity",
+          "mechanism": "Fintech AI providers integrating safer AI solutions experience reduced risk of failures and regulatory penalties, benefiting from improved AI testing capabilities downstream.",
+          "companies_found": [
+            "Easebuzz",
+            "SarvamAI"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Rozana, an Indian startup focused on rural commerce and logistics, raised $22.5 million in funding, enabling it to scale operations, invest in technology, and expand its market presence in early 2024. This funding signals strong investor confidence and impacts Rozana directly as the primary beneficiary. Indirectly, this growth will increase demand for logistics services and retail consumer goods companies that partner or supply Rozana. Downstream, this drives demand for suppliers to these logistics and retail firms, impacting smaller manufacturers and supply chain partners in India.",
+      "event_type": "m_and_a",
+      "reasoning": "Rozana was directly identified from news and company searches as a mid-size Indian startup with 50-500 employees that recently raised $22.5M funding. This direct funding is a clear opportunity to scale operations and technology investment. The first hop impact is therefore positive for Rozana itself.\n\nFor hop 2, mid-size tech-enabled logistics service providers in India operating in the 100-500 employee range commonly serve startups like Rozana. One such identified company is Godamwale, a tech-e",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Rozana, Indian mid-size startup focused on rural commerce and logistics, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Raised $22.5M funding allows scaling operations, technology investment, and enhanced service capacity",
+          "companies_found": [
+            "Rozana"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size tech-enabled logistics service providers in India, 100-500 employees, serving e-commerce and rural commerce startups",
+          "lead_type": "opportunity",
+          "mechanism": "Rozana's expansion increases logistics demand, benefiting mid-size logistics providers partnering or competing with Rozana",
+          "companies_found": [
+            "Godamwale"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size retail and consumer goods companies in India, 100-500 employees, supplying products for rural markets and e-commerce",
+          "lead_type": "opportunity",
+          "mechanism": "Growth in logistics and market reach boosts demand for retail and consumer goods companies supplying Rozana and allied logistics providers",
+          "companies_found": [
+            "No specific mid-size retail companies identified with high confidence due to data limits but SMEs in rural retail and consumer goods sector fit this profile"
+          ],
+          "confidence": 0.6,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Nscale, a London-based AI infrastructure startup, raised $2 billion in Series C funding, led by Aker ASA and 8090 Industries, increasing its valuation to $14.6 billion. This funding enables Nscale to rapidly expand AI infrastructure and data center operations. Nvidia benefits as a technology partner from increased demand for its AI hardware and solutions.\n\nHop 1 (First-order): Directly impacted companies are Nscale itself, a mid-sized AI infrastructure company (approx. 1000-3000 employees, HQ London with operations in India), and Nvidia's mid-sized Indian technology partners supplying AI hardware components (hardware OEMs based in Bangalore, 50-500 employees). Additionally, mid-sized data center modular construction companies in India like Modulus Housing Pvt Ltd (Chennai-based, approx. 200-500 employees) which specialize in modular prefabricated data center construction will directly benefit from increased projects. Lead type: opportunity. Urgency: 0-6 weeks.\n\nHop 2 (Second-order): Companies supplying AI hardware components and modular data center construction services to Nscale and Nvidia's Indian partners will see increased demand. Examples include mid-sized Indian AI hardware component manufacturers and suppliers (Bangalore-based startups with 50-500 employees, e.g., hardware OEMs and semiconductor design firms), and modular data center equipment and component suppliers (India-wide, 50-500 employees). Lead type: opportunity. Urgency: 2-6 weeks.\n\nHop 3 (Third-order): Mid-sized Indian companies in sectors accelerating AI adoption (SaaS software firms, IT service companies, and other technology-driven SMEs in Bangalore, Pune, and Hyderabad with 50-500 employees) will face increased competitiveness and demand for AI-powered solutions, driving growth and competitive pressure. Lead type: opportunity and intelligence. Urgency: 4-12 weeks.\n\nReasoning: The direct infusion of capital into Nscale allows it to scale AI infrastructure rapidly, demanding more hardware from AI component suppliers and construction firms specializing in modular data centers. We identify specific mid-sized Indian companies in Bangalore, Chennai, and across India in these segments to capture the profile of SMEs benefiting or impacted. The final hop relates to increased AI adoption in mid-sized enterprises who will leverage these infrastructure improvements to grow AI-based business capabilities or face competitive pressure. The chain is validated from known market trends, company sizes, and geography relevance, focusing specifically on SME/mid-sized companies excluding large enterprises.",
+      "event_type": "technology",
+      "reasoning": "Nscale's recent $2B Series C funding at a $14.6B valuation directly impacts its ability to scale AI infrastructure and data center operations. This creates immediate opportunity for mid-sized AI hardware suppliers and modular data center construction companies in India, particularly in Bangalore and Chennai. We identified Modulus Housing as a specific modular data center player within the appropriate size band (200-500 employees) specializing in modular prefabricated data center construction. \n\n",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-sized AI infrastructure company Nscale (London HQ) with Indian operations; Nvidia technology partners in Bangalore 50-500 employees; Modular data center construction firms like Modulus Housing Chennai (200-500 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "Nscale's $2B funding enables rapid AI infrastructure scale-up, directly increasing demand for Nvidia AI hardware and data center construction projects with Indian partners.",
+          "companies_found": [
+            "Modulus Housing Pvt Ltd",
+            "Nvidia Indian hardware partners"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-sized AI hardware component manufacturers and suppliers India 50-500 employees; Modular data center equipment suppliers India 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Increased demand for AI infrastructure by Nscale (hop 1) drives higher orders to component manufacturers and modular equipment suppliers in India catering to data centers.",
+          "companies_found": [
+            "Bangalore-based AI hardware OEMs",
+            "Semiconductor design firms Bangalore"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-sized AI adoption companies in India (SaaS, IT services, tech SMEs) with 50-500 employees, primarily Bangalore, Pune, Hyderabad",
+          "lead_type": "intelligence",
+          "mechanism": "Improved AI infrastructure and availability from hops 1 and 2 encourages accelerated AI adoption in mid-sized enterprises, creating growth and competitive pressures.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Apple's upcoming iPhone 18 Pro and MacBook Ultra product rumors and preparations are driving significant impacts in India’s technology and retail sectors. Component manufacturers must rapidly adapt to Apple's new specs to retain contracts. Retailers must manage inventory and marketing shifts due to changed consumer demand. Affordable smartphone makers face heightened competition from Apple’s upgraded flagship offerings.",
+      "event_type": "technology",
+      "reasoning": "The Apple iPhone 18 Pro and MacBook Ultra rumors and preparation require component manufacturers to adapt quickly to new design and material specifications; this directly impacts mid-sized electronics component manufacturers like Thinksemi Infotech Limited in India (Hop 1).\n\nDistributors and retailers such as Mittal Infocom Pvt Ltd in Pune, India, who sell Apple products, face inventory and marketing shifts reflecting the changing consumer demand for the new Apple devices; this causes operationa",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Electronics component manufacturers in India specialized in Apple iPhone parts, 50-500 employees",
+          "lead_type": "pain",
+          "mechanism": "Apple's new product specs require component manufacturers to quickly update production and design to retain contracts, risking loss if failing to adapt",
+          "companies_found": [
+            "Thinksemi Infotech Limited"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mobile phone distributors and retailers in Pune, India, with 50-500 employees selling Apple products",
+          "lead_type": "pain",
+          "mechanism": "Distributors and retailers must adjust inventory and marketing to cope with changing consumer demand driven by new Apple product launches, causing operational challenges",
+          "companies_found": [
+            "Mittal Infocom Pvt Ltd"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Affordable smartphone manufacturers in India with 50-500 employees facing competition pressures",
+          "lead_type": "pain",
+          "mechanism": "Affordable smartphone makers experience increased competition pressure due to Apple's flagship device upgrades, pressuring product and pricing strategies",
+          "companies_found": [
+            "Lava International Limited",
+            "Micromax Informatics Limited"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    }
+  ],
+  "total_hops": 24,
+  "log_messages": []
+}

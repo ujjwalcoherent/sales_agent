@@ -61,21 +61,21 @@ def test_contact_bandit_api():
     print("  [PASS] test_contact_bandit_api")
 
 
-# ── Test 3: GraphState has stage_advisories ──────────────────────
+# ── Test 3: GraphState has no dead stage_advisories field ─────────
 def test_graphstate_advisories():
     from app.agents.orchestrator import GraphState
-    assert "stage_advisories" in GraphState.__annotations__, (
-        "GraphState must have stage_advisories field"
+    assert "stage_advisories" not in GraphState.__annotations__, (
+        "stage_advisories was dead (never populated) — should be removed from GraphState"
     )
     print("  [PASS] test_graphstate_advisories")
 
 
-# ── Test 4: PipelineState has stage_advisories ───────────────────
+# ── Test 4: PipelineState has no dead stage_advisories field ──────
 def test_pipeline_state_advisories():
     from app.intelligence.models import PipelineState
     fields = PipelineState.model_fields if hasattr(PipelineState, 'model_fields') else PipelineState.__fields__
-    assert "stage_advisories" in fields, (
-        "PipelineState must have stage_advisories field"
+    assert "stage_advisories" not in fields, (
+        "stage_advisories was dead (never populated) — should be removed from PipelineState"
     )
     print("  [PASS] test_pipeline_state_advisories")
 
@@ -133,11 +133,10 @@ def test_experiment_tracker():
 # ── Test 8: Pipeline metrics record/load ─────────────────────────
 def test_pipeline_metrics():
     from app.learning.pipeline_metrics import (
-        record_pipeline_run, load_history, record_cluster_signals,
+        record_pipeline_run, load_history,
     )
     assert callable(record_pipeline_run)
     assert callable(load_history)
-    assert callable(record_cluster_signals)
     print("  [PASS] test_pipeline_metrics")
 
 
@@ -239,7 +238,8 @@ def test_adaptive_threshold_removed():
     # These SHOULD still exist
     assert hasattr(pm, "record_pipeline_run"), "record_pipeline_run should still exist"
     assert hasattr(pm, "load_history"), "load_history should still exist"
-    assert hasattr(pm, "record_cluster_signals"), "record_cluster_signals should still exist"
+    # record_cluster_signals REMOVED — wrote to cluster_signal_log.jsonl but no consumer ever read it
+    assert not hasattr(pm, "record_cluster_signals"), "record_cluster_signals should be removed (dead code)"
     print("  [PASS] test_adaptive_threshold_removed")
 
 
@@ -324,11 +324,9 @@ def test_signal_bus_backward_cascade():
     bus = LearningSignalBus()
     bus.publish_backward_signals(
         cluster_coherence_by_source={"tavily": 0.65, "rss": 0.42},
-        cluster_noise_rate=0.15,
         lead_quality_per_cluster={"c1": 0.8, "c2": 0.3},
     )
     assert bus.cluster_coherence_by_source["tavily"] == 0.65
-    assert bus.cluster_noise_rate == 0.15
     assert bus.lead_quality_per_cluster["c1"] == 0.8
     print("  [PASS] test_signal_bus_backward_cascade")
 

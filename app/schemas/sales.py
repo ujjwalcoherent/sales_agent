@@ -14,10 +14,10 @@ are checked. Every coercion is logged for observability.
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from .base import (
     Severity, CompanySize,
 )
@@ -90,11 +90,13 @@ class TrendData(BaseModel):
     actionability_score: float = 0.0
     oss_score: float = 0.0
     article_count: int = 0
+    # Trend tier based on actionability_score (set by orchestrator after scoring)
+    # major ≥ 0.65: hot signal — act immediately; sub 0.40-0.65: monitor; minor < 0.40: informational
+    trend_level: Literal["major", "sub", "minor"] = "sub"
     article_snippets: List[str] = Field(default_factory=list)  # Top-5 raw excerpts for impact council
 
     # Evidence chain (AutoResearch D7 — citation path for emails)
     evidence_snippets: List[str] = Field(default_factory=list)  # Sourced quotes from articles
-    evidence_companies: List[str] = Field(default_factory=list)  # Companies cited in evidence
 
     @field_validator('trend_title', mode='before')
     @classmethod
@@ -119,7 +121,7 @@ class TrendData(BaseModel):
 
     @field_validator('industries_affected', 'source_links', 'keywords',
                      'causal_chain', 'affected_companies', 'affected_regions',
-                     'evidence_snippets', 'evidence_companies',
+                     'evidence_snippets',
                      mode='before')
     @classmethod
     def coerce_str_lists(cls, v, info):
@@ -128,15 +130,13 @@ class TrendData(BaseModel):
     @model_validator(mode='after')
     def warn_empty_industries(self):
         if not self.industries_affected and self.trend_title:
-            import logging
             logging.getLogger(__name__).warning(
                 f"TrendData '{self.trend_title[:60]}' has empty industries_affected — "
                 "LLM synthesis may have missed this field"
             )
         return self
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ImpactAnalysis(BaseModel):
@@ -322,15 +322,13 @@ class CompanyData(BaseModel):
     @model_validator(mode='after')
     def warn_missing_domain(self):
         if not self.domain and not self.website:
-            import logging
             logging.getLogger(__name__).warning(
                 f"CompanyData '{self.company_name}' has no domain/website — "
                 "contact finding will fall back to web search only"
             )
         return self
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ContactData(BaseModel):
@@ -345,6 +343,9 @@ class ContactData(BaseModel):
     email_confidence: int = 0
     email_source: str = ""  # "apollo", "hunter", "pattern"
     verified: bool = False
+    # Hunter enrichment fields — populated from domain_search / find_email at no extra credit
+    hunter_seniority: str = ""   # Hunter ML-inferred: "executive" | "senior" | "junior"
+    phone_number: str = ""       # Direct-dial or company phone
 
     @field_validator('email', mode='before')
     @classmethod
@@ -457,61 +458,6 @@ class OutreachEmail(BaseModel):
         return v
 
 
-class LeadRecord(BaseModel):
-    """Complete lead record combining all data."""
-    trend: TrendData
-    impact: ImpactAnalysis
-    company: CompanyData
-    contact: ContactData
-    outreach: OutreachEmail
-    lead_score: float = Field(default=0.0, ge=0.0, le=100.0)
-
-    def compute_score(self) -> float:
-        """
-        Compute composite lead score (0-100) from all signals.
-
-        Weights:
-          - Trend severity (25%): Higher severity = more urgent need
-          - Company fit (25%): Mid-size + clear intent signal = best target
-          - Email confidence (25%): Verified email = can actually reach them
-          - Impact depth (25%): More pain points + direct impact = stronger pitch
-
-        Returns: Score 0-100, stored in self.lead_score
-        """
-        score = 0.0
-
-        # Trend severity (0-25)
-        severity_scores = {"high": 25, "medium": 18, "low": 10, "negligible": 5}
-        sev = self.trend.severity
-        sev_str = sev.value if hasattr(sev, 'value') else str(sev)
-        score += severity_scores.get(sev_str.lower(), 10)
-
-        # Company fit (0-25)
-        size = self.company.company_size
-        size_str = size.value if hasattr(size, 'value') else str(size)
-        size_scores = {"mid": 25, "startup": 18, "small": 15, "large_enterprise": 10}
-        score += size_scores.get(size_str.lower(), 12)
-        # Bonus for intent signal in reason
-        if self.company.reason_relevant and len(self.company.reason_relevant) > 50:
-            score += 5  # Detailed reason = clear intent
-        # V7: NER verification bonus
-        if self.company.ner_verified:
-            score += 5
-
-        # Email confidence (0-25)
-        conf = self.contact.email_confidence
-        score += min(conf / 4, 25)  # 100% confidence = 25 points
-
-        # Impact depth (0-25)
-        pain_count = len(self.impact.midsize_pain_points)
-        direct_count = len(self.impact.direct_impact)
-        impact_pts = min(pain_count * 4 + direct_count * 3, 25)
-        score += impact_pts
-
-        self.lead_score = min(round(score, 1), 100.0)
-        return self.lead_score
-
-
 class PipelineResult(BaseModel):
     """Result of running the full pipeline."""
     status: str = "success"
@@ -532,6 +478,10 @@ class EmailFinderResult(BaseModel):
     source: str = ""  # "apollo", "hunter", "pattern"
     verified: bool = False
     error: str = ""
+    # Enrichment fields returned by Hunter email-finder at no extra credit cost
+    linkedin_url: str = ""
+    phone_number: str = ""
+    position: str = ""
 
 
 class AgentState(BaseModel):
@@ -543,5 +493,3 @@ class AgentState(BaseModel):
     outreach_emails: List[OutreachEmail] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     current_step: str = "init"
-    # I1: Cross-trend compound impact synthesis
-    cross_trend_insight: Optional[Dict[str, Any]] = None

@@ -40,8 +40,9 @@ Standalone test:
 
 import json
 import logging
+import math
 import re
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -163,13 +164,6 @@ class _RawEntityProxy:
 # Entity types that can CREATE entity groups (B2B-focused)
 # Only real business entities — companies, people, products
 GROUP_ENTITY_TYPES = {"ORG", "PERSON", "PRODUCT"}
-
-# Entity types used for context only (similarity computation, not group creation)
-# GPE/LOC/NORP are too broad — "China" with 45 articles is not a useful group
-CONTEXT_ENTITY_TYPES = {"GPE", "LOC", "NORP", "EVENT", "LAW", "FAC"}
-
-# All identity types (for article-level entity tracking in similarity)
-IDENTITY_TYPES = GROUP_ENTITY_TYPES | CONTEXT_ENTITY_TYPES
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DYNAMIC NAME NORMALIZATION (zero hardcoded correction tables)
@@ -352,8 +346,6 @@ def _gliner_supplement_ner(articles: List[Any]) -> List[Any]:
     if classifier is None:
         return articles
 
-    from app.intelligence.engine.classifier import B2B_PASS_LABELS
-
     # Build texts: title + summary for each article (more context = better detection)
     texts = []
     for article in articles:
@@ -378,8 +370,7 @@ def _gliner_supplement_ner(articles: List[Any]) -> List[Any]:
         logger.warning("GLiNER batch NER failed: %s", e)
         return articles
 
-    # GLiNER label → SpaCy type mapping for entity creation
-    # Only B2B-relevant labels are passed through (others filtered by B2B_PASS_LABELS check)
+    # GLiNER label → SpaCy type mapping for entity creation (only B2B-relevant labels)
     label_to_type = {
         "company": "ORG",
         "startup": "ORG",           # Indian startups: Zepto, Blinkit, Swiggy, Razorpay
@@ -468,8 +459,6 @@ def _compute_entity_salience(
     REF: "A New Entity Salience Task" (Dunietz & Gillick, 2014)
          "Identifying Salient Entities in Web Pages" (Gamon et al., 2013)
     """
-    import math
-
     title = getattr(article, "title", "") or ""
     summary = getattr(article, "summary", "") or ""
     content = getattr(article, "content", "") or ""
@@ -555,9 +544,8 @@ def _collect_entity_article_mapping(
         # Find ORGs co-occurring with a title-person in the same sentence
         person_affiliated_orgs: set = set()
         if title_persons:
-            import re as _re
             summary_text = (getattr(article, "summary", "") or "")
-            sentences = _re.split(r'[.!?]', summary_text)
+            sentences = _RE_SENTENCE_SPLIT.split(summary_text)
             for sent in sentences:
                 sent_lower = sent.lower()
                 has_title_person = any(p.lower() in sent_lower for p in title_persons)
@@ -619,7 +607,7 @@ def _apply_statistical_filters(
         sn = getattr(art, "source_name", "")
         if sn:
             source_names.add(sn.lower().strip())
-            source_names_alpha.add(re.sub(r"[^a-z0-9]", "", sn.lower()))
+            source_names_alpha.add(_RE_NON_ALNUM.sub("", sn.lower()))
 
     removed = []
     filtered_articles: Dict[str, List[int]] = {}
@@ -636,7 +624,7 @@ def _apply_statistical_filters(
 
         # Filter 2: Source name match (exact + normalized alphanumeric)
         # Catches "GLOBE NEWSWIRE" matching "GlobeNewswire" source_name
-        name_alpha = re.sub(r"[^a-z0-9]", "", lower)
+        name_alpha = _RE_NON_ALNUM.sub("", lower)
         if lower in source_names or name_alpha in source_names_alpha:
             removed.append((name, "matches_source_name"))
             continue
@@ -1079,6 +1067,15 @@ _TRAILING_HYPHEN_MODIFIER_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Additional pre-compiled patterns for _clean_entity_name() and _apply_statistical_filters().
+# Both are called on every entity name across hundreds of articles per run.
+_RE_UNICODE_WHITESPACE = re.compile(r"[\xa0\u200b\u200c\u200d\ufeff]+")
+_RE_MULTI_SPACE = re.compile(r"\s+")
+_RE_CAMEL_TRANSITION = re.compile(r"[a-z][A-Z]")
+_RE_ACRONYM_CONCAT = re.compile(r"[A-Z]{3,}[a-z]")
+_RE_NON_ALNUM = re.compile(r"[^a-z0-9]")
+_RE_SENTENCE_SPLIT = re.compile(r"[.!?]")
+
 # Unambiguous headline verbs: conjugated forms that NEVER appear as
 # entity name endings. "Says" is always a verb; "Controls" can be a noun
 # (Johnson Controls) so it's excluded. Conservative set = zero false positives.
@@ -1315,10 +1312,10 @@ def _clean_entity_name(name: str) -> str:
       - Garbage: camelCase concatenations, article titles as entities
     """
     # Normalize Unicode whitespace (non-breaking spaces, zero-width, etc.)
-    name = re.sub(r"[\xa0\u200b\u200c\u200d\ufeff]+", " ", name)
+    name = _RE_UNICODE_WHITESPACE.sub(" ", name)
 
     # Collapse multiple whitespace to single space
-    name = re.sub(r"\s+", " ", name).strip()
+    name = _RE_MULTI_SPACE.sub(" ", name).strip()
 
     # Reject job title abbreviations — these are roles, not named entities.
     # SpaCy treats uppercase abbreviations as PROPN, so POS validation misses them.
@@ -1341,7 +1338,7 @@ def _clean_entity_name(name: str) -> str:
     # camelCase transitions in multi-word names = SpaCy parse garbage.
     # Real 3+ word entities NEVER have camelCase: "Bank of America", "General Electric".
     # Real 2-word entities CAN have camelCase: "BlackRock Inc", "MacBook Air".
-    upper_transitions = len(re.findall(r"[a-z][A-Z]", name))
+    upper_transitions = len(_RE_CAMEL_TRANSITION.findall(name))
     if upper_transitions >= 1 and word_count >= 3:
         return ""
     if upper_transitions >= 2 and word_count >= 2:
@@ -1352,7 +1349,7 @@ def _clean_entity_name(name: str) -> str:
     # Threshold > 8 avoids false positives on real brands: JPMorgan (8), SoftBank (8)
     # Catches: OKXCrypto (9), USBanking (9) — NOT: JPMorgan, McDonald, DeepMind
     for word in name.split():
-        if len(word) > 8 and re.search(r"[A-Z]{3,}[a-z]", word):
+        if len(word) > 8 and _RE_ACRONYM_CONCAT.search(word):
             return ""
 
     # Strip possessives

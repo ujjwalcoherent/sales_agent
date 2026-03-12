@@ -28,9 +28,11 @@ _NOISE_DOMAINS = [
 ]
 
 # ── In-memory search cache (TTL-based) ────────────────────────────────────
+# Two-tier cache: news/general searches expire quickly; company research lasts 24h.
 
-_CACHE_TTL = 300  # 5 minutes
-_CACHE_MAX = 100
+_CACHE_TTL = 300          # 5 minutes — for news and general searches
+_CACHE_TTL_COMPANY = 86400  # 24 hours — company facts rarely change intra-day
+_CACHE_MAX = 200
 _cache: Dict[str, tuple[float, dict]] = {}
 _cache_lock = threading.Lock()
 
@@ -41,11 +43,11 @@ def _cache_key(query: str, **kwargs) -> str:
     return hashlib.md5(raw.encode()).hexdigest()
 
 
-def _cache_get(key: str) -> Optional[dict]:
-    """Return cached result if fresh, else None."""
+def _cache_get(key: str, ttl: int = _CACHE_TTL) -> Optional[dict]:
+    """Return cached result if fresh (respects per-call TTL), else None."""
     with _cache_lock:
         entry = _cache.get(key)
-        if entry and (time.time() - entry[0]) < _CACHE_TTL:
+        if entry and (time.time() - entry[0]) < ttl:
             return entry[1]
         if entry:
             del _cache[key]  # expired
@@ -138,11 +140,12 @@ class TavilyTool:
         if not self.available:
             return {"error": "Tavily disabled or no keys configured", "results": []}
 
-        # Check cache
+        # Check cache — TTL depends on topic (company facts cached 24h, news 5min)
         ck = _cache_key(query, depth=search_depth, max=max_results, topic=topic,
                         time=time_range, answer=str(include_answer), raw=str(include_raw_content))
+        cache_ttl = _CACHE_TTL_COMPANY if topic == "general" and not time_range else _CACHE_TTL
         if use_cache:
-            cached = _cache_get(ck)
+            cached = _cache_get(ck, ttl=cache_ttl)
             if cached:
                 logger.debug(f"Tavily cache hit for '{query[:50]}'")
                 return cached
@@ -194,55 +197,6 @@ class TavilyTool:
         logger.warning("All Tavily keys exhausted")
         return {"error": "all_keys_exhausted", "results": []}
 
-    # ── Extract API ───────────────────────────────────────────────────────────
-
-    async def extract(
-        self,
-        urls: List[str],
-        extract_depth: str = "basic",
-    ) -> List[Dict[str, Any]]:
-        """Extract clean content from up to 20 URLs using Tavily Extract API.
-
-        Args:
-            urls: List of URLs to extract content from (max 20).
-            extract_depth: "basic" or "advanced" (more thorough extraction).
-
-        Returns:
-            List of dicts with url, raw_content, and metadata for each successful extraction.
-            On failure, returns empty list.
-        """
-        if self.mock_mode:
-            return [{"url": u, "raw_content": f"[MOCK] Content from {u}"} for u in urls]
-        if not self.available or not urls:
-            return []
-
-        from tavily import AsyncTavilyClient
-        from tavily.errors import UsageLimitExceededError, InvalidAPIKeyError
-
-        # Tavily Extract supports up to 20 URLs per call
-        urls = urls[:20]
-
-        for _ in range(len(self._keys)):
-            key = self._next_key()
-            hint = f"...{key[-4:]}"
-            try:
-                client = AsyncTavilyClient(api_key=key)
-                result = await client.extract(urls=urls, extract_depth=extract_depth)
-
-                extracted = result.get("results", [])
-                logger.info(f"Tavily Extract [{hint}] {len(urls)} URLs → {len(extracted)} extracted")
-                return extracted
-
-            except (UsageLimitExceededError, InvalidAPIKeyError) as e:
-                logger.warning(f"Tavily Extract key {hint} quota/invalid: {e} — rotating")
-                continue
-            except Exception as e:
-                logger.error(f"Tavily Extract [{hint}] error: {e}")
-                return []
-
-        logger.warning("All Tavily keys exhausted (extract)")
-        return []
-
     # ── Convenience wrappers ──────────────────────────────────────────────────
 
     async def news_search(
@@ -272,27 +226,35 @@ class TavilyTool:
         self,
         query: str,
         max_results: int = 5,
+        advanced: bool = False,
     ) -> Dict[str, Any]:
         """Financial data search — stock prices, funding rounds, revenue.
 
         Uses topic="finance" for specialized financial data extraction.
+        advanced=True uses search_depth="advanced" (2 credits) for public companies
+        with real-time stock data. Default (1 credit) is sufficient for private co's.
         """
         return await self.search(
             query=query,
             topic="finance",
-            search_depth="advanced",
+            search_depth="advanced" if advanced else "basic",
             max_results=max_results,
-            include_answer="advanced",
+            include_answer="advanced" if advanced else True,
         )
 
-    async def deep_company_research(self, company_name: str) -> Dict[str, Any]:
+    async def deep_company_research(
+        self,
+        company_name: str,
+        is_public: bool = False,
+    ) -> Dict[str, Any]:
         """Full company dossier using 3 parallel Tavily calls for maximum data.
 
         Runs concurrently:
-          1. Advanced company search (AI answer + raw content)
-          2. News search (recent company news, all domains)
-          3. Finance search (stock/funding/revenue)
+          1. Advanced company search (AI answer + raw content) — 2 credits
+          2. News search (recent company news, all domains) — 1 credit
+          3. Finance search — basic (1 credit) for private co, advanced (2 credits) for public
 
+        Pass is_public=True for listed companies to get stock/market-cap data.
         Returns merged dict with keys: answer, results, news, finance.
         """
         async def _company_search():
@@ -313,9 +275,11 @@ class TavilyTool:
             )
 
         async def _finance():
+            # Private companies have no stock data — basic depth is sufficient
             return await self.finance_search(
-                query=f"{company_name} stock price funding revenue market cap",
+                query=f"{company_name} {'stock price market cap' if is_public else 'funding revenue valuation'}",
                 max_results=3,
+                advanced=is_public,  # Only use 2 credits for public companies
             )
 
         company_result, news_result, finance_result = await asyncio.gather(

@@ -26,7 +26,6 @@ HAC singleton penalty (FANATIC/EMNLP 2021):
 from __future__ import annotations
 
 import logging
-import math
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -35,11 +34,6 @@ from app.intelligence.config import ClusteringParams, DEFAULT_PARAMS
 from app.intelligence.models import ClusterResult, DendrogramMetrics, EventGranularity
 
 logger = logging.getLogger(__name__)
-
-# HDBSCAN soft membership threshold — Campello et al. 2013
-# Points below this threshold are true noise (don't force-assign)
-HDBSCAN_SOFT_NOISE_THRESHOLD = 0.10
-
 
 def cluster_hac(
     embeddings: np.ndarray,
@@ -184,7 +178,6 @@ def cluster_hac(
 
         dendro = DendrogramMetrics(
             cophenetic_r=round(float(coph_r), 4),
-            silhouette_score=round(float(best_sil), 4),
             cut_threshold=round(float(best_t), 4),
             n_subclusters=len(set(best_labels)),
             outlier_indices=outlier_indices,
@@ -383,19 +376,6 @@ def cluster_hdbscan_soft(
             parent_entity_group=entity_group_id or None,
         ))
 
-    # A3: DBCV — Density-Based Clustering Validation (Moulavi et al. 2014, SDM).
-    # Only valid for HDBSCAN. Measures how well clusters respect the density
-    # structure of the data. Range: [-1, 1], higher is better.
-    dbcv_score = None
-    if n_clusters >= 2:
-        try:
-            from hdbscan.validity import validity_index
-            dbcv_score = round(float(validity_index(fit_data, labels, metric=metric)), 4)
-        except ImportError:
-            pass  # hdbscan.validity not available in all installations
-        except Exception as exc:
-            logger.debug(f"[cluster] DBCV failed for '{entity_name}': {exc}")
-
     metrics = {
         "algorithm": "hdbscan_soft",
         "n_articles": n,
@@ -405,13 +385,11 @@ def cluster_hdbscan_soft(
         "min_cluster_size": min_cluster_size,
         "min_samples": min_samples,
         "metric": metric,
-        "dbcv": dbcv_score,
     }
 
-    dbcv_str = f", DBCV={dbcv_score:.3f}" if dbcv_score is not None else ""
     logger.info(
-        "HDBSCAN-soft '%s': %d articles → %d clusters, %d noise (threshold=%.2f%s)",
-        entity_name, n, len(clusters), len(noise_global_indices), soft_threshold, dbcv_str,
+        "HDBSCAN-soft '%s': %d articles → %d clusters, %d noise (threshold=%.2f)",
+        entity_name, n, len(clusters), len(noise_global_indices), soft_threshold,
     )
     return clusters, noise_global_indices, metrics
 
@@ -470,37 +448,6 @@ def cluster_leiden(
     except Exception as exc:
         logger.error(f"[cluster] Leiden failed: {exc}")
         return [], list(article_indices), {"algorithm": "leiden", "error": str(exc)}
-
-
-def validate_clustering_math(
-    clusters: List[ClusterResult],
-    total_articles: int,
-    noise_count: int,
-    params: Optional[ClusteringParams] = None,
-) -> Dict[str, Any]:
-    """Run math assertions on clustering output (before ValidationAgent 7-check).
-
-    Returns dict with assertion results.
-    """
-    if params is None:
-        params = DEFAULT_PARAMS
-
-    accounted = sum(c.article_count for c in clusters) + noise_count
-    silhouette_scores = [c.coherence_score for c in clusters if c.coherence_score > 0]
-    mean_sil = sum(silhouette_scores) / max(len(silhouette_scores), 1)
-
-    return {
-        "assert_all_accounted": accounted >= total_articles,
-        "assert_min_clusters": len(clusters) >= 2,
-        "assert_max_clusters": len(clusters) <= total_articles // 2,
-        "assert_no_empty": all(c.article_count >= 2 for c in clusters),
-        "assert_mean_silhouette": mean_sil >= 0.20,
-        "mean_silhouette": mean_sil,
-        "n_clusters": len(clusters),
-        "noise_count": noise_count,
-        "accounted": accounted,
-        "total": total_articles,
-    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -24,14 +24,12 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-from app.intelligence.config import ClusteringParams, DEFAULT_PARAMS
+from app.intelligence.config import ClusteringParams
 from app.intelligence.models import (
     AgentRequestType,
     ClusterResult,
     DiscoveryScope,
-    EntityGroup,
     PipelineState,
-    RequestPriority,
     ValidationResult,
 )
 

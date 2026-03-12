@@ -5,11 +5,14 @@ Requires: pip install rank-bm25
 """
 from __future__ import annotations
 
+import asyncio as _asyncio
 import re
 import logging
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+_RE_WORD_TOKENS = re.compile(r"\b[a-zA-Z]{3,}\b")
 
 _STOPWORDS = {
     "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
@@ -39,7 +42,7 @@ class BM25Search:
             self._build(articles)
 
     def _tokenize(self, text: str) -> list[str]:
-        tokens = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
+        tokens = _RE_WORD_TOKENS.findall(text.lower())
         return [t for t in tokens if t not in _STOPWORDS]
 
     def _build(self, articles: list[dict]) -> None:
@@ -93,11 +96,6 @@ class BM25Search:
                 results.append(d)
         return results
 
-    def search_companies(self, segment: str, geo: str = "", top_k: int = 20) -> list[dict]:
-        """Specialized company search: segment + geo + company-related terms."""
-        query = f"{segment} company {geo} supplier manufacturer exporter".strip()
-        return self.search(query, top_k=top_k)
-
     @property
     def is_ready(self) -> bool:
         return self._bm25 is not None
@@ -112,16 +110,6 @@ Unified search manager — orchestrates the fallback chain:
 Import this everywhere instead of calling tavily_tool.py directly.
 Primary web search is handled by web_intel.py (Tavily + DDG fallback).
 """
-import logging
-from typing import Any, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .bm25_search import BM25Search
-
-logger = logging.getLogger(__name__)
-
-
-import asyncio as _asyncio
 
 # Global DDG semaphore: DDG blocks after ~20 simultaneous requests from same IP.
 # Limit to 2 concurrent DDG calls across ALL SearchManager instances.
@@ -189,10 +177,9 @@ class SearchManager:
         # 3. DuckDuckGo (free fallback — rate-limited, max ~20 concurrent from one IP)
         try:
             from ddgs import DDGS
-            import asyncio as _aio
             async with _DDG_SEMAPHORE:
                 # Run synchronous DDGS call in executor to avoid blocking event loop
-                loop = _aio.get_event_loop()
+                loop = _asyncio.get_event_loop()
                 raw = await loop.run_in_executor(
                     None,
                     lambda: list(DDGS().text(query, max_results=max_results)),

@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  RefreshCw, Brain, Target, Gauge, Database, MessageSquare, Building2,
+  RefreshCw, Brain, Target, Database, MessageSquare, Building2,
   TrendingUp, Info, Activity, Zap, Shield, ChevronDown, ChevronUp,
-  BarChart2, Cpu, Clock,
+  BarChart2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { LearningStatus } from "@/lib/types";
@@ -30,7 +30,7 @@ export default function LearningPage() {
         <h1 className="font-display" style={{ fontSize: 19, color: "var(--text)", letterSpacing: "-0.02em" }}>
           Learning System
         </h1>
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>8 self-learning loops</span>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>6 self-learning loops</span>
         <button
           onClick={refresh}
           disabled={loading}
@@ -66,13 +66,11 @@ export default function LearningPage() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
             <SourceBanditCard data={status.source_bandit} />
-            <WeightLearnerCard data={status.weight_learner} />
             <CompanyBanditCard data={status.company_bandit} />
             <AdaptiveThresholdsCard data={status.adaptive_thresholds} />
             <TrendMemoryCard data={status.trend_memory} />
             <FeedbackCard data={status.feedback} />
             <SignalBusCard data={status.signal_bus} />
-            <MetaReasonerCard data={status.meta_reasoner} />
           </div>
         )}
       </div>
@@ -286,166 +284,7 @@ function SourceBanditCard({ data }: { data: LearningStatus["source_bandit"] }) {
   );
 }
 
-// ── Weight Learner ─────────────────────────────────────────────────────────
-
-function WeightLearnerCard({ data }: { data: LearningStatus["weight_learner"] }) {
-  const weights = data.weights ?? {};
-  const categories = Object.entries(weights);
-  const dataCount = data.data_count ?? 0;
-  const lastUpdated = data.last_updated ?? "";
-  const health = dataCount > 50 ? "green" : dataCount > 10 ? "amber" : undefined;
-
-  const detail = categories.length > 0 ? (
-    <div>
-      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
-        <strong style={{ color: "var(--text)" }}>Composite quality score</strong> (40% KB hit-rate + 30% lead quality + 30% OSS).
-        Weights are updated using gradient descent after each pipeline run.
-        Higher weight = signal matters more when scoring trends.
-      </div>
-      {lastUpdated && (
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10, fontSize: 10, color: "var(--text-muted)" }}>
-          <Clock size={10} />
-          Last updated: {new Date(lastUpdated).toLocaleString()}
-        </div>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {categories.map(([category, subWeights]) => {
-          if (typeof subWeights === "number") {
-            return (
-              <div key={category} style={{ display: "flex", justifyContent: "space-between", padding: "6px 8px", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)" }}>
-                <span style={{ fontSize: 11, color: "var(--text-secondary)", textTransform: "capitalize" }}>{category.replace(/_/g, " ")}</span>
-                <span className="num" style={{ fontSize: 11, color: "var(--blue)" }}>{subWeights.toFixed(4)}</span>
-              </div>
-            );
-          }
-          const entries = Object.entries(subWeights as Record<string, number>);
-          return (
-            <div key={category}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                {category.replace(/_/g, " ")}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                {entries.map(([key, val]) => (
-                  <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px", background: "var(--surface)", borderRadius: 5 }}>
-                    <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{key.replace(/_/g, " ")}</span>
-                    <span className="num" style={{ fontSize: 10, color: "var(--blue)" }}>{typeof val === "number" ? val.toFixed(4) : String(val)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ marginTop: 8, fontSize: 10, color: "var(--text-xmuted)" }}>
-        {dataCount} training samples used for last update.
-      </div>
-    </div>
-  ) : undefined;
-
-  return (
-    <LoopCard
-      title="Weight Learner"
-      icon={Gauge}
-      accent="var(--blue)"
-      description="Tunes signal weights based on pipeline feedback"
-      healthLabel={dataCount > 0 ? `${dataCount} samples` : undefined}
-      healthColor={health}
-      detail={detail}
-    >
-      {categories.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {categories.map(([category, subWeights]) => {
-            if (typeof subWeights === "number") {
-              return <WeightRow key={category} label={category} value={subWeights} />;
-            }
-            const entries = Object.entries(subWeights as Record<string, number>);
-            const total = entries.reduce((s, [, v]) => s + (typeof v === "number" ? v : 0), 0);
-            return (
-              <div key={category}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", textTransform: "capitalize" }}>
-                    {category.replace(/_/g, " ")}
-                  </span>
-                  <span style={{ fontSize: 9, color: "var(--text-xmuted)" }}>
-                    ({entries.length} signals, Σ={total.toFixed(2)})
-                  </span>
-                </div>
-                <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6, background: "var(--border)" }}>
-                  {entries.map(([key, val], idx) => {
-                    const pct = total > 0 ? ((typeof val === "number" ? val : 0) / total) * 100 : 0;
-                    const colors = ["var(--blue)", "var(--accent)", "var(--green)", "var(--amber)", "var(--red)", "var(--text-muted)"];
-                    return (
-                      <div
-                        key={key}
-                        title={`${key}: ${typeof val === "number" ? val.toFixed(3) : val}`}
-                        style={{ width: `${pct}%`, background: colors[idx % colors.length], minWidth: pct > 0 ? 2 : 0, transition: "width 300ms" }}
-                      />
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {entries.map(([key, val], idx) => {
-                    const colors = ["var(--blue)", "var(--accent)", "var(--green)", "var(--amber)", "var(--red)", "var(--text-muted)"];
-                    return (
-                      <div key={key} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: 2, background: colors[idx % colors.length] }} />
-                        <span style={{ fontSize: 9, color: "var(--text-muted)" }}>{key.replace(/_/g, " ")}</span>
-                        <span className="num" style={{ fontSize: 9, color: "var(--text-xmuted)" }}>{typeof val === "number" ? val.toFixed(2) : String(val)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <EmptyState>No learned weights yet</EmptyState>
-      )}
-
-      {/* Named signal weight bars — 2-column grid */}
-      {data.weights && Object.values(data.weights).some((v) => typeof v === "number") && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.6rem", marginTop: "0.75rem" }}>
-          {Object.entries(data.weights as Record<string, number | Record<string, number>>)
-            .filter(([, w]) => typeof w === "number")
-            .map(([signal, w]) => (
-              <div key={signal} style={{ background: "var(--surface-raised)", borderRadius: 6, padding: "0.5rem 0.75rem" }}>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginBottom: "0.25rem", textTransform: "capitalize" as const }}>
-                  {signal.replace(/_/g, " ")}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <div style={{ flex: 1, height: 4, background: "var(--surface-raised)", borderRadius: 2, overflow: "hidden", border: "1px solid var(--border)" }}>
-                    <div style={{ width: `${Math.min((w as number ?? 0) * 100, 100)}%`, height: "100%", background: "var(--accent)", borderRadius: 2 }} />
-                  </div>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text)", minWidth: 38, textAlign: "right" as const }}>
-                    {(w as number ?? 0).toFixed(3)}
-                  </span>
-                </div>
-              </div>
-            ))}
-        </div>
-      )}
-    </LoopCard>
-  );
-}
-
-function WeightRow({ label, value }: { label: string; value: number }) {
-  const pct = Math.min(value * 100, 100);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ fontSize: 11, color: "var(--text-secondary)", flex: 1, textTransform: "capitalize" }}>
-        {label.replace(/_/g, " ")}
-      </span>
-      <div style={{ width: 80, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: "var(--blue)", borderRadius: 3 }} />
-      </div>
-      <span className="num" style={{ fontSize: 10, color: "var(--text-muted)", minWidth: 32, textAlign: "right" }}>
-        {value.toFixed(3)}
-      </span>
-    </div>
-  );
-}
-
+// ── Weight Learner — REMOVED (deleted in pipeline surgery R1) ─────────────
 // ── Company Bandit ─────────────────────────────────────────────────────────
 
 function CompanyBanditCard({ data }: { data: LearningStatus["company_bandit"] }) {
@@ -916,110 +755,6 @@ function SignalBusCard({ data }: { data: LearningStatus["signal_bus"] }) {
           <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>Phase: <strong style={{ color: "var(--text)", textTransform: "capitalize" }}>{phase}</strong></span>
         </div>
       </div>
-    </LoopCard>
-  );
-}
-
-// ── MetaReasoner ─────────────────────────────────────────────────────────
-
-function MetaReasonerCard({ data }: { data: LearningStatus["meta_reasoner"] }) {
-  if (!data) {
-    return (
-      <LoopCard
-        title="MetaReasoner"
-        icon={Cpu}
-        accent="var(--blue)"
-        description="Chain-of-thought reasoning + retrospective analysis"
-      >
-        <EmptyState>
-          MetaReasoner data not available from backend. The /api/v1/learning/status endpoint does not yet include meta_reasoner data.
-        </EmptyState>
-      </LoopCard>
-    );
-  }
-
-  const traceCount = data.trace_count ?? 0;
-  const hypothesisCount = data.hypothesis_count ?? 0;
-  const hypotheses = data.latest_hypotheses ?? [];
-
-  const detail = (
-    <div>
-      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 10 }}>
-        <strong style={{ color: "var(--text)" }}>MetaReasoner</strong> checkpoints after source_intel, analysis, and lead_gen.
-        Runs a full retrospective during learning_update. Generates improvement hypotheses and publishes to the signal bus.
-        Traces: <code style={{ fontSize: 10, background: "var(--surface)", padding: "1px 4px", borderRadius: 3 }}>data/reasoning_traces.jsonl</code>,
-        Hypotheses: <code style={{ fontSize: 10, background: "var(--surface)", padding: "1px 4px", borderRadius: 3 }}>data/improvement_hypotheses.json</code>.
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <DetailRow label="Total traces" value={String(traceCount)} />
-        <DetailRow label="Hypotheses generated" value={String(hypothesisCount)} />
-        {data.last_run && <DetailRow label="Last run" value={new Date(data.last_run).toLocaleString()} />}
-      </div>
-    </div>
-  );
-
-  return (
-    <LoopCard
-      title="MetaReasoner"
-      icon={Cpu}
-      accent="var(--blue)"
-      description="Chain-of-thought reasoning + retrospective analysis"
-      healthLabel={traceCount > 0 ? `${traceCount} traces` : "Waiting"}
-      healthColor={traceCount > 3 ? "green" : "amber"}
-      detail={detail}
-    >
-      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <KpiMini label="Traces" value={traceCount} color="var(--blue)" />
-        <KpiMini label="Hypotheses" value={hypothesisCount} color="var(--accent)" />
-      </div>
-
-      {hypotheses.length > 0 ? (
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-xmuted)", letterSpacing: "0.05em", marginBottom: 6 }}>LATEST IMPROVEMENT HYPOTHESES</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {hypotheses.slice(0, 5).map((h, i) => {
-              // h can be a string OR an object {target, action, expected_impact, priority}
-              const label = typeof h === "string" ? h : `[${(h as Record<string, unknown>).priority ?? ""}] ${(h as Record<string, unknown>).target ?? ""}: ${(h as Record<string, unknown>).action ?? ""}`;
-              return (
-                <div key={i} style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5, padding: "6px 10px", background: "var(--surface-raised)", borderRadius: 6, borderLeft: "2px solid var(--blue)" }}>
-                  {label}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Collapsible hypothesis traces */}
-          <div style={{ marginTop: "0.75rem" }}>
-            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>
-              Hypothesis History
-            </div>
-            {hypotheses.map((h: any, i: number) => (
-              <details key={i} style={{ marginBottom: "0.4rem", border: "1px solid var(--border)", borderRadius: 6 }}>
-                <summary style={{
-                  padding: "0.45rem 0.75rem", cursor: "pointer", fontSize: "0.78rem",
-                  color: "var(--text)", display: "flex", justifyContent: "space-between",
-                  listStyle: "none", userSelect: "none" as const
-                }}>
-                  <span>v{h.version ?? i + 1} — {h.status ?? "active"}</span>
-                  <span style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>
-                    {h.b2b_mean != null ? `B2B: ${h.b2b_mean.toFixed(3)}` : ""}
-                    {h.noise_mean != null ? ` | Noise: ${h.noise_mean.toFixed(3)}` : ""}
-                  </span>
-                </summary>
-                <div style={{
-                  padding: "0.6rem 0.75rem", borderTop: "1px solid var(--border)",
-                  fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace",
-                  wordBreak: "break-word" as const, lineHeight: 1.5
-                }}>
-                  {typeof h.hypothesis === "string" ? h.hypothesis : JSON.stringify(h, null, 2)}
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <EmptyState>No hypotheses yet — run the pipeline to generate reasoning traces</EmptyState>
-      )}
     </LoopCard>
   );
 }

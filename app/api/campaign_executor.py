@@ -12,10 +12,12 @@ import asyncio
 import hashlib
 import json
 import logging
-from typing import Optional
+import re
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+_RE_DIGITS = re.compile(r"\d+")
 
 _ENRICH_TIMEOUT = 90.0
 _CONTACTS_TIMEOUT = 120.0
@@ -127,14 +129,42 @@ async def _discover_industry_companies(industry: str, config) -> list:
     from app.tools.web.web_intel import search_industry_companies
     from app.schemas.campaign import CampaignCompanyInput
 
-    profiles = await search_industry_companies(industry, max_companies=config.max_companies)
+    # Combine broad industry with narrow keyword if provided
+    search_query = industry
+    if getattr(config, "narrow_keyword", ""):
+        search_query = f"{industry} {config.narrow_keyword}"
+
+    profiles = await search_industry_companies(search_query, max_companies=config.max_companies)
+
+    # Filter by company size if requested
+    size_filter = getattr(config, "company_size_filter", "all")
+    _SIZE_RANGES = {
+        "smb": (0, 200),
+        "mid_market": (200, 1000),
+        "enterprise": (1000, 10**9),
+    }
+
+    def _size_matches(profile) -> bool:
+        if size_filter == "all":
+            return True
+        lo, hi = _SIZE_RANGES.get(size_filter, (0, 10**9))
+        ec = getattr(profile, "employee_count", "") or ""
+        if isinstance(ec, str):
+            m = _RE_DIGITS.search(ec)
+            n = int(m.group()) if m else None
+        else:
+            n = ec
+        if n is None:
+            return True  # unknown size — include by default
+        return lo <= n < hi
+
     return [
         CampaignCompanyInput(
             company_name=p.company_name, domain=p.domain or "",
             industry=p.industry or industry,
-            context=f"Discovered via industry search: {industry}",
+            context=f"Discovered via {search_query!r} industry search",
         )
-        for p in profiles if p.company_name
+        for p in profiles if p.company_name and _size_matches(p)
     ]
 
 
@@ -219,11 +249,28 @@ async def _process_one_company(company_input, campaign_id, index, total, config,
             industry=industry, domain=domain, website=enriched.website or "",
             reason_relevant=company_input.context or f"Campaign target: {name}",
         )
-        deps = AgentDeps(mock_mode=False)
+        # Use global mock mode if enabled
+        from app.api.settings_router import get_global_mock_mode
+        _mock = get_global_mock_mode()
+
+        # Pre-set target_roles on company_data so contact agent uses them directly
+        if config.target_roles:
+            company_data.target_roles = list(config.target_roles)
+
+        deps = AgentDeps(mock_mode=_mock)
         state = AgentState(companies=[company_data])
-        finder = ContactFinder(mock_mode=False, deps=deps)
+        finder = ContactFinder(mock_mode=_mock, deps=deps)
         state = await asyncio.wait_for(finder.find_contacts(state), timeout=_CONTACTS_TIMEOUT)
         contacts = state.contacts or []
+
+        # Apply seniority filter if requested
+        seniority = getattr(config, "seniority_filter", "both")
+        if seniority != "both" and contacts:
+            contacts = [c for c in contacts if getattr(c, "seniority_tier", "influencer") == seniority]
+            # Fallback: if filtering removed all contacts, keep originals
+            if not contacts:
+                contacts = state.contacts or []
+
         contacts_found = len(contacts)
         # Serialize contact data for campaign storage
         contact_dicts = []
@@ -244,7 +291,12 @@ async def _process_one_company(company_input, campaign_id, index, total, config,
         email_dicts = []
         if config.generate_outreach and contacts:
             await _update_company_status(db, campaign_id, name, "outreach")
-            generator = EmailGenerator(mock_mode=False, deps=deps, campaign_mode=True)
+            generator = EmailGenerator(mock_mode=_mock, deps=deps, campaign_mode=True)
+            # Inject product context into company reason_relevant for personalization
+            if getattr(config, "product_context", ""):
+                company_data.reason_relevant = (
+                    f"{company_data.reason_relevant} | Pitching: {config.product_context}"
+                ).strip(" |")
             state = AgentState(companies=[company_data], contacts=contacts)
             state = await asyncio.wait_for(generator.process_emails(state), timeout=_OUTREACH_TIMEOUT)
             outreach_emails = state.outreach_emails or []

@@ -4,7 +4,7 @@ from .web.rss_tool import RSSTool
 from .web.tavily_tool import TavilyTool
 from .crm.apollo_tool import ApolloTool
 from .crm.hunter_tool import HunterTool
-from .llm.embeddings import EmbeddingTool, embed, embed_batch
+from .llm.embeddings import EmbeddingTool
 from .llm.providers import provider_health, ProviderHealthTracker
 from .domain_utils import (
     extract_clean_domain,
@@ -24,8 +24,6 @@ __all__ = [
     "ProviderHealthTracker",
     # Embeddings
     "EmbeddingTool",
-    "embed",
-    "embed_batch",
     # Domain utils
     "extract_clean_domain",
     "is_valid_company_domain",

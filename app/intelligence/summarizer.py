@@ -37,6 +37,9 @@ from app.intelligence.models import (
 
 logger = logging.getLogger(__name__)
 
+_RE_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_RE_HTML_OR_URLS = re.compile(r"<[^>]+>|https?://|\*\*|__|\[.*?\]")
+
 _MAX_RETRIES = 3
 _REPRESENTATIVE_K = 5   # Articles to include in LLM prompt per cluster
 
@@ -202,32 +205,15 @@ async def _synthesize_one(
 
 
 async def _call_llm(user_message: str) -> str:
-    """Call LLM via ProviderManager (GPT-4.1-mini, fallback chain)."""
-    try:
-        from app.tools.llm.llm_service import LLMService
-        llm = LLMService()
-        return await llm.generate(
-            prompt=user_message,
-            system_prompt=_SYSTEM_PROMPT,
-            max_tokens=200,
-            temperature=0.3,
-        )
-    except Exception:
-        # Try direct OpenAI if LLMService fails
-        from openai import AsyncOpenAI
-        from app.config import get_settings
-        settings = get_settings()
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
-        resp = await client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
-            max_tokens=200,
-            temperature=0.3,
-        )
-        return resp.choices[0].message.content or ""
+    """Call LLM via LLMService (uses ProviderManager fallback chain)."""
+    from app.tools.llm.llm_service import LLMService
+    llm = LLMService()
+    return await llm.generate(
+        prompt=user_message,
+        system_prompt=_SYSTEM_PROMPT,
+        max_tokens=200,
+        temperature=0.3,
+    )
 
 
 _NONE_STRINGS = {"none", "null", "n/a", "na", "undefined", "untitled"}
@@ -279,7 +265,7 @@ def _validate_label(label: str, summary: str, cluster: ClusterResult) -> Tuple[b
         )
 
     # Check 2: no HTML/URLs/markdown
-    if re.search(r"<[^>]+>|https?://|\*\*|__|\[.*?\]", label):
+    if _RE_HTML_OR_URLS.search(label):
         return False, f"Label contains HTML, URL, or markdown: '{label}'. Plain text only."
 
     # Check 3: at least one proper noun (capitalized word not at start)
@@ -295,7 +281,7 @@ def _validate_label(label: str, summary: str, cluster: ClusterResult) -> Tuple[b
         return False, f"Summary too short ({len(summary)} chars). Must be 2-3 specific sentences."
 
     # Check 5: summary sentence count
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", summary) if s.strip()]
+    sentences = [s.strip() for s in _RE_SENTENCE_SPLIT.split(summary) if s.strip()]
     if not (2 <= len(sentences) <= 4):
         return False, (
             f"Summary has {len(sentences)} sentences. Must be 2-3 sentences. "
@@ -350,7 +336,7 @@ def _format_articles_for_prompt(articles: List[Article]) -> str:
         title = art.title or "No title"
         # First 2 sentences of summary/text
         text = art.summary or art.full_text or ""
-        sentences = re.split(r"(?<=[.!?])\s+", text)[:2]
+        sentences = _RE_SENTENCE_SPLIT.split(text)[:2]
         excerpt = " ".join(sentences)[:300]
         parts.append(f"{i}. [{art.source_name}] {title}\n   {excerpt}")
     return "\n\n".join(parts)
@@ -524,7 +510,7 @@ def build_evidence_chain(
     for art in rep_articles[:3]:
         text = art.summary or art.full_text or ""
         if text:
-            first_sentence = re.split(r"(?<=[.!?])\s+", text)[0]
+            first_sentence = _RE_SENTENCE_SPLIT.split(text)[0]
             if len(first_sentence) > 20:
                 snippets.append(f"[{art.source_name}] {first_sentence[:200]}")
 

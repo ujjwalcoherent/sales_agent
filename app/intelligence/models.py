@@ -28,12 +28,6 @@ class DiscoveryMode(str, Enum):
     REPORT_DRIVEN = "report_driven"    # Corroborate analyst report claims
 
 
-class ClusteringMode(str, Enum):
-    """Backwards-compat alias for clustering runner."""
-    INDUSTRY = "industry"
-    ACCOUNT = "account"
-    PRODUCT = "product"
-
 
 class IndustryOrder(int, Enum):
     FIRST = 1   # Direct players (drug manufacturers)
@@ -245,24 +239,6 @@ class EntityGroup(BaseModel):
     provenance: List[Provenance] = Field(default_factory=list)
 
 
-class EntityMentionMap(BaseModel):
-    """Output of NERAgent — raw mentions before normalization."""
-    mentions: Dict[str, List[int]] = Field(default_factory=dict)  # name → [article_indices]
-    pos_validated: Dict[str, bool] = Field(default_factory=dict)  # name → POS check passed
-
-
-class ExtractionResult(BaseModel):
-    """Combined output of NERAgent + NormAgent + ClassifierAgent — math gate 3."""
-    entity_groups: List[EntityGroup]
-    ungrouped_article_indices: List[int] = Field(default_factory=list)
-
-    # Math assertions
-    assertion_all_names_1_4_words: bool = True
-    assertion_no_camel_case: bool = True
-    assertion_variants_fuzzy_match: bool = True
-    assertion_no_duplicate_groups: bool = True
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # CLUSTER MODELS (ClusterAgent + ValidationAgent)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -274,13 +250,11 @@ class OutlierRecord(BaseModel):
     reason: str
     evidence: str = ""
     confidence: float = 0.0
-    silhouette_score: Optional[float] = None
 
 
 class DendrogramMetrics(BaseModel):
     """HAC dendrogram analysis metrics."""
     cophenetic_r: float = 0.0
-    silhouette_score: float = 0.0
     cut_threshold: float = 0.0
     n_subclusters: int = 1
     outlier_indices: List[int] = Field(default_factory=list)
@@ -344,8 +318,7 @@ class ClusterResult(BaseModel):
     critic_score: float = 0.0        # 0-1, set by critic after synthesis
     critic_reasoning: str = ""       # Why critic accepted/rejected
 
-    # Strategic business opportunity score (set by verify_clustering in pipeline_validator.py)
-    # Measures B2B value, not just structural quality. Range [0.0, 1.0].
+    # Strategic business opportunity score. Range [0.0, 1.0].
     # Formula: 0.30×event_specificity + 0.25×entity_action + 0.20×industry + 0.15×temporal + 0.10×source_cred
     # Jim Cramer commentary = ~0.09 (LOW), Apollo acquisition = ~0.90 (HIGH)
     strategic_score: float = 0.0
@@ -513,11 +486,6 @@ class PipelineState(BaseModel):
     thought_log: List[ThoughtEntry] = Field(default_factory=list)
     noise_article_indices: List[int] = Field(default_factory=list)
 
-    # Stage advisories: inter-stage communication (SPOC pattern, arXiv:2506.06923).
-    # Each verify_*() in pipeline_validator.py appends a StageAdvisory dict here.
-    # Downstream stages read upstream advisories to adapt behavior.
-    stage_advisories: List[Dict[str, Any]] = Field(default_factory=list)
-
     # Round tracking (supervisor negotiation)
     round_number: int = 0
     max_rounds: int = 3
@@ -585,6 +553,7 @@ class IntelligenceResult(BaseModel):
     clusters: List[ClusterResult] = Field(default_factory=list)
     entity_groups: List[EntityGroup] = Field(default_factory=list)
     match_results: List[MatchResult] = Field(default_factory=list)
+    filtered_articles: List[Article] = Field(default_factory=list)  # post-filter, for source bandit backward cascade
 
     # Quality metrics (all dynamically computed — no hardcoded thresholds)
     total_articles_fetched: int = 0
@@ -592,13 +561,12 @@ class IntelligenceResult(BaseModel):
     total_clusters: int = 0
     noise_rate: float = 0.0
     mean_coherence: float = 0.0
-    mean_silhouette: float = 0.0
     mean_fit_score: float = 0.0
 
     # Gap 4 report
     gap4_dropped_companies: List[str] = Field(default_factory=list)
 
-    # Reasoning trace (MetaReasoner retrospective)
+    # Reasoning trace
     thought_log: List[ThoughtEntry] = Field(default_factory=list)
     rounds_completed: int = 0
     agent_requests_processed: int = 0
@@ -606,153 +574,6 @@ class IntelligenceResult(BaseModel):
     # NLI filter diagnostics (flows to source bandit reward in orchestrator)
     nli_scores_by_source: Dict[str, float] = Field(default_factory=dict)
 
-    # Diagnostics
-    diagnostics_dir: Optional[str] = None
-    outliers: List[OutlierRecord] = Field(default_factory=list)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# CLUSTERING ENGINE MODELS (moved from engine/models.py)
-# ══════════════════════════════════════════════════════════════════════════════
-
-class ClusteringRequest(BaseModel):
-    """Entry point configuration for a clustering run.
-
-    Supports 3 modes:
-      - industry: Discover trends + companies in an industry
-      - account:  Deep intel on specific companies
-      - product:  Right-timing pitch based on product activity
-    """
-    mode: ClusteringMode = ClusteringMode.INDUSTRY
-
-    # Industry mode params
-    industry: Optional[str] = None           # "Healthcare > Pharmaceuticals" (L1 > L2)
-    industry_order: IndustryOrder = IndustryOrder.FIRST  # 1st = direct, 2nd = adjacent
-
-    # Account mode params
-    companies: List[str] = Field(default_factory=list)   # ["Pfizer", "Moderna"]
-    event_granularity: str = "major+sub"
-
-    # Product mode params
-    products: List[str] = Field(default_factory=list)     # ["GLP-1", "mRNA vaccine"]
-
-    # Common params
-    region: str = "GLOBAL"                   # ISO code or "GLOBAL"
-    hours: int = 120                         # Lookback window (120h = 5 days)
-    user_products: List[str] = Field(default_factory=list)
-
-    # Advanced
-    max_rounds: int = 3
-    mock_mode: bool = False
-
-
-class Scratchpad(BaseModel):
-    """Within-run communication channel for clustering engine agents.
-
-    NOT serialized via LangGraph state — passed via ClusteringDeps.
-    """
-    # Request context
-    request: Optional[ClusteringRequest] = None
-
-    # Fetch Agent writes
-    article_count: int = 0
-    fetch_stats: Dict[str, Any] = Field(default_factory=dict)
-
-    # Entity Agent writes
-    entity_groups: List[EntityGroup] = Field(default_factory=list)
-    ungrouped_article_indices: List[int] = Field(default_factory=list)
-
-    # Cluster Agent writes
-    clusters: List[ClusterResult] = Field(default_factory=list)
-    noise_article_indices: List[int] = Field(default_factory=list)
-
-    # Validation Agent writes
-    passed_cluster_ids: List[str] = Field(default_factory=list)
-    rejected_cluster_ids: List[str] = Field(default_factory=list)
-    validation_results: List[ValidationResult] = Field(default_factory=list)
-
-    # Inter-agent communication
-    agent_requests: List[AgentRequest] = Field(default_factory=list)
-    thought_log: List[ThoughtEntry] = Field(default_factory=list)
-
-    # Round tracking
-    round_number: int = 0
-    max_rounds: int = 3
-
-    # Outlier registry
-    all_outliers: List[OutlierRecord] = Field(default_factory=list)
-
-    def add_thought(self, agent: str, thought: str, action: str = "", confidence: float = 0.0):
-        self.thought_log.append(ThoughtEntry(
-            agent=agent, thought=thought, action=action, confidence=confidence,
-        ))
-
-    def add_request(self, from_agent: str, to_agent: str,
-                    request_type: AgentRequestType, details: Dict[str, Any],
-                    priority: RequestPriority = RequestPriority.NORMAL):
-        self.agent_requests.append(AgentRequest(
-            from_agent=from_agent, to_agent=to_agent,
-            request_type=request_type, details=details, priority=priority,
-        ))
-
-    def pending_requests(self, for_agent: Optional[str] = None) -> List[AgentRequest]:
-        reqs = [r for r in self.agent_requests if not r.resolved]
-        if for_agent:
-            reqs = [r for r in reqs if r.to_agent == for_agent]
-        return sorted(reqs, key=lambda r: (
-            0 if r.priority == RequestPriority.CRITICAL else
-            1 if r.priority == RequestPriority.HIGH else 2
-        ))
-
-    def passed_clusters(self) -> List[ClusterResult]:
-        return [c for c in self.clusters if c.cluster_id in self.passed_cluster_ids]
-
-    def summary(self) -> Dict[str, Any]:
-        return {
-            "round": self.round_number,
-            "articles": self.article_count,
-            "entity_groups": len(self.entity_groups),
-            "ungrouped_articles": len(self.ungrouped_article_indices),
-            "total_clusters": len(self.clusters),
-            "passed_clusters": len(self.passed_cluster_ids),
-            "rejected_clusters": len(self.rejected_cluster_ids),
-            "rejection_rate": (
-                len(self.rejected_cluster_ids) / max(len(self.clusters), 1)
-            ),
-            "pending_requests": len(self.pending_requests()),
-            "outliers_ejected": len(self.all_outliers),
-            "thought_count": len(self.thought_log),
-        }
-
-
-class ClusteringResult(BaseModel):
-    """Final output of a clustering engine run."""
-    run_id: str = Field(default_factory=lambda: uuid4().hex[:16])
-    request: ClusteringRequest
-    completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    # Results
-    clusters: List[ClusterResult] = Field(default_factory=list)
-    entity_groups: List[EntityGroup] = Field(default_factory=list)
-
-    # Quality
-    total_articles: int = 0
-    total_clusters: int = 0
-    rejection_rate: float = 0.0
-    mean_coherence: float = 0.0
-    mean_silhouette: float = 0.0
-
-    # Reasoning trace
-    thought_log: List[ThoughtEntry] = Field(default_factory=list)
-    rounds_completed: int = 0
-    agent_requests_processed: int = 0
-
-    # Noise
-    noise_article_indices: List[int] = Field(default_factory=list)
-    outliers: List[OutlierRecord] = Field(default_factory=list)
-
-    # Diagnostics path
-    diagnostics_dir: Optional[str] = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════

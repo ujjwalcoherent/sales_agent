@@ -29,20 +29,15 @@ References:
 import json
 import logging
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 
 _BANDIT_PATH = Path("./data/contact_bandit.json")
 
-# Reward weights (all normalized to [0.0, 1.5])
-REWARD_EMAIL_OPEN = 0.3
 REWARD_EMAIL_REPLY = 1.0
-REWARD_EMAIL_BOUNCE = 0.0
-REWARD_LEAD_CONVERTED = 1.5
-REWARD_EMAIL_SKIPPED = -0.1  # Implicit negative: lead generated but no email sent
 
 # Prior initialization based on role reachability literature
 # (higher α = more optimistic prior = better starting point for exploration)
@@ -237,34 +232,6 @@ class ContactBandit:
             f"[contact_bandit] update: {role}/{event_type}/{company_size} "
             f"reward={reward:.2f} posterior={old_mean:.3f}→{arm.posterior_mean:.3f}"
         )
-
-    def get_top_roles(
-        self,
-        event_type: str,
-        company_size: str,
-        top_n: int = 3,
-    ) -> List[Tuple[str, float]]:
-        """Return top roles by posterior mean (exploitation only — no sampling).
-
-        Use this for reporting, not for selection during live pipeline.
-        """
-        relevant = [
-            (arm.role_key, arm.posterior_mean)
-            for arm in self.arms.values()
-            if arm.event_type == event_type and arm.company_size == company_size
-        ]
-        relevant.sort(key=lambda x: x[1], reverse=True)
-        return relevant[:top_n]
-
-    def get_arm_stats(self) -> List[Dict]:
-        """Return all arm statistics for monitoring."""
-        return [
-            {
-                **arm.to_dict(),
-                "posterior_mean": round(arm.posterior_mean, 3),
-            }
-            for arm in sorted(self.arms.values(), key=lambda a: a.posterior_mean, reverse=True)
-        ]
 
     # ── Private helpers ────────────────────────────────────────────────────
 

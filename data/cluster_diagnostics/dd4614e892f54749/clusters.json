@@ -1,0 +1,77 @@
+[
+  {
+    "cluster_id": "b4acfccfe461",
+    "label": "ANI Pharmaceuticals (all)",
+    "article_count": 2,
+    "article_indices": [
+      498,
+      499
+    ],
+    "primary_entity": "ANI Pharmaceuticals",
+    "entity_names": [
+      "ANI Pharmaceuticals"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 1.0,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7848,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "8fcd3fa520dd",
+    "label": "discovery_6",
+    "article_count": 18,
+    "article_indices": [
+      7,
+      11,
+      12,
+      39,
+      40,
+      103,
+      109,
+      182,
+      193,
+      223,
+      242,
+      250,
+      325,
+      345,
+      375,
+      389,
+      446,
+      453
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8858,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3559,
+      "not_duplicate": 0.5574,
+      "outlier_ejection": 0.9444
+    },
+    "coherence_score": 0.5518,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

@@ -1,6 +1,5 @@
 """API response/request schemas -- designed for Next.js frontend consumption."""
 
-from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -21,7 +20,7 @@ class PipelineRunRequest(BaseModel):
     mode: Optional[str] = None                      # "company_first" | "industry_first" | "report_driven"
     companies: List[str] = Field(default_factory=list)   # Company-First: account list
     industry: Optional[str] = None                  # Industry-First: "fintech_bfsi"
-    report_text: Optional[str] = None               # Report-Driven: analyst text
+    report_text: Optional[str] = None               # Report-Driven: analyst report summary text
 
 
 class PipelineRunResponse(BaseModel):
@@ -68,6 +67,7 @@ class TrendResponse(BaseModel):
     trend_score: float = 0.0
     actionability_score: float = 0.0
     oss_score: float = 0.0
+    trend_level: str = "sub"  # "major" | "sub" | "minor"
     article_count: int = 0
     event_5w1h: Dict[str, str] = Field(default_factory=dict)
     causal_chain: List[str] = Field(default_factory=list)
@@ -176,15 +176,6 @@ class FeedbackSummaryResponse(BaseModel):
     total: int
     trends: Dict[str, int]
     leads: Dict[str, int]
-
-
-# -- Health --
-
-class HealthResponse(BaseModel):
-    status: str
-    timestamp: str
-    providers: Dict[str, Any] = Field(default_factory=dict)
-    config: Dict[str, Any] = Field(default_factory=dict)
 
 
 # -- Company Search --

@@ -6,9 +6,8 @@ searches for historical precedents, and identifies cross-trend opportunities.
 """
 
 import logging
-from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
 from app.agents.deps import AgentDeps
@@ -22,7 +21,6 @@ class ImpactResult(BaseModel):
     high_confidence_count: int = 0
     low_confidence_count: int = 0
     precedent_searches: int = 0
-    cross_trend_insights: List[str] = Field(default_factory=list)
     reasoning: str = ""
 
 
@@ -33,8 +31,7 @@ Indian market consulting opportunities for Coherent Market Insights (CMI).
 WORKFLOW:
 1. Analyze all trends for business impact using the AI council tool.
 2. For high-impact trends, search for historical precedents.
-3. Identify cross-trend compound opportunities.
-4. Return impact analysis with confidence scores.
+3. Return impact analysis with confidence scores.
 
 Focus on: which companies NEED consulting, specific pain points, decision \
 makers to pitch, and urgency. Be specific and evidence-based.
@@ -80,26 +77,6 @@ async def search_precedent(ctx: RunContext[AgentDeps], trend_title: str) -> str:
     context = (result.get("enriched_context") or "")[:300]
     sources = [s.get("title", "") for s in result.get("sources", [])]
     return f"Precedent for '{trend_title[:40]}': {context} Sources: {sources}"
-
-
-@impact_agent.tool
-async def identify_cross_trend_opportunities(ctx: RunContext[AgentDeps]) -> str:
-    """Find sectors affected by 2+ trends simultaneously."""
-    impacts = ctx.deps._impacts
-    if len(impacts) < 2:
-        return "Need 2+ impacts for cross-trend analysis."
-
-    sector_trends: Dict[str, List[str]] = {}
-    for imp in impacts:
-        for sector in getattr(imp, 'sectors_affected', []):
-            s = sector if isinstance(sector, str) else str(sector)
-            sector_trends.setdefault(s, []).append(imp.trend_title)
-
-    compound = {s: t for s, t in sector_trends.items() if len(t) >= 2}
-    if not compound:
-        return "No compound opportunities (each sector has only 1 trend)."
-    lines = [f"  {s}: {len(t)} trends - {t}" for s, t in compound.items()]
-    return "Cross-trend opportunities:\n" + "\n".join(lines)
 
 
 async def run_market_impact(deps: AgentDeps) -> tuple:

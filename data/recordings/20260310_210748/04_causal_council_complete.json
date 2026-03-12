@@ -1,0 +1,358 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "IndiGo's Interim CEO Rahul Bhatia appointment follows the resignation of Pieter Elbers amid operational instability caused by the December 2023 meltdown. This leadership instability directly affects IndiGo's operational continuity and customer trust. Flight cancellations and reduced schedules have created demand shocks for suppliers like maintenance providers, ground handlers, travel agencies, and airport vendors. These disruptions risk revenue losses and payment delays for these SMEs. Further down the chain, these impacts affect tier-2 suppliers and end customers relying on travel services, threatening broader regional travel and aviation service SMEs in India.",
+      "event_type": "price_change",
+      "reasoning": "The first-order impact centers on IndiGo itself, especially under new interim CEO Rahul Bhatia after Pieter Elbers' resignation due to crisis-level operational meltdown. This creates instability and risks further disruption and trust loss. The immediate SME segment affected internally includes operational teams and management support SMEs.\n\nThe second-order impact involves companies supplying crucial services to IndiGo - aviation maintenance SMEs (e.g., Air Works Group), ground handling firms (e",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "IndiGo airline operations team and management SMEs in India",
+          "lead_type": "pain",
+          "mechanism": "Leadership change and operational meltdown cause instability, risking operational continuity and customer trust, directly impacting IndiGo's operational management",
+          "companies_found": [
+            "IndiGo (internal SMEs)"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Aviation maintenance SMEs and ground handling companies, travel agencies in India with 50-500 employees",
+          "lead_type": "pain",
+          "mechanism": "Flight cancellations and reduced IndiGo schedules reduce demand for maintenance, ground handling, and travel agency services, causing revenue loss and cash flow problems for these suppliers",
+          "companies_found": [
+            "Global Flight Handling Services Pvt Ltd",
+            "Air Works Group",
+            "Yatra For Business",
+            "Corporate Travel Management Pvt Ltd"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 3,
+          "segment": "Tier-2 suppliers to aviation maintenance and ground handling companies, and regional travel-related SMEs in India",
+          "lead_type": "pain",
+          "mechanism": "Revenue and payment delays at aviation maintenance and ground handling SMEs cause cash flow issues and contract risks at tier-2 suppliers and reduce service levels affecting end customer bookings and regional travel businesses",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Google launched Gemini AI integration in its Workspace suite in India, enabling advanced generative AI features across Docs, Sheets, Slides, and Drive. This update directly impacts Google's Workspace and Cloud teams developing the AI features. Mid-size IT service firms that build custom Google Workspace integrations face pressure to update their offerings and maintain competitive edge. Additionally, consulting firms providing AI workflow advisory services risk losing clients without sufficient expertise. Employees in mid-size companies using Google Workspace may experience productivity challenges if insufficiently trained on new features, impacting operational efficiency.",
+      "event_type": "technology",
+      "reasoning": "Step 1: The event clearly identifies Google Workspace teams as directly affected but we exclude Google as a large enterprise. Instead, focus on mid-size IT service firms responsible for integrating and customizing Google Workspace with new Gemini AI features in India. Search revealed companies like PrecisionTech and Vijot Infotech who are Google Workspace partners, fitting this category.\n\nStep 2: These IT service firms supply to mid-size companies using Google Workspace in India. Lack of employe",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size IT service firms integrating Google Workspace with Gemini AI features, India, 50-5000 employees",
+          "lead_type": "pain",
+          "mechanism": "These firms must rapidly adapt and update legacy Workspace integrations to Gemini AI compatibility or risk losing clients to better-prepared competitors.",
+          "companies_found": [
+            "PrecisionTech",
+            "Vijot Infotech"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size companies using Google Workspace in India, 50-5000 employees, especially in sectors like IT, consulting, and SMEs undergoing digital transformation",
+          "lead_type": "pain",
+          "mechanism": "These companies face productivity losses due to lack of employee training on Gemini AI features and potential workflow disruptions.",
+          "companies_found": [],
+          "confidence": 0.85,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Consulting firms specializing in AI workflow advisory services for mid-size companies in India, 50-5000 employees",
+          "lead_type": "pain",
+          "mechanism": "Consulting firms with insufficient AI expertise risk losing business to more knowledgeable competitors advising on Gemini AI-enhanced workflows.",
+          "companies_found": [
+            "4C Consulting Pvt. Ltd."
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Interim CEO Rahul Bhatia appointed at IndiGo following Pieter Elbers' resignation amid operational meltdown causing leadership instability and market confidence erosion.",
+      "event_type": "price_change",
+      "reasoning": "Step 1: Directly affected company is IndiGo with leadership instability after CEO resignation and interim CEO appointment, causing operational and market confidence challenges (hop 1).\nStep 2: Companies that supply aviation components, maintenance, catering, and those offering corporate travel services depend on IndiGo's stable operations. IndiGo's operational and payment issues lead to order and payment delays causing pain to these SMEs (hop 2).\nStep 3: Event planners and SME corporate clients ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "IndiGo airline - mid-sized Indian private airline operations",
+          "lead_type": "pain",
+          "mechanism": "Leadership instability and operational uncertainty at IndiGo causing potential revenue loss and cash flow problems due to customer trust erosion and internal disruption.",
+          "companies_found": [
+            "IndiGo"
+          ],
+          "confidence": 1.0,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Aviation component suppliers and maintenance service SMEs, corporate travel agencies, and airline catering SMEs in India",
+          "lead_type": "pain",
+          "mechanism": "These companies supply to IndiGo or rely on IndiGo bookings. IndiGo's operational and payment instability leads to order volume drops, delayed payments, and contract uncertainty, causing cash flow and operational issues.",
+          "companies_found": [
+            "Air Works (aviation MRO SME Bangalore)",
+            "Vama Events Pvt. Ltd. (event management SME India)",
+            "Selected SME corporate travel agencies in India"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Event organizers and SME corporate clients dependent on IndiGo for flight bookings and travel reliability in India",
+          "lead_type": "pain",
+          "mechanism": "With decreased IndiGo flight reliability and corporate travel planners losing confidence, event organizers face attendance disruptions and budget issues, risking cancellations and financial losses.",
+          "companies_found": [
+            "Mid-size event management companies in Mumbai and major Indian cities"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Microsoft launches Copilot Cowork with Anthropic in India, expanding AI-enhanced productivity suites and intensifying competition in the AI office tools market. This drives enterprises to upgrade software, creating demand for resellers, IT consultants, and system integrators, while necessitating cybersecurity compliance.",
+      "event_type": "technology",
+      "reasoning": "Step 1: The news event highlights Microsoft's Copilot Cowork launch with Anthropic focusing on AI-enhanced productivity suites for enterprises in India.\nStep 2: Hop 1 includes companies directly in the news or immediately impacted such as Microsoft 365 E7 resellers in Pune, for example, PrecisionTech (50-500 employees), who will see increased sales demand as enterprises subscribe to AI-enhanced software.\nStep 3: Hop 2 consists of mid-size IT consulting firms in Mumbai (100-500 employees) that pr",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Microsoft 365 E7 resellers in Pune, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Microsoft's launch of Copilot Cowork drives direct demand for Microsoft 365 E7 subscriptions and related AI productivity tools, benefiting authorized resellers like PrecisionTech in Pune with 24/7 support and certified expertise.",
+          "companies_found": [
+            "PrecisionTech"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "mid-size IT consulting companies in Mumbai, 100-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Enterprises upgrading to Microsoft 365 E7 require integration, training, and advisory services, increasing demand for mid-size IT consultants who specialize in AI adoption and software integration in Mumbai, aiding effective deployment and adoption of AI productivity suites.",
+          "companies_found": [],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "enterprise software integration mid-size companies in Bangalore, 100-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "IT consultants and resellers rely on enterprise software integration firms in Bangalore to customize and integrate AI-driven productivity software for end-user companies, ensuring operational efficiency and cybersecurity compliance.",
+          "companies_found": [],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "OpenAI's acquisition of Promptfoo enhances its AI application testing and security evaluation capabilities, enabling safer AI agents for critical business operations. This impacts AI testing companies and mid-size AI developers and regulated companies in India needing to comply with new AI security standards.",
+      "event_type": "technology",
+      "reasoning": "OpenAI's acquisition of Promptfoo aims to strengthen AI application testing and security capabilities, a crucial factor for safer AI operations in critical business contexts. This news directly impacts AI testing companies that specialize in AI security testing, particularly mid-size firms in India like QualiTlabs (50-200 employees) which are capable of servicing this new demand. This presents an opportunity as these companies can leverage the enhanced focus on AI safety to grow their offerings ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size AI software testing companies in India, 50-200 employees, specializing in AI security and testing services, e.g. QualiTlabs (Hyderabad)",
+          "lead_type": "opportunity",
+          "mechanism": "OpenAI acquisition boosts demand for AI security testing; Indian AI testing companies providing these services can capitalize on upgraded standards and safer AI product demand.",
+          "companies_found": [
+            "QualiTlabs"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 8
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size AI product developers in India, 100-500 employees, needing to upgrade AI products to meet new security and compliance requirements, e.g. Stelae Technologies (Bangalore), Vymo Technologies (Bangalore)",
+          "lead_type": "pain",
+          "mechanism": "AI developers must integrate enhanced security testing and compliance to remain competitive, facing resource and technology challenges from new upgraded AI security standards.",
+          "companies_found": [
+            "Stelae Technologies",
+            "Vymo Technologies"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 12
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size regulated companies in India, across sectors like finance and healthcare, 100-1000 employees, adopting AI solutions and impacted by second-order compliance pressure and AI security risks",
+          "lead_type": "risk",
+          "mechanism": "These companies face operational disruption and compliance risk if they fail to adopt upgraded AI security standards embedded by AI developers impacted in hop-2.",
+          "companies_found": [],
+          "confidence": 0.75,
+          "urgency_weeks": 16
+        }
+      ]
+    },
+    {
+      "event_summary": "Reliance Industries has increased LPG production at its Jamnagar Refinery to mitigate domestic fuel supply volatility amid global energy market disruptions. This involves boosting LPG output and reallocating natural gas from the KG-D6 Basin to government-prioritized sectors. The immediate impact is on Reliance's refining operations and supply chain. The knock-on effects include changes in LPG distributors' logistics and contract terms, shifts in industrial users' fuel procurement and cost structures, and increased maintenance demand for service providers supporting LPG infrastructure.",
+      "event_type": "regulation",
+      "reasoning": "The event concerns Reliance Industries raising LPG output at its Jamnagar refinery to stabilize domestic supply amid global energy instability. Reliance is the direct actor increasing LPG production, reallocating natural gas per government guidelines (Hop 1). This impacts LPG distributors in the region, notably SME distributors and logistics providers in Gujarat and Maharashtra such as GujaratGas Ltd. and Pune's Bajrang Gas Agency, who must rapidly adapt logistics capacity and contract terms. Th",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Reliance Industries refining and LPG production operations at Jamnagar, Gujarat",
+          "lead_type": "opportunity",
+          "mechanism": "Directly increases LPG output and reallocates gas to priority sectors as per government policy, impacting refining output and supply chain operations.",
+          "companies_found": [
+            "Reliance Industries"
+          ],
+          "confidence": 1.0,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "LPG distributors and logistics providers in Gujarat and Maharashtra SMEs (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Increased LPG supply from Reliance requires distributors to adjust logistics capacity and contract terms rapidly; failure causes supply chain disruptions and lost delivery contracts.",
+          "companies_found": [
+            "GujaratGas Ltd.",
+            "Bajrang Gas Agency (Pune)"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Industrial LPG users such as commercial kitchens and manufacturing SMEs in Maharashtra and Gujarat (50-300 employees)",
+          "lead_type": "pain",
+          "mechanism": "Distributors facing supply chain changes affect industrial users' procurement costs and fuel availability, increasing cost volatility and risk of margin erosion.",
+          "companies_found": [
+            "Cloud Kitchens Mumbai (representative)",
+            "Pune-based manufacturing SMEs"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Apple's announcement of the iPhone 18 Pro and rumored MacBook Ultra touchscreen feature triggers demand for new components and retail inventory shifts in India. This forces suppliers to produce new parts to meet Apple's specs and retailers to stock and price these models. Additionally, accessory manufacturers and iOS app developers face pressure to innovate due to increased consumer expectations. Competitors ramp R&D and marketing to maintain market share, affecting associated suppliers downstream.",
+      "event_type": "technology",
+      "reasoning": "The announcement of Apple's iPhone 18 Pro and MacBook Ultra touchscreen feature directly creates demand pressure on component manufacturers in India (Hop 1), who must quickly adapt to new specifications or risk missing Apple contracts. Search showed entities like Datalogics India and other Apple contract manufacturers which fall in the SME/mid-size category for this supply segment. \n\nThese component makers supply to accessory producers and iOS app developers (Hop 2) who must innovate hardware ac",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-sized smartphone component manufacturers supplying Apple in India (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "Apple's new iPhone 18 Pro and MacBook Ultra launch increases demand for new, advanced components, forcing manufacturers to adapt quickly or risk missing launch deadlines and contracts.",
+          "companies_found": [
+            "Datalogics India Private Limited (Chennai)",
+            "Various Apple Contract Manufacturers in India"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-sized manufacturers of smartphone and laptop accessories compatible with Apple's new hardware in India (100-1000 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "Accessory makers need to innovate and produce new accessories aligned with Apple's product features to capture growing market demand and maintain share; app developers must upgrade software compatibility, leading to increased sales opportunities.",
+          "companies_found": [
+            "Rococo Consultant (iOS app development)",
+            "Akoode Technologies (Gurgaon, iOS app developer)"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "SME retailers and local distributors of smartphone and laptop accessories in India (50-200 employees)",
+          "lead_type": "pain",
+          "mechanism": "Retailers and distributors face margin pressure and inventory management challenges due to changing consumer preferences and increased demand for new Apple-compatible accessories, impacting sales and cash flow if adaptation is delayed.",
+          "companies_found": [
+            "Various local retailers and distributors in Indian metro cities"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Leadership instability at IndiGo following CEO Pieter Elbers' sudden resignation and Rahul Bhatia's interim CEO appointment is causing operational uncertainty. This directly impacts IndiGo's strategic management and operational recovery, influencing investor confidence with some share price upticks. The operational instability at IndiGo leads to fluctuating flight schedules and demand uncertainty, affecting suppliers such as mid-size aviation ground handling firms like RAMP360 Ground Handling Services Pvt Ltd in India, SME airline caterers like CAFS in Pune, and aviation maintenance providers like Indamer Aviation Pvt Ltd. These operational disturbances also ripple to mid-size travel agencies in India, such as SME Tours and Travels in Bangalore that rely on IndiGo's consistent flight schedules for bookings and client satisfaction.",
+      "event_type": "price_change",
+      "reasoning": "The event centers on the sudden leadership change at IndiGo with CEO Pieter Elbers' resignation and Rahul Bhatia's interim appointment. This creates immediate operational and strategic uncertainty (Hop 1) directly impacting IndiGo itself. IndiGo is a large airline but excluded from large enterprise category listing, still the direct impacted entity.\n\nHop 2 unfolds as companies that supply critical services to IndiGo face challenges due to fluctuating flight schedules and operational disruptions.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "IndiGo airline operations and leadership",
+          "lead_type": "risk",
+          "mechanism": "Leadership resignation causing operational uncertainty and affecting company strategy, leading to potential revenue and reputation risks.",
+          "companies_found": [
+            "IndiGo"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size aviation ground handling companies India (e.g., RAMP360 Ground Handling Services Pvt Ltd)",
+          "lead_type": "pain",
+          "mechanism": "Flight schedule uncertainties and operational disruptions at IndiGo reduce demand consistency, causing contract risks and financial stress for ground handling service providers.",
+          "companies_found": [
+            "RAMP360 Ground Handling Services Pvt Ltd"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size airline catering companies in Pune India (e.g., CAFS)",
+          "lead_type": "pain",
+          "mechanism": "Operational instability at IndiGo impacts flight timeliness and demand, squeezing margins and contract reliability for airline caterers serving IndiGo.",
+          "companies_found": [
+            "CAFS"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size aviation maintenance providers India (e.g., Indamer Aviation Pvt Ltd)",
+          "lead_type": "pain",
+          "mechanism": "Maintenance scheduling affected by IndiGo's leadership-induced operational disruptions causing revenue and resource allocation challenges.",
+          "companies_found": [
+            "Indamer Aviation Pvt Ltd"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size travel agencies in Bangalore India (e.g., SME Tours and Travels)",
+          "lead_type": "pain",
+          "mechanism": "Booking fluctuations and customer dissatisfaction stemming from IndiGo's unreliable flight schedules impacting travel agencies' revenues and client relationships.",
+          "companies_found": [
+            "SME Tours and Travels"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Corporate clients of mid-size travel agencies in Bengaluru, India (SMEs depending on travel booking services)",
+          "lead_type": "pain",
+          "mechanism": "Travel disruptions caused by instability at IndiGo lead to back-to-back workflow issues and increased travel costs for SMEs relying on these agencies, impacting operational efficiency.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "total_hops": 27,
+  "log_messages": []
+}

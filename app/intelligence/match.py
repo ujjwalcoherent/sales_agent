@@ -7,7 +7,7 @@ fit_score = 0.50 * keyword_overlap_ratio(cluster.keywords, product.buying_trigge
           + 0.30 * cosine_similarity(cluster.embedding, product.embedding)
           + 0.20 * industry_match_score(cluster.industry, product.target_industries)
 
-All weights are starting priors — adapted by WeightLearnerAgent.
+All weights are fixed priors.
 
 Math assertions:
   Assert: fit_score in [0.0, 1.0]
@@ -35,6 +35,9 @@ from app.intelligence.config import ClusteringParams, DEFAULT_PARAMS
 from app.intelligence.models import ClusterResult, MatchResult, Product, ProductCatalog
 
 logger = logging.getLogger(__name__)
+
+_RE_WORD_TOKENS = re.compile(r'\b\w{3,}\b')
+_RE_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 _CATALOG_PATH = os.path.join("data", "product_catalog.json")
 
@@ -140,7 +143,7 @@ def _extract_cluster_keywords(cluster: ClusterResult) -> set:
         "the", "a", "an", "and", "or", "is", "was", "are", "were", "in", "on",
         "at", "to", "for", "of", "with", "by", "from", "as", "its", "has", "had"
     }
-    words = {w for w in re.findall(r'\b\w{3,}\b', text) if w not in stop}
+    words = {w for w in _RE_WORD_TOKENS.findall(text) if w not in stop}
     return words
 
 
@@ -214,7 +217,7 @@ def _extract_evidence(
         if all(w in text_lower for w in trigger_words):
             matched.append(trigger)
             # Extract surrounding sentence as evidence
-            for sentence in re.split(r"(?<=[.!?])\s+", text):
+            for sentence in _RE_SENTENCE_SPLIT.split(text):
                 if any(w in sentence.lower() for w in trigger_words):
                     quotes.append(sentence.strip()[:150])
                     break

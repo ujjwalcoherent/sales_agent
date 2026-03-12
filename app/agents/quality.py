@@ -136,8 +136,6 @@ def _check_impacts(deps) -> QualityVerdict:
     viable = [i for i in impacts if i.council_confidence >= threshold]
     filtered = len(impacts) - len(viable)
 
-    deps._viable_impacts = viable
-
     return QualityVerdict(
         stage="impacts",
         passed=len(viable) > 0,

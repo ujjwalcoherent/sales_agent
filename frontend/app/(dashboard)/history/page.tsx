@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Clock, Activity, TrendingUp, Users, AlertCircle,
   CheckCircle, XCircle, Loader2, Play, Copy, Check,
-  ChevronDown, ChevronUp, Database, Zap, GitBranch,
+  ChevronDown, ChevronUp, Database, Zap, GitBranch, RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PipelineRunSummary } from "@/lib/types";
@@ -80,11 +80,31 @@ const STATUS_MAP: Record<string, { color: string; bg: string; label: string }> =
 export default function HistoryPage() {
   const [runs, setRuns] = useState<PipelineRunSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    api.getPipelineRuns(20).then(setRuns).catch(() => {}).finally(() => setLoading(false));
+  const loadRuns = useCallback(async (initial = false) => {
+    try {
+      const data = await api.getPipelineRuns(20);
+      setRuns(data);
+      // Start polling if any run is active; stop when all are done
+      const hasActive = data.some(r => r.status === "running");
+      if (hasActive && !intervalRef.current) {
+        intervalRef.current = setInterval(() => loadRuns(), 30_000);
+      } else if (!hasActive && intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    } catch { /* non-critical */ } finally {
+      if (initial) setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    loadRuns(true);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [loadRuns]);
+
+  const activeRuns  = runs.filter(r => r.status === "running");
   const completed   = runs.filter(r => r.status === "completed");
   const failed      = runs.filter(r => r.status === "failed");
   const totalTrends = completed.reduce((s, r) => s + r.trends_detected, 0);
@@ -97,11 +117,32 @@ export default function HistoryPage() {
     <>
       {/* ── Header ──────────────────────────────────── */}
       <div style={{ padding: "20px 24px 18px", borderBottom: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
           <h1 className="font-display" style={{ fontSize: 22, color: "var(--text)", letterSpacing: "-0.02em" }}>
             Pipeline History
           </h1>
           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{runs.length} runs recorded</span>
+          {activeRuns.length > 0 && (
+            <span style={{
+              display: "flex", alignItems: "center", gap: 5,
+              fontSize: 11, color: "var(--accent)", padding: "3px 9px",
+              background: "var(--accent-light)", borderRadius: 5,
+            }}>
+              <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} />
+              {activeRuns.length} active · auto-refreshing
+            </span>
+          )}
+          <button
+            onClick={() => loadRuns()}
+            style={{
+              marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
+              padding: "5px 12px", borderRadius: 7, fontSize: 11,
+              border: "1px solid var(--border)", background: "var(--surface)",
+              color: "var(--text-secondary)", cursor: "pointer",
+            }}
+          >
+            <RefreshCw size={11} /> Refresh
+          </button>
         </div>
 
         {/* ── Summary KPI cards ── */}

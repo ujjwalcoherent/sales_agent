@@ -1,0 +1,430 @@
+[
+  {
+    "cluster_id": "f2ff8d0716bb",
+    "label": "Tesla event 1",
+    "article_count": 8,
+    "article_indices": [
+      12,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "primary_entity": "Tesla",
+    "entity_names": [
+      "Tesla"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.9219,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9878,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4445,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8567,
+      "silhouette_score": 0.0728,
+      "cut_threshold": 0.69,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "8a68a727a8ff",
+    "label": "ETNVIDIA event 1",
+    "article_count": 4,
+    "article_indices": [
+      4,
+      6,
+      9,
+      10
+    ],
+    "primary_entity": "ETNVIDIA",
+    "entity_names": [
+      "ETNVIDIA"
+    ],
+    "event_type": "investment",
+    "event_granularity": "major",
+    "confidence": 0.8673,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4233,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5583,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9851,
+      "silhouette_score": 0.0938,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "813fe12d239e",
+    "label": "GeForce (all)",
+    "article_count": 3,
+    "article_indices": [
+      1,
+      3,
+      7
+    ],
+    "primary_entity": "GeForce",
+    "entity_names": [
+      "GeForce"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8578,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.328,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5721,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "8907c0c23698",
+    "label": "GPU (all)",
+    "article_count": 4,
+    "article_indices": [
+      2,
+      3,
+      7,
+      8
+    ],
+    "primary_entity": "GPU",
+    "entity_names": [
+      "GPU"
+    ],
+    "event_type": "shutdown",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4528,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "dcc3d8f8640e",
+    "label": "Artificial Intelligence (all)",
+    "article_count": 4,
+    "article_indices": [
+      4,
+      6,
+      10,
+      17
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "investment",
+    "event_granularity": "major",
+    "confidence": 0.7929,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.8715,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3922,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "de559f63b53f",
+    "label": "OpenAI (all)",
+    "article_count": 2,
+    "article_indices": [
+      6,
+      9
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5448,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "adef2b921eab",
+    "label": "SUPER (all)",
+    "article_count": 4,
+    "article_indices": [
+      2,
+      3,
+      7,
+      8
+    ],
+    "primary_entity": "SUPER",
+    "entity_names": [
+      "SUPER"
+    ],
+    "event_type": "shutdown",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4528,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "302e88a2579f",
+    "label": "PCB (all)",
+    "article_count": 4,
+    "article_indices": [
+      2,
+      3,
+      7,
+      8
+    ],
+    "primary_entity": "PCB",
+    "entity_names": [
+      "PCB"
+    ],
+    "event_type": "shutdown",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4528,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "d57248c57798",
+    "label": "Reader (all)",
+    "article_count": 4,
+    "article_indices": [
+      2,
+      3,
+      7,
+      8
+    ],
+    "primary_entity": "Reader",
+    "entity_names": [
+      "Reader"
+    ],
+    "event_type": "shutdown",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4528,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "fa8f07520686",
+    "label": "China (all)",
+    "article_count": 2,
+    "article_indices": [
+      16,
+      19
+    ],
+    "primary_entity": "China",
+    "entity_names": [
+      "China"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8172,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9686,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4359,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "207db93ad1d5",
+    "label": "NVDA (all)",
+    "article_count": 2,
+    "article_indices": [
+      9,
+      10
+    ],
+    "primary_entity": "NVDA",
+    "entity_names": [
+      "NVDA"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5299,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "5e99d75fa6e7",
+    "label": "Canada (all)",
+    "article_count": 3,
+    "article_indices": [
+      13,
+      15,
+      16
+    ],
+    "primary_entity": "Canada",
+    "entity_names": [
+      "Canada"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8263,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9965,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0219,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4484,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "9f2d420afd93",
+    "label": "Automotive World (all)",
+    "article_count": 2,
+    "article_indices": [
+      11,
+      15
+    ],
+    "primary_entity": "Automotive World",
+    "entity_names": [
+      "Automotive World"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.8271,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0209,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.608,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "af7881ec890e",
+    "label": "Electric Vehicle (all)",
+    "article_count": 2,
+    "article_indices": [
+      12,
+      19
+    ],
+    "primary_entity": "Electric Vehicle",
+    "entity_names": [
+      "Electric Vehicle"
+    ],
+    "event_type": "market_trend",
+    "event_granularity": "major",
+    "confidence": 0.8263,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0126,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4893,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  }
+]

@@ -36,7 +36,7 @@ import numpy as np
 
 from app.intelligence.config import ClusteringParams, DEFAULT_PARAMS
 from app.intelligence.models import (
-    ClusterResult, DendrogramMetrics, EventGranularity, Provenance,
+    ClusterResult, DendrogramMetrics, EventGranularity,
 )
 
 logger = logging.getLogger(__name__)
@@ -260,7 +260,6 @@ def _cluster_hac(
     # Build dendrogram metrics
     dendro = DendrogramMetrics(
         cophenetic_r=round(float(coph_r), 4),
-        silhouette_score=round(float(best_sil), 4),
         cut_threshold=round(float(best_t), 4),
         n_subclusters=n_clusters,
         outlier_indices=outlier_indices,

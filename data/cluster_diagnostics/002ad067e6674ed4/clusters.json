@@ -1,0 +1,1284 @@
+[
+  {
+    "cluster_id": "0c9dcbd02649",
+    "label": "Trump event 1",
+    "article_count": 2,
+    "article_indices": [
+      59,
+      580
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "nano",
+    "confidence": 0.9647,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8677,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9779,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3905,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8179,
+      "silhouette_score": -0.0499,
+      "cut_threshold": 0.63,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "a5318a53ac00",
+    "label": "Trump event 2",
+    "article_count": 6,
+    "article_indices": [
+      43,
+      173,
+      236,
+      355,
+      433,
+      609
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8783,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8174,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7801,
+      "not_duplicate": 0.4592,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3678,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8179,
+      "silhouette_score": -0.0499,
+      "cut_threshold": 0.63,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "3bdf93d1c72a",
+    "label": "Google event 1",
+    "article_count": 4,
+    "article_indices": [
+      126,
+      172,
+      247,
+      623
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.913,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.9181,
+      "not_duplicate": 0.5451,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4549,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8233,
+      "silhouette_score": 0.0711,
+      "cut_threshold": 0.63,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "531c16f2458d",
+    "label": "Google event 2",
+    "article_count": 3,
+    "article_indices": [
+      245,
+      337,
+      631
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "technology",
+    "event_granularity": "sub",
+    "confidence": 0.9293,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9454,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.893,
+      "not_duplicate": 0.5369,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4254,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8233,
+      "silhouette_score": 0.0711,
+      "cut_threshold": 0.63,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "2df142bf0c7e",
+    "label": "Google event 3",
+    "article_count": 4,
+    "article_indices": [
+      433,
+      450,
+      557,
+      626
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8541,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9777,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4639,
+      "not_duplicate": 0.1326,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.44,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8233,
+      "silhouette_score": 0.0711,
+      "cut_threshold": 0.63,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "18cee3a7d064",
+    "label": "Pentagon event 1",
+    "article_count": 24,
+    "article_indices": [
+      2,
+      20,
+      40,
+      52,
+      118,
+      171,
+      185,
+      212,
+      283,
+      292,
+      302,
+      329,
+      368,
+      400,
+      530,
+      531,
+      561,
+      566,
+      615,
+      616,
+      617,
+      619,
+      620,
+      621
+    ],
+    "primary_entity": "Pentagon",
+    "entity_names": [
+      "Pentagon"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8513,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3454,
+      "not_duplicate": 0.251,
+      "outlier_ejection": 0.9167
+    },
+    "coherence_score": 0.5863,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8051,
+      "silhouette_score": 0.1414,
+      "cut_threshold": 0.55,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "ec16d70cf85a",
+    "label": "Amazon event 1",
+    "article_count": 2,
+    "article_indices": [
+      197,
+      541
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.8377,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.661,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7178,
+      "not_duplicate": 0.5071,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2974,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.984,
+      "silhouette_score": 0.2845,
+      "cut_threshold": 0.63,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "034366862c56",
+    "label": "Amazon event 2",
+    "article_count": 2,
+    "article_indices": [
+      142,
+      389
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9453,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9174,
+      "not_duplicate": 0.536,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9083,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.984,
+      "silhouette_score": 0.2845,
+      "cut_threshold": 0.63,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "bb6ec57f45de",
+    "label": "Amazon event 3",
+    "article_count": 2,
+    "article_indices": [
+      296,
+      557
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.8023,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7153,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.5586,
+      "not_duplicate": 0.1766,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3219,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.984,
+      "silhouette_score": 0.2845,
+      "cut_threshold": 0.63,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "da6b0dd6b58c",
+    "label": "Apple (all)",
+    "article_count": 2,
+    "article_indices": [
+      244,
+      253
+    ],
+    "primary_entity": "Apple",
+    "entity_names": [
+      "Apple"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8355,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.515,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9977,
+      "not_duplicate": 0.5703,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2317,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "70e60fa9cdc0",
+    "label": "Microsoft event 1",
+    "article_count": 9,
+    "article_indices": [
+      40,
+      140,
+      146,
+      293,
+      433,
+      434,
+      450,
+      467,
+      557
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7973,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8266,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4806,
+      "not_duplicate": 0.0366,
+      "outlier_ejection": 0.8889
+    },
+    "coherence_score": 0.372,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8487,
+      "silhouette_score": 0.0482,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "9d1b12c2184b",
+    "label": "OpenAI event 1",
+    "article_count": 2,
+    "article_indices": [
+      92,
+      249
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "nano",
+    "confidence": 0.9285,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9519,
+      "not_duplicate": 0.3332,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7924,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6922,
+      "silhouette_score": 0.1058,
+      "cut_threshold": 0.54,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "2c5e8448a636",
+    "label": "OpenAI event 2",
+    "article_count": 3,
+    "article_indices": [
+      140,
+      450,
+      619
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8776,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.755,
+      "not_duplicate": 0.0215,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4777,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6922,
+      "silhouette_score": 0.1058,
+      "cut_threshold": 0.54,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "412e525bae66",
+    "label": "Caterpillar event 1",
+    "article_count": 3,
+    "article_indices": [
+      584,
+      586,
+      587
+    ],
+    "primary_entity": "Caterpillar",
+    "entity_names": [
+      "Caterpillar"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8686,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4361,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4845,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8966,
+      "silhouette_score": 0.1334,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "b9d23a8dcd84",
+    "label": "Caterpillar event 2",
+    "article_count": 4,
+    "article_indices": [
+      585,
+      589,
+      590,
+      591
+    ],
+    "primary_entity": "Caterpillar",
+    "entity_names": [
+      "Caterpillar"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.8618,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.3678,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5606,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8966,
+      "silhouette_score": 0.1334,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "33360d316f7b",
+    "label": "Anthropic event 1",
+    "article_count": 2,
+    "article_indices": [
+      198,
+      620
+    ],
+    "primary_entity": "Anthropic",
+    "entity_names": [
+      "Anthropic"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.8991,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9338,
+      "not_duplicate": 0.0569,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6784,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8019,
+      "silhouette_score": 0.1624,
+      "cut_threshold": 0.54,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "9460c98b49f5",
+    "label": "Elon Musk (all)",
+    "article_count": 3,
+    "article_indices": [
+      190,
+      361,
+      544
+    ],
+    "primary_entity": "Elon Musk",
+    "entity_names": [
+      "Elon Musk"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8345,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7642,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6363,
+      "not_duplicate": 0.2985,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3439,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "b455f9d3108d",
+    "label": "Fed (all)",
+    "article_count": 2,
+    "article_indices": [
+      472,
+      532
+    ],
+    "primary_entity": "Fed",
+    "entity_names": [
+      "Fed"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.9615,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9557,
+      "not_duplicate": 0.6595,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.892,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "00e0273fd7b4",
+    "label": "CBS News (all)",
+    "article_count": 2,
+    "article_indices": [
+      188,
+      617
+    ],
+    "primary_entity": "CBS News",
+    "entity_names": [
+      "CBS News"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8436,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7533,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9376,
+      "not_duplicate": 0.1151,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.339,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "8cea7ed72333",
+    "label": "Paramount (all)",
+    "article_count": 3,
+    "article_indices": [
+      188,
+      388,
+      568
+    ],
+    "primary_entity": "Paramount",
+    "entity_names": [
+      "Paramount"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8514,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3911,
+      "not_duplicate": 0.1232,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6968,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "22f6c9108f19",
+    "label": "Marvell (all)",
+    "article_count": 2,
+    "article_indices": [
+      30,
+      81
+    ],
+    "primary_entity": "Marvell",
+    "entity_names": [
+      "Marvell"
+    ],
+    "event_type": "guidance",
+    "event_granularity": "major",
+    "confidence": 0.9491,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9826,
+      "not_duplicate": 0.5087,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5683,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "a5f024ef5280",
+    "label": "Netflix (all)",
+    "article_count": 3,
+    "article_indices": [
+      300,
+      310,
+      541
+    ],
+    "primary_entity": "Netflix",
+    "entity_names": [
+      "Netflix"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.8982,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7475,
+      "not_duplicate": 0.2344,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5893,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "76d0fb220517",
+    "label": "Revolut (all)",
+    "article_count": 4,
+    "article_indices": [
+      45,
+      259,
+      313,
+      396
+    ],
+    "primary_entity": "Revolut",
+    "entity_names": [
+      "Revolut"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.9348,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8815,
+      "not_duplicate": 0.4664,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7989,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "4204ca3e35c1",
+    "label": "Visa (all)",
+    "article_count": 3,
+    "article_indices": [
+      77,
+      174,
+      396
+    ],
+    "primary_entity": "Visa",
+    "entity_names": [
+      "Visa"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.9149,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.891,
+      "not_duplicate": 0.2577,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5419,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "23d504d6614f",
+    "label": "Ford (all)",
+    "article_count": 4,
+    "article_indices": [
+      546,
+      586,
+      598,
+      603
+    ],
+    "primary_entity": "Ford",
+    "entity_names": [
+      "Ford"
+    ],
+    "event_type": "strategy",
+    "event_granularity": "major",
+    "confidence": 0.85,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8669,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.5654,
+      "not_duplicate": 0.2677,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3901,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "900a71939413",
+    "label": "Zoom Taps (all)",
+    "article_count": 3,
+    "article_indices": [
+      574,
+      578,
+      579
+    ],
+    "primary_entity": "Zoom Taps",
+    "entity_names": [
+      "Zoom Taps"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.8618,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9065,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.602,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4079,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "0d7c7c06c35f",
+    "label": "Rivian Adventure Department event 1",
+    "article_count": 4,
+    "article_indices": [
+      594,
+      599,
+      600,
+      601
+    ],
+    "primary_entity": "Rivian Adventure Department",
+    "entity_names": [
+      "Rivian Adventure Department"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8605,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.355,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9344,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9831,
+      "silhouette_score": 0.1274,
+      "cut_threshold": 0.39,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "95b61e352c06",
+    "label": "Rosen Law Firm (all)",
+    "article_count": 4,
+    "article_indices": [
+      17,
+      22,
+      24,
+      35
+    ],
+    "primary_entity": "Rosen Law Firm",
+    "entity_names": [
+      "Rosen Law Firm"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.885,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9924,
+      "not_duplicate": 0.6078,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5413,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "bed2cb5be269",
+    "label": "Nominal (all)",
+    "article_count": 2,
+    "article_indices": [
+      49,
+      222
+    ],
+    "primary_entity": "Nominal",
+    "entity_names": [
+      "Nominal"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.9528,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9461,
+      "not_duplicate": 0.5817,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8993,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "15424eca0165",
+    "label": "Broadcom (all)",
+    "article_count": 3,
+    "article_indices": [
+      168,
+      438,
+      446
+    ],
+    "primary_entity": "Broadcom",
+    "entity_names": [
+      "Broadcom"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9114,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8157,
+      "not_duplicate": 0.2986,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8352,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "17efcc4fb54a",
+    "label": "Rocket Lab (all)",
+    "article_count": 2,
+    "article_indices": [
+      64,
+      180
+    ],
+    "primary_entity": "Rocket Lab",
+    "entity_names": [
+      "Rocket Lab"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.7803,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4629,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.9653,
+      "not_duplicate": 0.5135,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2083,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "0c2daf8af255",
+    "label": "Morgan Stanley (all)",
+    "article_count": 2,
+    "article_indices": [
+      99,
+      100
+    ],
+    "primary_entity": "Morgan Stanley",
+    "entity_names": [
+      "Morgan Stanley"
+    ],
+    "event_type": "layoffs",
+    "event_granularity": "major",
+    "confidence": 0.8854,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9016,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4332,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4057,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "4a2536a1da87",
+    "label": "Canfor (all)",
+    "article_count": 2,
+    "article_indices": [
+      110,
+      113
+    ],
+    "primary_entity": "Canfor",
+    "entity_names": [
+      "Canfor"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.883,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.5803,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.892,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "795031fbc0f5",
+    "label": "Nvidia (all)",
+    "article_count": 2,
+    "article_indices": [
+      145,
+      436
+    ],
+    "primary_entity": "Nvidia",
+    "entity_names": [
+      "Nvidia"
+    ],
+    "event_type": "competition",
+    "event_granularity": "major",
+    "confidence": 0.9128,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8284,
+      "not_duplicate": 0.2999,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5035,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "dab62f32ba15",
+    "label": "UWM (all)",
+    "article_count": 2,
+    "article_indices": [
+      180,
+      227
+    ],
+    "primary_entity": "UWM",
+    "entity_names": [
+      "UWM"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9135,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9836,
+      "not_duplicate": 0.1516,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4604,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "19c52604ce54",
+    "label": "Coinbase (all)",
+    "article_count": 2,
+    "article_indices": [
+      346,
+      421
+    ],
+    "primary_entity": "Coinbase",
+    "entity_names": [
+      "Coinbase"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.8513,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6531,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.919,
+      "not_duplicate": 0.4611,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2939,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "094910b372c1",
+    "label": "Driver (all)",
+    "article_count": 2,
+    "article_indices": [
+      586,
+      594
+    ],
+    "primary_entity": "Driver",
+    "entity_names": [
+      "Driver"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.7846,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.8068,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.079,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3631,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "451b6bccc36e",
+    "label": "Rivian event 2",
+    "article_count": 2,
+    "article_indices": [
+      595,
+      596
+    ],
+    "primary_entity": "Rivian",
+    "entity_names": [
+      "Rivian"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "nano",
+    "confidence": 0.8487,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.2368,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.9676,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9903,
+      "silhouette_score": 0.2016,
+      "cut_threshold": 0.42,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "fe9abbbcff0d",
+    "label": "discovery_11",
+    "article_count": 2,
+    "article_indices": [
+      157,
+      287
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.9478,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9607,
+      "not_duplicate": 0.5177,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7436,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

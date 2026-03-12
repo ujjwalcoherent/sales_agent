@@ -6,6 +6,7 @@ dict-based methods (Track B) matching the old LLMTool signatures.
 """
 
 import asyncio
+import json
 import logging
 from typing import Any, Dict, Optional, Type, TypeVar
 
@@ -228,6 +229,20 @@ class LLMService:
         """
         retries = max_retries if max_retries is not None else self.settings.llm_json_max_retries
         sys_prompt = system_prompt or ""
+
+        # Mock fast-path: return keyword-matched mock JSON without hitting real LLMs.
+        # This handles cases where Track B (agent.run) might fail even with FunctionModel
+        # (e.g., pydantic-ai version differences in structured output handling).
+        if self.mock_mode:
+            from . import mock_responses
+            raw_mock = mock_responses.get_mock_response(prompt, json_mode=True)
+            try:
+                parsed_mock = json.loads(raw_mock) if isinstance(raw_mock, str) else raw_mock
+                if isinstance(parsed_mock, dict) and "error" not in parsed_mock:
+                    return parsed_mock
+            except Exception:
+                pass
+            # Let Track B proceed — FunctionModel will handle via structured mock
 
         # Track A: typed structured output
         if pydantic_model:

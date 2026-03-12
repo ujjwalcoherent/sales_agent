@@ -2,7 +2,6 @@
 Pipeline metric logging — appends a JSON record per run to a JSONL file.
 
 `record_pipeline_run()` writes to pipeline_run_log.jsonl at the end of each run.
-`record_cluster_signals()` logs per-cluster signal breakdowns for weight auto-learning.
 """
 
 import json
@@ -16,7 +15,6 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 DEFAULT_LOG_PATH = Path("./data/pipeline_run_log.jsonl")
-CLUSTER_SIGNAL_LOG_PATH = Path("./data/cluster_signal_log.jsonl")
 
 
 def record_pipeline_run(
@@ -96,76 +94,3 @@ def load_history(
         records = records[-last_n:]
 
     return records
-
-
-def record_cluster_signals(
-    run_id: str,
-    cluster_signals: Dict[int, Dict[str, Any]],
-    cluster_oss: Dict[int, float],
-    cluster_outcomes: Optional[Dict[int, Dict[str, float]]] = None,
-    log_path: Path = CLUSTER_SIGNAL_LOG_PATH,
-) -> int:
-    """Log per-cluster signal breakdowns + outcome scores for weight auto-learning.
-
-    The outcome_score is a NON-CIRCULAR composite:
-      40% kb_hit_rate + 30% lead_quality + 30% oss
-    This breaks the circular dependency where OSS alone drove weight updates.
-    """
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).isoformat()
-    records_written = 0
-    cluster_outcomes = cluster_outcomes or {}
-
-    breakdown_keys = [
-        "actionability_breakdown",
-        "trend_score_breakdown",
-        "cluster_quality_breakdown",
-        "confidence_breakdown",
-    ]
-
-    try:
-        with open(log_path, "a", encoding="utf-8") as f:
-            for cid, signals in cluster_signals.items():
-                oss = cluster_oss.get(cid, 0.0)
-                if oss is None:
-                    oss = 0.0
-
-                breakdowns = {}
-                for key in breakdown_keys:
-                    bd = signals.get(key)
-                    if bd and isinstance(bd, dict):
-                        breakdowns[key] = bd
-
-                if not breakdowns:
-                    continue
-
-                # Compute composite outcome score from external signals
-                outcomes = cluster_outcomes.get(cid, {})
-                kb_hit = outcomes.get("kb_hit_rate", 0.0)
-                lead_quality = outcomes.get("lead_quality", 0.0)
-                outcome_score = 0.40 * kb_hit + 0.30 * lead_quality + 0.30 * float(oss)
-
-                record = {
-                    "run_id": run_id,
-                    "timestamp": timestamp,
-                    "cluster_id": cid,
-                    "oss": round(float(oss), 4),
-                    "outcome_score": round(outcome_score, 4),
-                    "kb_hit_rate": round(kb_hit, 4),
-                    "lead_quality": round(lead_quality, 4),
-                    "breakdowns": breakdowns,
-                }
-                f.write(json.dumps(record, default=str) + "\n")
-                records_written += 1
-
-        if records_written > 0:
-            logger.info(
-                f"Logged {records_written} cluster signal records "
-                f"for weight auto-learning (run={run_id})"
-            )
-    except Exception as e:
-        logger.warning(f"Failed to log cluster signals: {e}")
-
-    return records_written
-
-

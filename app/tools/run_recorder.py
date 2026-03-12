@@ -11,7 +11,7 @@ them through the same SSE channel with compressed timing (~45s demo).
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -41,11 +41,6 @@ class RunRecorder:
         self.dir = recording_dir / run_id
         self.dir.mkdir(parents=True, exist_ok=True)
         self.steps: List[Dict[str, Any]] = []
-        self._log_buffer: List[str] = []
-
-    def buffer_log(self, message: str):
-        """Buffer a log message for the current step."""
-        self._log_buffer.append(message)
 
     def record_step(
         self,
@@ -68,10 +63,6 @@ class RunRecorder:
         }
         self.steps.append(entry)
 
-        # Attach buffered log messages
-        data["log_messages"] = self._log_buffer.copy()
-        self._log_buffer.clear()
-
         step_file = self.dir / f"{order:02d}_{step_name}.json"
         try:
             with open(step_file, "w", encoding="utf-8") as f:
@@ -84,7 +75,7 @@ class RunRecorder:
         """Save manifest with step ordering and timing."""
         manifest = {
             "run_id": self.run_id,
-            "recorded_at": datetime.utcnow().isoformat(),
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
             "total_duration_s": round(total_duration, 2),
             "step_count": len(self.steps),
             "steps": self.steps,

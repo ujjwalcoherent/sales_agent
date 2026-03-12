@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { extractDomain, parseSnippet, confidenceColor, TYPE_CLASSES } from "@/lib/utils";
 import { TrendSection } from "@/components/ui/detail-section";
 import { BadgeTagList } from "@/components/ui/tag-list";
-import type { TrendData, Severity, LeadRecord } from "@/lib/types";
+import type { TrendData, TrendLevel, Severity, LeadRecord } from "@/lib/types";
 
 const SEVERITY_OPTIONS: { label: string; value: Severity | "all" }[] = [
   { label: "All",        value: "all"       },
@@ -20,6 +20,12 @@ const SEVERITY_OPTIONS: { label: string; value: Severity | "all" }[] = [
 ];
 
 const TYPE_OPTIONS = ["all", "regulatory", "policy", "macro", "technology", "industry", "talent"] as const;
+const LEVEL_OPTIONS: { label: string; value: TrendLevel | "all" }[] = [
+  { label: "All Levels", value: "all" },
+  { label: "Major",      value: "major" },
+  { label: "Sub",        value: "sub" },
+  { label: "Minor",      value: "minor" },
+];
 
 export default function TrendsPage() {
   const { trends: contextTrends, initialLoading } = usePipelineContext();
@@ -27,6 +33,7 @@ export default function TrendsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch]     = useState("");
   const [severity, setSeverity] = useState<Severity | "all">("all");
+  const [level, setLevel]       = useState<TrendLevel | "all">("all");
   const [type, setType]         = useState<string>("all");
   const [selected, setSelected] = useState<TrendData | null>(null);
 
@@ -54,6 +61,7 @@ export default function TrendsPage() {
   const filtered = useMemo(() => {
     return trends.filter((t) => {
       if (severity !== "all" && t.severity !== severity) return false;
+      if (level !== "all" && (t.trend_level ?? "sub") !== level) return false;
       if (type !== "all" && t.trend_type !== type) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -156,6 +164,32 @@ export default function TrendsPage() {
             ))}
           </div>
 
+          {/* Level filter */}
+          <div style={{ display: "flex", gap: 2, background: "var(--surface-raised)", borderRadius: 7, padding: 3 }}>
+            {LEVEL_OPTIONS.map(({ label, value }) => (
+              <button
+                key={value}
+                onClick={() => setLevel(value)}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 5,
+                  border: "none",
+                  fontSize: 11,
+                  fontWeight: level === value ? 600 : 400,
+                  cursor: "pointer",
+                  background: level === value ? "var(--surface)" : "transparent",
+                  color: value === "major" && level === value ? "var(--red)"
+                       : value === "minor" && level === value ? "var(--text-muted)"
+                       : level === value ? "var(--text)" : "var(--text-muted)",
+                  boxShadow: level === value ? "var(--shadow-sm)" : "none",
+                  transition: "all 150ms",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Type filter */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <SlidersHorizontal size={13} style={{ color: "var(--text-muted)" }} />
@@ -230,6 +264,26 @@ function parseImpactEntry(entry: string): { segment: string; detail: string } {
   return { segment: entry.substring(0, dashIdx), detail: entry.substring(dashIdx + 3) };
 }
 
+const LEVEL_STYLE: Record<TrendLevel, { bg: string; color: string; label: string }> = {
+  major: { bg: "var(--red-light)", color: "var(--red)",  label: "MAJOR" },
+  sub:   { bg: "var(--amber-light,rgba(255,180,0,0.12))", color: "var(--amber,#e8a900)", label: "SUB" },
+  minor: { bg: "var(--surface-raised)", color: "var(--text-muted)", label: "MINOR" },
+};
+
+function TrendLevelBadge({ level }: { level?: TrendLevel }) {
+  const s = LEVEL_STYLE[level ?? "sub"];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 8px", borderRadius: 4,
+      background: s.bg, color: s.color,
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
 function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void }) {
   const { leads: contextLeads } = usePipelineContext();
   const [apiLeads, setApiLeads] = useState<LeadRecord[]>([]);
@@ -265,9 +319,14 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
     <div>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
-        <h2 className="font-display" style={{ fontSize: 18, color: "var(--text)", lineHeight: 1.3, letterSpacing: "-0.02em" }}>
-          {trend.title}
-        </h2>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <TrendLevelBadge level={trend.trend_level} />
+          </div>
+          <h2 className="font-display" style={{ fontSize: 18, color: "var(--text)", lineHeight: 1.3, letterSpacing: "-0.02em" }}>
+            {trend.title}
+          </h2>
+        </div>
         <button
           onClick={onClose}
           style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", padding: 4 }}
@@ -331,12 +390,10 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
         </TrendSection>
       )}
 
-      {/* ── COUNCIL ANALYSIS ── */}
+      {/* ── COUNCIL CONFIDENCE ── */}
       {trend.council_confidence != null && trend.council_confidence > 0 && (
-        <TrendSection label="COUNCIL ANALYSIS">
-          {/* Confidence meter */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", minWidth: 80 }}>Confidence</span>
+        <TrendSection label="COUNCIL CONFIDENCE">
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <div style={{ flex: 1, height: 8, background: "var(--surface-raised)", borderRadius: 4, overflow: "hidden" }}>
               <div style={{
                 width: `${Math.round(trend.council_confidence * 100)}%`,
@@ -347,55 +404,6 @@ function TrendDetail({ trend, onClose }: { trend: TrendData; onClose: () => void
             <span style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.875rem" }}>
               {Math.round(trend.council_confidence * 100)}%
             </span>
-          </div>
-          {/* Pain points */}
-          {trend.midsize_pain_points?.length > 0 && (
-            <div style={{ marginBottom: "0.75rem" }}>
-              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.4rem" }}>Pain Points</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                {trend.midsize_pain_points.map((p: string, i: number) => (
-                  <span key={i} style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: 4, background: "#ef444422", color: "#ef4444" }}>{p}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Target roles */}
-          {trend.target_roles?.length > 0 && (
-            <div>
-              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.4rem" }}>Decision-Makers to Target</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                {trend.target_roles.map((r: string, i: number) => (
-                  <span key={i} style={{ fontSize: "0.72rem", padding: "3px 8px", borderRadius: 4, background: "#3b82f622", color: "#3b82f6" }}>{r}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </TrendSection>
-      )}
-
-      {/* ── BUYING INTENT SIGNALS ── */}
-      {trend.buying_intent && Object.keys(trend.buying_intent).length > 0 && (
-        <TrendSection label="BUYING INTENT SIGNALS">
-          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "4px 12px" }}>
-            {Object.entries(trend.buying_intent).map(([k, v]) => (
-              <div key={k} style={{ display: "contents" }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "capitalize" }}>{k.replace(/_/g, " ")}</span>
-                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </TrendSection>
-      )}
-
-      {/* ── EVIDENCE CITATIONS ── */}
-      {trend.evidence_citations?.length > 0 && (
-        <TrendSection label={`EVIDENCE (${trend.evidence_citations.length})`} icon={<Quote size={11} style={{ color: "var(--text-xmuted)" }} />}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {trend.evidence_citations.slice(0, 5).map((cite, i) => (
-              <div key={i} style={{ fontSize: "0.78rem", color: "var(--text-muted)", padding: "0.35rem 0", borderBottom: "1px solid var(--border)" }}>
-                • {cite}
-              </div>
-            ))}
           </div>
         </TrendSection>
       )}

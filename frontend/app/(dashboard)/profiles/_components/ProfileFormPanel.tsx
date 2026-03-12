@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
 import { createProfile, updateProfile } from "@/lib/api";
+import { REGION_OPTIONS } from "@/lib/countries";
 import type {
   UserProfile,
   CreateProfileRequest,
@@ -106,7 +107,7 @@ export default function ProfileFormPanel({ profile, onClose, onSaved }: Props) {
   // ── Identity fields ──
   const [userName, setUserName] = useState(profile?.user_name ?? "");
   const [ownCompany, setOwnCompany] = useState(profile?.own_company ?? "");
-  const [region, setRegion] = useState(profile?.region ?? "India");
+  const [region, setRegion] = useState(profile?.region ?? "global");
   const [pathPreference, setPathPreference] = useState<UserProfile["path_preference"]>(
     profile?.path_preference ?? "auto"
   );
@@ -282,13 +283,11 @@ export default function ProfileFormPanel({ profile, onClose, onSaved }: Props) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
           <div>
-            <label style={labelStyle}>Region</label>
+            <label style={labelStyle}>Region / Country</label>
             <select style={selectStyle} value={region} onChange={(e) => setRegion(e.target.value)}>
-              <option value="India">India</option>
-              <option value="US">US</option>
-              <option value="UK">UK</option>
-              <option value="SEA">SEA</option>
-              <option value="Global">Global</option>
+              {REGION_OPTIONS.map((r) => (
+                <option key={r.code} value={r.code}>{r.name}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -303,25 +302,6 @@ export default function ProfileFormPanel({ profile, onClose, onSaved }: Props) {
               <option value="company_first">Company-First</option>
               <option value="report_driven">Report-Driven</option>
             </select>
-          </div>
-        </div>
-        <div style={fieldGroupStyle}>
-          <label style={labelStyle}>
-            Min Lead Score — {minLeadScore.toFixed(2)}
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={minLeadScore}
-            onChange={(e) => setMinLeadScore(Number(e.target.value))}
-            style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }}
-          />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>
-            <span>0.0 — Any</span>
-            <span>0.5 — Balanced</span>
-            <span>1.0 — Perfect only</span>
           </div>
         </div>
       </div>

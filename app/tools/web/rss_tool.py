@@ -4,14 +4,15 @@ Supports 20+ free RSS feeds and API sources.
 Focuses on TODAY's Indian business news - specific events, not generic trends.
 """
 
-import html
-import logging
-import re
-import os
 import hashlib
-from datetime import datetime, timedelta
+import html
+import json
+import logging
+import os
+import re
+import time
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Any
-from uuid import uuid4
 import asyncio
 import httpx
 import feedparser
@@ -119,7 +120,7 @@ class RSSTool:
         all_articles = self._deduplicate_articles(all_articles)
 
         # Filter by time
-        cutoff = datetime.utcnow() - timedelta(hours=hours_ago)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
         all_articles = [a for a in all_articles if a.published_at >= cutoff]
 
         # Sort by recency
@@ -146,7 +147,7 @@ class RSSTool:
 
             # Update health tracking
             self._source_health[source_id] = {
-                "last_success": datetime.utcnow(),
+                "last_success": datetime.now(timezone.utc),
                 "consecutive_failures": 0,
                 "articles_fetched": len(articles)
             }
@@ -647,8 +648,6 @@ class RSSTool:
           - gdelt_india: broad India news (sourcecountry:IN)
           - gdelt_india_business: business-focused (adds keyword filter)
         """
-        from urllib.parse import quote
-
         source_id = source.get("id", "gdelt_india")
         base_url = "https://api.gdeltproject.org/api/v2/doc/doc"
 
@@ -720,7 +719,6 @@ class RSSTool:
                     if text.startswith("(") and text.endswith(")"):
                         text = text[1:-1]
                     try:
-                        import json
                         data = json.loads(text)
                     except Exception:
                         logger.debug(f"GDELT returned unparseable response ({len(text)} chars)")
@@ -778,7 +776,7 @@ class RSSTool:
     def _parse_gdelt_date(self, date_str: str) -> datetime:
         """Parse GDELT date format: '20260205T143000Z' → datetime."""
         if not date_str:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
         try:
             # Format: YYYYMMDDTHHMMSSZ
             return datetime.strptime(date_str, "%Y%m%dT%H%M%SZ")
@@ -787,7 +785,7 @@ class RSSTool:
                 # Sometimes just YYYYMMDDHHMMSS
                 return datetime.strptime(date_str[:14], "%Y%m%d%H%M%S")
             except ValueError:
-                return datetime.utcnow()
+                return datetime.now(timezone.utc)
 
     def _parse_rss_entry(self, entry: Dict, source: Dict) -> Optional[NewsArticle]:
         """Parse RSS entry to NewsArticle."""
@@ -814,7 +812,7 @@ class RSSTool:
                 logger.debug(f"Filtered non-{target_lang} article: {title[:60]}...")
                 return None
 
-            published = datetime.utcnow()
+            published = datetime.now(timezone.utc)
             if entry.get("published_parsed"):
                 try:
                     published = datetime(*entry.published_parsed[:6])
@@ -840,7 +838,7 @@ class RSSTool:
     def _parse_datetime(self, date_str: str) -> datetime:
         """Parse various datetime formats."""
         if not date_str:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
 
         formats = [
             "%Y-%m-%dT%H:%M:%SZ",
@@ -856,7 +854,7 @@ class RSSTool:
             except ValueError:
                 continue
 
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def _deduplicate_articles(self, articles: List[NewsArticle]) -> List[NewsArticle]:
         """Remove duplicate articles based on normalized title."""
@@ -901,8 +899,6 @@ class RSSTool:
                 "name": str,
             }}
         """
-        import time as _time
-
         source_ids = source_ids or list(NEWS_SOURCES.keys())
         results: Dict[str, Dict[str, Any]] = {}
 
@@ -922,7 +918,7 @@ class RSSTool:
                 "error": None,
             }
 
-            start = _time.time()
+            start = time.time()
             try:
                 if source_type == "rss":
                     result = await self._audit_rss(source, result, timeout)
@@ -931,7 +927,7 @@ class RSSTool:
             except Exception as e:
                 result["status"] = "broken"
                 result["error"] = str(e)
-            result["response_time_ms"] = int((_time.time() - start) * 1000)
+            result["response_time_ms"] = int((time.time() - start) * 1000)
 
             # Classify slow sources
             if result.get("status") == "ok" and result["response_time_ms"] > 8000:
@@ -1021,22 +1017,6 @@ class RSSTool:
 
         return result
 
-    def get_healthy_sources(self, source_ids: Optional[List[str]] = None) -> List[str]:
-        """Return source IDs that passed the last audit (status=ok or no audit yet)."""
-        source_ids = source_ids or self.active_sources
-        healthy = []
-        for sid in source_ids:
-            health = self._source_health.get(sid)
-            if health is None:
-                healthy.append(sid)  # No audit yet → assume ok
-            elif health.get("status") in ("ok", "slow"):
-                healthy.append(sid)
-        return healthy
-
-    def get_source_health(self) -> Dict[str, Dict]:
-        """Get health status of all sources."""
-        return self._source_health
-
     def _get_mock_articles(self) -> List[NewsArticle]:
         """Return mock NewsArticle objects for testing."""
         mock_data = self._get_mock_trends()
@@ -1051,7 +1031,7 @@ class RSSTool:
                 source_type=SourceType.RSS,
                 source_tier=SourceTier.TIER_1,
                 source_credibility=0.95,
-                published_at=datetime.utcnow()
+                published_at=datetime.now(timezone.utc)
             ))
         return articles
 
@@ -1064,7 +1044,7 @@ class RSSTool:
                 "summary": "The Reserve Bank of India today announced stricter KYC requirements for all digital lending platforms. Companies must comply within 90 days or face penalties. This affects over 500 fintech lenders including Lendingkart, Capital Float, and ZestMoney.",
                 "link": "https://economictimes.com/news/rbi-kyc-mandate",
                 "source": "Economic Times",
-                "published": datetime.utcnow().isoformat(),
+                "published": datetime.now(timezone.utc).isoformat(),
                 "query": "RBI policy announcement"
             },
             {
@@ -1073,7 +1053,7 @@ class RSSTool:
                 "summary": "Food delivery giant Swiggy announced today it will lay off 400 employees as part of cost-cutting measures. The company is focusing on profitability ahead of its planned IPO in Q2 2026. This creates opportunities for HR tech and recruitment firms.",
                 "link": "https://moneycontrol.com/news/swiggy-layoffs",
                 "source": "Moneycontrol",
-                "published": datetime.utcnow().isoformat(),
+                "published": datetime.now(timezone.utc).isoformat(),
                 "query": "India tech layoffs hiring"
             },
             {
@@ -1082,7 +1062,7 @@ class RSSTool:
                 "summary": "Quick commerce startup Zepto closed a $200 million funding round today, valuing the company at $5 billion. Funds will be used to expand dark store network to 50 new cities. This intensifies competition with Blinkit and Instamart.",
                 "link": "https://inc42.com/news/zepto-funding",
                 "source": "Inc42",
-                "published": datetime.utcnow().isoformat(),
+                "published": datetime.now(timezone.utc).isoformat(),
                 "query": "Indian startup funding announced today"
             },
             {
@@ -1091,7 +1071,7 @@ class RSSTool:
                 "summary": "The Cabinet today approved setting up of 3 new semiconductor fabrication plants under the India Semiconductor Mission. Tata Electronics and Vedanta are key beneficiaries. Electronics manufacturing sector to see major boost.",
                 "link": "https://businessstandard.com/news/semiconductor-approval",
                 "source": "Business Standard",
-                "published": datetime.utcnow().isoformat(),
+                "published": datetime.now(timezone.utc).isoformat(),
                 "query": "Indian government scheme launched"
             },
             {
@@ -1100,7 +1080,7 @@ class RSSTool:
                 "summary": "Reliance Jio announced a strategic partnership with NVIDIA today to build AI cloud infrastructure in India. Enterprise AI services launching in Q1 2026. This positions Jio against AWS and Azure in the Indian enterprise market.",
                 "link": "https://livemint.com/news/jio-nvidia",
                 "source": "Mint",
-                "published": datetime.utcnow().isoformat(),
+                "published": datetime.now(timezone.utc).isoformat(),
                 "query": "India business news today"
             }
         ]

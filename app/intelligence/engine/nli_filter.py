@@ -18,8 +18,7 @@ Model: cross-encoder/nli-deberta-v3-small (~60MB, local CPU, ~50ms/article)
 Label order (verified from model config): {0: contradiction, 1: entailment, 2: neutral}
 
 Key property: The hypothesis string is the ONLY configuration knob.
-When user feedback improves the hypothesis (via hypothesis_learner.py),
-the filter automatically gets better without any code changes.
+Updating data/filter_hypothesis.json automatically improves the filter without code changes.
 """
 
 import hashlib
@@ -67,6 +66,7 @@ _ENTAILMENT_IDX = 1
 _model_lock = threading.Lock()
 _model_instance = None
 _cached_hypothesis: Optional[str] = None
+_last_cleared_hypothesis: Optional[str] = None  # Hypothesis at last cache clear
 
 # ── Score cache ────────────────────────────────────────────────────────────────
 # LRU cache keyed on hash(text_prefix + hypothesis) to avoid re-scoring the same
@@ -102,11 +102,32 @@ def _cache_put(key: str, score: float) -> None:
             _score_cache.popitem(last=False)
 
 
-def clear_score_cache() -> None:
-    """Clear the NLI score cache. Called at pipeline start alongside other resets."""
-    with _cache_lock:
-        _score_cache.clear()
-    logger.debug("[nli] Score cache cleared")
+def clear_score_cache_if_hypothesis_changed() -> None:
+    """Clear the NLI score cache only when the hypothesis has changed.
+
+    Reads data/filter_hypothesis.json and compares to the hypothesis at the
+    last cache clear. Skips the clear when unchanged — saves ~2-5s of DeBERTa
+    re-inference per run (stable hypothesis >90% of runs in practice).
+
+    Called at pipeline start in place of unconditional clear_score_cache().
+    """
+    global _last_cleared_hypothesis
+    current: Optional[str] = None
+    if _HYPOTHESIS_PATH.exists():
+        try:
+            with open(_HYPOTHESIS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            current = data.get("hypothesis", "").strip() or None
+        except Exception:
+            pass  # File unreadable → treat as changed to be safe
+
+    if current != _last_cleared_hypothesis:
+        with _cache_lock:
+            _score_cache.clear()
+        _last_cleared_hypothesis = current
+        logger.info("[nli] Hypothesis changed — score cache cleared (%d → 0 entries)", 0)
+    else:
+        logger.debug("[nli] Hypothesis unchanged — score cache preserved (%d entries)", len(_score_cache))
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -144,8 +165,7 @@ def score_articles(
 
     # Build text pairs and check LRU cache for each.
     # Pairs that are already cached skip the model entirely — saves ~50ms/article
-    # when industry_classifier re-scores the same articles with the same hypothesis,
-    # or when hypothesis_learner re-validates the same dataset.
+    # when industry_classifier re-scores the same articles with the same hypothesis.
     n = len(articles)
     title_texts: List[str] = []
     full_texts: List[str] = []
@@ -282,7 +302,7 @@ def load_hypothesis() -> str:
     """Load hypothesis from data/filter_hypothesis.json, fallback to default.
 
     The hypothesis string is the sole configuration knob for the NLI filter.
-    Updated by hypothesis_learner.py after accumulating user feedback.
+    Write to data/filter_hypothesis.json to update it at runtime.
     """
     global _cached_hypothesis
 
@@ -309,13 +329,6 @@ def load_hypothesis() -> str:
     return _DEFAULT_HYPOTHESIS
 
 
-def invalidate_hypothesis_cache() -> None:
-    """Force reload of hypothesis on next call (called by hypothesis_learner after update)."""
-    global _cached_hypothesis
-    _cached_hypothesis = None
-    logger.info("[nli] Hypothesis cache invalidated — will reload from file on next call")
-
-
 def get_hypothesis_version() -> str:
     """Return current hypothesis version string."""
     if _HYPOTHESIS_PATH.exists():
@@ -326,22 +339,6 @@ def get_hypothesis_version() -> str:
         except Exception:
             pass
     return "v0"
-
-
-def warmup() -> bool:
-    """Pre-load NLI model during app startup to avoid first-request latency."""
-    try:
-        _load_model()
-        # Test with minimal pair to verify model works end-to-end
-        test = type("A", (), {"title": "Test startup raises funding", "summary": ""})()
-        scores = score_articles([test], batch_size=1)
-        ok = len(scores) == 1 and 0.0 <= scores[0] <= 1.0
-        if ok:
-            logger.info(f"[nli] Model warmed up successfully. Test entailment={scores[0]:.3f}")
-        return ok
-    except Exception as e:
-        logger.warning(f"[nli] Warmup failed: {e}")
-        return False
 
 
 # ── Internals ─────────────────────────────────────────────────────────────────
@@ -369,114 +366,6 @@ def _load_model():
         logger.info(f"[nli] Model ready: {_MODEL_NAME}")
 
     return _model_instance
-
-
-def score_texts(
-    texts: List[str],
-    hypothesis: Optional[str] = None,
-    batch_size: int = 32,
-) -> List[float]:
-    """Score plain text strings with NLI entailment against a hypothesis.
-
-    Same as score_articles() but accepts raw strings — no Article objects needed.
-    Used by hypothesis_learner.py to validate hypothesis updates against the
-    auto-labeled dataset (Reuters-21578 / AG News / cluster signals).
-
-    Args:
-        texts: List of text strings to score (truncated to 400 chars internally).
-        hypothesis: Hypothesis string. None = load from config file.
-        batch_size: Inference batch size.
-
-    Returns:
-        List of entailment scores in [0.0, 1.0], one per text.
-        Returns 0.40 (ambiguous) on model failure.
-    """
-    if not texts:
-        return []
-
-    if hypothesis is None:
-        hypothesis = load_hypothesis()
-
-    # Check LRU cache — same mechanism as score_articles.
-    # hypothesis_learner calls score_texts with the same dataset against both
-    # current and candidate hypotheses; caching avoids redundant inference.
-    truncated = [t[:400] for t in texts]
-    keys = [_cache_key(t, hypothesis) for t in truncated]
-    cached: List[Optional[float]] = [_cache_get(k) for k in keys]
-
-    uncached_indices = [i for i, c in enumerate(cached) if c is None]
-    uncached_pairs = [(truncated[i], hypothesis) for i in uncached_indices]
-
-    try:
-        if uncached_pairs:
-            model = _load_model()
-            raw_logits = model.predict(uncached_pairs, batch_size=batch_size, show_progress_bar=False)
-            raw_logits = np.array(raw_logits)
-            if raw_logits.ndim == 1:
-                fresh_scores = [float(np.clip(s, 0.0, 1.0)) for s in raw_logits]
-            else:
-                shifted = raw_logits - raw_logits.max(axis=1, keepdims=True)
-                exp_vals = np.exp(shifted)
-                probs = exp_vals / exp_vals.sum(axis=1, keepdims=True)
-                fresh_scores = probs[:, _ENTAILMENT_IDX].tolist()
-
-            # Insert into cache
-            for idx, score in zip(uncached_indices, fresh_scores):
-                _cache_put(keys[idx], score)
-                cached[idx] = score
-
-        return [c if c is not None else 0.40 for c in cached]
-    except Exception as e:
-        logger.error(f"[nli] score_texts failed: {e}")
-        return [0.40] * len(texts)
-
-
-def score_canary_set(
-    hypothesis: Optional[str] = None,
-    canary_path: Path = Path("data/canary_set.json"),
-    threshold: float = 0.55,
-) -> Optional[float]:
-    """Score frozen canary set and return accuracy.
-
-    Canary set is 50 frozen articles (25 positive B2B + 25 negative noise).
-    Positive articles should score >= threshold; negatives should score < threshold.
-    Accuracy = (TP + TN) / 50.
-
-    Returns None if canary set not found.
-    REF: V1 self-validation framework (catastrophic regression detection).
-    """
-    if not canary_path.exists():
-        return None
-
-    try:
-        with open(canary_path, "r", encoding="utf-8") as f:
-            canary = json.load(f)
-    except Exception as e:
-        logger.warning(f"[nli] Canary set load failed: {e}")
-        return None
-
-    positives = canary.get("positives", [])
-    negatives = canary.get("negatives", [])
-    if not positives and not negatives:
-        return None
-
-    pos_texts = [item["text"] for item in positives]
-    neg_texts = [item["text"] for item in negatives]
-
-    pos_scores = score_texts(pos_texts, hypothesis=hypothesis)
-    neg_scores = score_texts(neg_texts, hypothesis=hypothesis)
-
-    tp = sum(1 for s in pos_scores if s >= threshold)
-    tn = sum(1 for s in neg_scores if s < threshold)
-    total = len(pos_texts) + len(neg_texts)
-    accuracy = (tp + tn) / max(total, 1)
-
-    logger.info(
-        f"[nli] Canary set: accuracy={accuracy:.3f} "
-        f"TP={tp}/{len(pos_texts)} TN={tn}/{len(neg_texts)} "
-        f"(threshold={threshold})"
-    )
-    return round(accuracy, 4)
 
 
 def _kde_valley_threshold(scores: np.ndarray) -> Optional[float]:

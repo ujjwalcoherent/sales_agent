@@ -11,12 +11,21 @@ Schema:
 Persisted at: app/data/provider_health.json
 """
 
+import asyncio
 import json
 import logging
-from dataclasses import dataclass, asdict, field
+import os
+import re
+import threading
+import time
+from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+import httpx
+
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -180,21 +189,6 @@ LLM Provider Manager with cooldown-aware failover.
 Builds pydantic-ai model instances and manages provider health.
 Class-level cooldown state is shared across all instances.
 """
-
-import asyncio
-import logging
-import os
-import re
-import threading
-import time
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
-import httpx
-
-from app.config import get_settings
-
-logger = logging.getLogger(__name__)
 
 # Lazy imports — pydantic-ai may not be installed during initial setup
 _pai_available = False
@@ -681,20 +675,6 @@ class ProviderManager:
             ),
         )
 
-    def _build_ollama_gen_model(self):
-        """Ollama generation model (phi3.5-custom — fast synthesis, NO tool calling).
-
-        Use for: synthesis, impact analysis, generation tasks.
-        Do NOT use for: agents that need tool/function calling.
-        """
-        model_name = getattr(self.settings, 'ollama_gen_model', 'phi3.5-custom:latest')
-        return OpenAIChatModel(
-            model_name=model_name,
-            provider=OpenAIProvider(
-                base_url=f"{self.settings.ollama_base_url}/v1",
-            ),
-        )
-
     def _build_ollama_tool_model(self):
         """Ollama tool-calling model (llama3.2:3b — ONLY local model with tool support).
 
@@ -792,16 +772,6 @@ class ProviderManager:
             model_name=model_name,
             provider=GoogleProvider(
                 api_key=self.settings.gemini_api_key,
-            ),
-        )
-
-    def _build_gemini_via_openrouter(self):
-        """Gemini routed through OpenRouter (fallback if direct unavailable)."""
-        return OpenAIChatModel(
-            model_name=f"google/{self.settings.gemini_model}",
-            provider=OpenAIProvider(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=self.settings.openrouter_api_key,
             ),
         )
 

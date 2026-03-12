@@ -367,9 +367,6 @@ class TestLearningSignalBus:
         bus = LearningSignalBus()
         # Simulate a confident system
         bus.publish_source_bandit({"a": 0.95, "b": 0.90, "c": 0.88})
-        bus.publish_weight_learner(
-            {"sig": {"w1": 0.5}}, {"sig": {"w1": 0.5}}, "human", 100
-        )
         bus.publish_auto_feedback({}, 0.85)
         bus.compute_derived_signals()
 
@@ -385,7 +382,6 @@ class TestLearningSignalBus:
         bus.publish_trend_memory(
             lifecycle_counts={"birth": 5, "growth": 3, "peak": 8, "decline": 4},
             avg_novelty=0.6,
-            stale_pruned=2,
         )
 
         total = sum(bus.novelty_distribution.values())
@@ -441,6 +437,7 @@ class TestLearningSignalBus:
 class TestRunMetricsIntegration:
     """End-to-end: publish run metrics → ThresholdAdapter and LinTS update."""
 
+    @pytest.mark.skip(reason="update_from_run_metrics removed — ThresholdAdapter now called directly from orchestrator")
     def test_update_from_run_metrics_calls_threshold_adapter(self, tmp_path):
         """update_from_run_metrics must invoke the ThresholdAdapter."""
         import app.learning.threshold_adapter as ta_module

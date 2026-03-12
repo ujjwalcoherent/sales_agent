@@ -14,9 +14,8 @@ The active profile_id is used at pipeline start to load user context (industries
 account list, products, contact hierarchy, etc.).
 """
 
-import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -35,10 +34,6 @@ def _get_db(request: Request):
 
 def _profile_to_dict(profile: UserProfile) -> Dict[str, Any]:
     return profile.model_dump()
-
-
-def _dict_to_profile(data: Dict[str, Any]) -> UserProfile:
-    return UserProfile(**data)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────

@@ -1,0 +1,179 @@
+[
+  {
+    "cluster_id": "2363f04014b8",
+    "label": "Merck (all)",
+    "article_count": 3,
+    "article_indices": [
+      524,
+      544,
+      502
+    ],
+    "primary_entity": "Merck",
+    "entity_names": [
+      "Merck"
+    ],
+    "event_type": "restructuring",
+    "event_granularity": "major",
+    "confidence": 0.9905,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9639,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9951,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4792,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1ff13099b994",
+    "label": "ANI Pharmaceuticals (all)",
+    "article_count": 2,
+    "article_indices": [
+      519,
+      525
+    ],
+    "primary_entity": "ANI Pharmaceuticals",
+    "entity_names": [
+      "ANI Pharmaceuticals"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9586,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.5861,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7849,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "98fbeb6f94c9",
+    "label": "Roche (all)",
+    "article_count": 2,
+    "article_indices": [
+      528,
+      543
+    ],
+    "primary_entity": "Roche",
+    "entity_names": [
+      "Roche"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.9419,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4192,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5064,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals & Biotechnology",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "32e6b0acd410",
+    "label": "Fierce Biotech (all)",
+    "article_count": 2,
+    "article_indices": [
+      524,
+      552
+    ],
+    "primary_entity": "Fierce Biotech",
+    "entity_names": [
+      "Fierce Biotech"
+    ],
+    "event_type": "restructuring",
+    "event_granularity": "major",
+    "confidence": 0.7698,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.7099,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.173,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3194,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "e293578a94a3",
+    "label": "discovery_5",
+    "article_count": 20,
+    "article_indices": [
+      7,
+      12,
+      35,
+      36,
+      109,
+      115,
+      184,
+      195,
+      220,
+      238,
+      244,
+      318,
+      340,
+      373,
+      377,
+      388,
+      434,
+      439,
+      11,
+      212
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8859,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3559,
+      "not_duplicate": 0.5529,
+      "outlier_ejection": 0.95
+    },
+    "coherence_score": 0.5627,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

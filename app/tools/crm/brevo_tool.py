@@ -8,14 +8,21 @@ Safety features:
 """
 
 import logging
+import re
 from datetime import datetime, timezone
-from typing import Optional
 
 import httpx
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Pre-compiled patterns for LLM placeholder cleanup in send_email().
+_RE_YOUR_NAME = re.compile(r'\[Your Name\]', re.IGNORECASE)
+_RE_YOUR_TITLE = re.compile(r'\[Your (?:Title|Position|Role)\]', re.IGNORECASE)
+_RE_YOUR_CONTACT = re.compile(r'\[Your (?:Contact Information|Phone|Email|Company)\]', re.IGNORECASE)
+_RE_COMPANY_NAME = re.compile(r'\[(?:Company Name|Your Company|Our Company)\]', re.IGNORECASE)
+_RE_EXCESS_NEWLINES = re.compile(r'\n{3,}')
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
@@ -118,14 +125,13 @@ class BrevoTool:
             )
 
         # Clean LLM placeholder artifacts before sending
-        import re
         sender = self.settings.brevo_sender_name or "Our Team"
         org = self.settings.brevo_sender_name or "Coherent Market Insights"
-        body = re.sub(r'\[Your Name\]', sender, body, flags=re.IGNORECASE)
-        body = re.sub(r'\[Your (?:Title|Position|Role)\]', '', body, flags=re.IGNORECASE)
-        body = re.sub(r'\[Your (?:Contact Information|Phone|Email|Company)\]', '', body, flags=re.IGNORECASE)
-        body = re.sub(r'\[(?:Company Name|Your Company|Our Company)\]', org, body, flags=re.IGNORECASE)
-        body = re.sub(r'\n{3,}', '\n\n', body).strip()
+        body = _RE_YOUR_NAME.sub(sender, body)
+        body = _RE_YOUR_TITLE.sub('', body)
+        body = _RE_YOUR_CONTACT.sub('', body)
+        body = _RE_COMPANY_NAME.sub(org, body)
+        body = _RE_EXCESS_NEWLINES.sub('\n\n', body).strip()
 
         # Build branded HTML email
         html_body = build_branded_email(
@@ -248,13 +254,6 @@ TONE_STYLES = {
         "accent_light": "#E6F0EB",
         "accent_mid": "#5A9A78",
     },
-}
-
-LEAD_TYPE_COLORS = {
-    "pain": "#A83226",
-    "opportunity": "#2D6A4F",
-    "risk": "#B07030",
-    "intelligence": "#2A5A8A",
 }
 
 

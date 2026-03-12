@@ -26,7 +26,6 @@ Standalone test:
 """
 
 import logging
-import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

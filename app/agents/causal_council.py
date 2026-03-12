@@ -14,6 +14,7 @@ Chain-of-thought: `reasoning` field captures the LLM's step-by-step analysis
 BEFORE it produces the structured output — not post-hoc rationalization.
 """
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Literal, Optional
@@ -120,7 +121,7 @@ async def run_causal_council(
         Use to find companies mentioned in context before web searching.
         Returns: Article titles mentioning relevant companies.
         """
-        import json
+
         if ctx.deps.sm:
             hits = ctx.deps.sm.search_articles(query, top_k=10)
             if hits:
@@ -134,7 +135,7 @@ async def run_causal_council(
         Web search for companies in a segment — use only if KB has < 3 results.
         Returns: Top 3 search result summaries.
         """
-        import json
+
         if ctx.deps.sm:
             result = await ctx.deps.sm.web_search(f"{query} companies {geo} SME", max_results=5)
             if result["results"]:
@@ -218,12 +219,15 @@ async def _try_llm_structured_fallback(
     Bypasses tool calling entirely — just asks the LLM to produce the
     CausalChainResult JSON directly. Works when providers support structured
     output but not function calling (e.g., NVIDIA DeepSeek).
-    """
-    try:
-        from app.tools.llm.llm_service import LLMService
-        llm = LLMService()
 
-        prompt = f"""Analyze this business trend and trace its causal impact chain.
+    Track A (run_structured → CausalChainResult) is tried first.
+    Track B (generate_json → raw dict → manual construction) is the inner
+    fallback for providers that don't support forced function-calling.
+    """
+    from app.tools.llm.llm_service import LLMService
+    llm = LLMService()
+
+    prompt = f"""Analyze this business trend and trace its causal impact chain.
 
 TREND: {trend_title}
 EVENT TYPE: {event_type}
@@ -234,27 +238,38 @@ SUMMARY: {trend_summary[:600]}
 For each hop, identify specific company SEGMENTS (not individual companies).
 Focus on mid-size companies (50-5000 employees) in {geo}.
 
-Return JSON with:
-- event_summary: the trend title
-- event_type: "{event_type}"
-- reasoning: your step-by-step causal chain analysis
-- hops: array of 2-3 hops, each with:
-  - hop: 1/2/3
-  - segment: specific company segment (e.g. "Tier-2 auto parts suppliers, 50-200 employees, Pune")
-  - lead_type: "pain" or "opportunity" or "risk" or "intelligence"
-  - mechanism: how this trend affects them (e.g. "Steel duty → input cost increase of ~15%")
-  - urgency_weeks: estimated weeks until impact materializes
-  - geo_hint: specific cities/states in {geo}
-  - employee_band: "sme" (50-500) or "mid" (500-5000)
-  - confidence: 0.0-1.0 based on directness of causal link
-  - companies_found: [] (leave empty)"""
+Produce a CausalChainResult with 2-3 hops. Each CausalHop must have:
+  hop (1/2/3), segment, lead_type (pain/opportunity/risk/intelligence),
+  mechanism, urgency_weeks, geo_hint, employee_band (sme/mid), confidence (0-1),
+  companies_found (leave as empty list).
+Write your step-by-step analysis in the reasoning field first."""
 
-        raw = await llm.generate_json(
+    # ── Track A: typed structured output ──────────────────────────────────
+    try:
+        chain = await llm.run_structured(
             prompt=prompt,
+            system_prompt=_SYSTEM_PROMPT,
+            output_type=CausalChainResult,
+        )
+        logger.info(
+            f"Causal council (structured fallback / Track A): "
+            f"'{trend_title[:50]}' → {len(chain.hops)} hops"
+        )
+        return chain
+    except Exception as e:
+        logger.warning(
+            f"Causal council structured fallback Track A failed for "
+            f"'{trend_title[:40]}': {type(e).__name__}: {e}"
+        )
+
+    # ── Track B: raw JSON → manual construction ────────────────────────────
+    try:
+        raw = await llm.generate_json(
+            prompt=prompt + "\n\nReturn JSON matching the CausalChainResult schema.",
             system_prompt=_SYSTEM_PROMPT,
         )
         if not isinstance(raw, dict) or "error" in raw:
-            logger.warning(f"Structured fallback returned error: {raw}")
+            logger.warning(f"Structured fallback Track B returned error: {raw}")
             return None
 
         chain = CausalChainResult(**{
@@ -264,11 +279,17 @@ Return JSON with:
             "hops": [CausalHop(**h) for h in raw.get("hops", []) if isinstance(h, dict)],
         })
 
-        logger.info(f"Causal council (structured fallback): '{trend_title[:50]}' → {len(chain.hops)} hops")
+        logger.info(
+            f"Causal council (structured fallback / Track B): "
+            f"'{trend_title[:50]}' → {len(chain.hops)} hops"
+        )
         return chain
 
     except Exception as e:
-        logger.warning(f"Causal council structured fallback failed for '{trend_title[:40]}': {type(e).__name__}: {e}")
+        logger.warning(
+            f"Causal council structured fallback Track B failed for "
+            f"'{trend_title[:40]}': {type(e).__name__}: {e}"
+        )
         return None
 
 

@@ -30,6 +30,8 @@ thresholds) break silently. The _locked_dim mechanism prevents this.
 """
 
 import logging
+import os
+import time
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -69,7 +71,6 @@ def _get_local_model(model_name: str):
     if _local_model is not None and _local_model_name == model_name:
         return _local_model
     try:
-        import os
         # Set HF_TOKEN so sentence-transformers/huggingface_hub authenticates downloads
         settings = get_settings()
         if settings.huggingface_api_key and not os.environ.get("HF_TOKEN"):
@@ -259,25 +260,26 @@ class EmbeddingTool:
             if results[i] is None:
                 results[i] = self._zero_vector()
 
-        # DEBUG: Log embedding stats
-        valid_embeddings = [e for e in results if e and any(v != 0 for v in e)]
-        if valid_embeddings:
-            emb_array = np.array(valid_embeddings)
-            logger.debug(f"Embedding batch stats: shape={emb_array.shape}, "
-                        f"min={emb_array.min():.4f}, max={emb_array.max():.4f}, "
-                        f"mean={emb_array.mean():.4f}, std={emb_array.std():.4f}")
-            # Check for near-identical embeddings (would indicate a bug)
-            if len(valid_embeddings) > 1:
-                from sklearn.metrics.pairwise import cosine_similarity as cosine_sim
-                sample_size = min(10, len(valid_embeddings))
-                sample_sims = cosine_sim(emb_array[:sample_size])
-                upper_tri = sample_sims[np.triu_indices(sample_size, k=1)]
-                if len(upper_tri) > 0:
-                    avg_sim = upper_tri.mean()
-                    logger.debug(f"Sample pairwise cosine similarities: avg={avg_sim:.4f}, "
-                                f"min={upper_tri.min():.4f}, max={upper_tri.max():.4f}")
-                    if avg_sim > 0.99:
-                        logger.warning(f"!!! SUSPICIOUSLY HIGH EMBEDDING SIMILARITY ({avg_sim:.4f}) - embeddings may be identical !!!")
+        # Debug embedding stats — guarded to avoid O(N²) cosine matrix on every batch
+        if logger.isEnabledFor(logging.DEBUG):
+            valid_embeddings = [e for e in results if e and any(v != 0 for v in e)]
+            if valid_embeddings:
+                emb_array = np.array(valid_embeddings)
+                logger.debug(f"Embedding batch stats: shape={emb_array.shape}, "
+                            f"min={emb_array.min():.4f}, max={emb_array.max():.4f}, "
+                            f"mean={emb_array.mean():.4f}, std={emb_array.std():.4f}")
+                # Check for near-identical embeddings (would indicate a bug)
+                if len(valid_embeddings) > 1:
+                    from sklearn.metrics.pairwise import cosine_similarity as cosine_sim
+                    sample_size = min(10, len(valid_embeddings))
+                    sample_sims = cosine_sim(emb_array[:sample_size])
+                    upper_tri = sample_sims[np.triu_indices(sample_size, k=1)]
+                    if len(upper_tri) > 0:
+                        avg_sim = upper_tri.mean()
+                        logger.debug(f"Sample pairwise cosine similarities: avg={avg_sim:.4f}, "
+                                    f"min={upper_tri.min():.4f}, max={upper_tri.max():.4f}")
+                        if avg_sim > 0.99:
+                            logger.warning(f"!!! SUSPICIOUSLY HIGH EMBEDDING SIMILARITY ({avg_sim:.4f}) - embeddings may be identical !!!")
 
         logger.info(f"Generated {len(non_empty_texts)} embeddings (batch), dim={self._embedding_dim}")
         return results
@@ -371,7 +373,6 @@ class EmbeddingTool:
         if not self.nvidia_available:
             return None
 
-        import time
         start = time.time()
         all_embeddings = []
         model = self.settings.embedding_model
@@ -452,7 +453,6 @@ class EmbeddingTool:
         self, texts: List[str], batch_size: int = 64
     ) -> List[List[float]]:
         """Embed using local sentence-transformers model. Uses GPU (CUDA) if available."""
-        import time
         start = time.time()
         model = self.local_model
         # sentence-transformers handles batching internally, but we can set batch_size
@@ -474,7 +474,6 @@ class EmbeddingTool:
         self, texts: List[str], batch_size: int = 32
     ) -> List[List[float]]:
         """Send texts to HF Inference API in batches (runs on HF GPUs)."""
-        import time
         start = time.time()
         all_embeddings = []
         for i in range(0, len(texts), batch_size):
@@ -636,7 +635,6 @@ class EmbeddingTool:
         if not self.openai_available:
             return None
 
-        import time
         start = time.time()
         all_embeddings = []
         model = getattr(self.settings, 'openai_embedding_model', 'text-embedding-3-large')
@@ -845,40 +843,3 @@ class EmbeddingTool:
         return results
 
 
-# ── Convenience functions ──────────────────────────────────────────────────────
-
-def embed(text: str) -> List[float]:
-    """Quick single-text embedding."""
-    return EmbeddingTool().embed_text(text)
-
-
-def embed_batch(texts: List[str]) -> List[List[float]]:
-    """Quick batch embedding."""
-    return EmbeddingTool().embed_batch(texts)
-
-
-def _l2_normalize(embeddings: np.ndarray) -> np.ndarray:
-    """L2-normalize embedding vectors (rows). Zero vectors stay zero.
-
-    Used across the pipeline for cosine similarity via dot product.
-    """
-    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-    norms[norms == 0] = 1
-    return embeddings / norms
-
-
-def mean_pairwise_cosine(embeddings: np.ndarray) -> float:
-    """Mean pairwise cosine similarity within a set of embeddings (0-1).
-
-    Handles edge cases:
-      n=0 → 0.0,  n=1 → 1.0,  n≥2 → mean of all (i,j) pairs where i≠j.
-
-    Equivalent to sklearn's upper-triangle mean but handles n≤1 safely.
-    Embeddings are L2-normalized internally.
-    """
-    n = len(embeddings)
-    if n < 2:
-        return 1.0 if n == 1 else 0.0
-    normed = _l2_normalize(np.asarray(embeddings, dtype=np.float32))
-    sim_matrix = np.dot(normed, normed.T)
-    return float((sim_matrix.sum() - n) / max(n * (n - 1), 1))

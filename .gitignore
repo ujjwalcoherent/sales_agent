@@ -40,20 +40,62 @@ node_modules/
 .deepeval/
 
 # ── Database ──
-*.db
-*.sqlite
-*.sqlite3
+# Track leads.db (14MB, all leads/companies/campaigns data)
+# Ignore SQLite journal files (transient, change every request)
+*.db-shm
+*.db-wal
+*.db-journal
+/*.sqlite
+/*.sqlite3
 
-# ── Runtime data (generated per run) ──
+# ── Runtime data ──
+# Default: ignore everything under /data, then un-ignore what matters.
+# Large re-downloadable dirs (hf_cache 583MB, models 670MB) stay ignored.
 /data/*
-!/data/recordings/
 !/data/canary_set.json
+!/data/recordings/
+!/data/adaptive_thresholds.json
+!/data/company_bandit.json
+!/data/contact_bandit.json
+!/data/source_bandit.json
+!/data/signal_bus.json
+!/data/entity_quality.json
+!/data/filter_hypothesis.json
+!/data/nli_baseline.json
+!/data/improvement_hypotheses.json
+!/data/experience_library.json
+!/data/learned_anchors.json
+!/data/dynamic_dataset.jsonl
+!/data/experiments.jsonl
+!/data/feedback.jsonl
+!/data/learning_signals.jsonl
+!/data/pipeline_run_log.jsonl
+!/data/reasoning_traces.jsonl
+!/data/cluster_signal_log.jsonl
+!/data/taxonomy_candidates.jsonl
+!/data/article_cache/
+!/data/chroma/
+!/data/chromadb/
+!/data/cluster_benchmark/
+!/data/cluster_diagnostics/
+!/data/finetune/
+!/data/memory/
+!/data/mock/
+!/data/testing_log/
 app/outputs/
 tmp_result.json
+
+# ── Screenshots (dev/demo only) ──
+*.png
+
+# ── Plugin / tool dirs ──
+.superpowers/
+.superset/
 
 # ── Internal docs & dev scripts ──
 /docs/
 /scripts/
+tests/run_*_validation.py
 
 # ── Logs ──
 *.log

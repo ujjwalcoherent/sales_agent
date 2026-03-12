@@ -26,6 +26,7 @@ Usage:
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -393,6 +394,11 @@ _NOISE_TITLE_PATTERNS = re.compile(
     r"cookie policy|privacy policy|terms of service|subscribe now|"
     r"download app|scan qr|promo code|coupon|discount)", re.I,
 )
+_RE_PAREN = re.compile(r"\([^)]*\)")
+_RE_YEAR_SHORT = re.compile(r"\b20\d{2}\b")
+_RE_QUARTER = re.compile(r"\bq[1-4]\b")
+_RE_NON_WORD = re.compile(r"[^\w\s]")
+_RE_MULTI_SPACE = re.compile(r"\s+")
 
 
 def _prefilter_articles(articles: list) -> list:
@@ -626,11 +632,11 @@ def _normalize_title(title: str) -> str:
     if " - " in t:
         t = t.rsplit(" - ", 1)[0]
     # B5: Strip parenthetical content, years, quarters for better fuzzy dedup
-    t = re.sub(r"\([^)]*\)", "", t)
-    t = re.sub(r"\b20\d{2}\b", "", t)       # Strip years 2000-2029
-    t = re.sub(r"\bq[1-4]\b", "", t)         # Strip Q1-Q4
-    t = re.sub(r"[^\w\s]", "", t)
-    t = re.sub(r"\s+", " ", t).strip()
+    t = _RE_PAREN.sub("", t)
+    t = _RE_YEAR_SHORT.sub("", t)            # Strip years 2000-2029
+    t = _RE_QUARTER.sub("", t)               # Strip Q1-Q4
+    t = _RE_NON_WORD.sub("", t)
+    t = _RE_MULTI_SPACE.sub(" ", t).strip()
     return t[:80]
 
 
@@ -1101,8 +1107,6 @@ async def deep_company_search(query: str, prompt: Optional[str] = None) -> Optio
 
 def _parse_company_result(raw: Union[str, dict], query: str) -> Optional[CompanyProfile]:
     """Parse ScrapeGraphAI output into CompanyProfile. Handles both string and dict results."""
-    import json
-
     data: dict = {}
 
     if isinstance(raw, dict):

@@ -10,13 +10,18 @@ Previously split across lead_crystallizer.py and lead_gen.py.
 import asyncio
 import hashlib
 import logging
-from typing import Any, List, Literal
+import re
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from app.agents.deps import AgentDeps
 
 logger = logging.getLogger(__name__)
+
+# Pre-compiled regex — used in is_company_description() for parenthetical guard.
+# Avoids re-compiling the pattern on each of the ~500 calls per pipeline run.
+_PAREN_RE = re.compile(r'\(([^)]+)\)')
 
 
 # ── Company name vs. description guard ────────────────────────────────────────
@@ -89,8 +94,7 @@ def is_company_description(name: str) -> bool:
 
     # Heuristic 2: parenthetical qualifiers — "(excluding …)", "(multiple …)", "(non-…)"
     if "(" in clean:
-        import re
-        paren_content = re.findall(r'\(([^)]+)\)', clean)
+        paren_content = _PAREN_RE.findall(clean)
         for pc in paren_content:
             pcl = pc.lower().strip()
             if any(pcl.startswith(kw) for kw in ("excluding", "multiple", "non-", "non ", "approx", "various")):
@@ -222,6 +226,16 @@ _EVENT_TYPE_KEYWORDS: dict[str, list[str]] = {
                        "rail", "highway", "energy", "power", "renewable", "solar", "wind"],
 }
 
+# Pre-compile word-boundary patterns for short keywords (≤4 chars).
+# Short tokens like "sec", "wto", "gpu" need \b guards to prevent "sec" matching "sector".
+# Compiled once at module load; reused across all _normalize_event_type() calls.
+_SHORT_KW_RE: dict[str, re.Pattern] = {
+    kw: re.compile(rf"\b{re.escape(kw)}\b")
+    for kws in _EVENT_TYPE_KEYWORDS.values()
+    for kw in kws
+    if " " not in kw and len(kw) <= 4
+}
+
 
 def _normalize_event_type(raw_event_type: str) -> str:
     """Map free-form LLM event_type to a known _CONTACT_ROLES key.
@@ -234,8 +248,6 @@ def _normalize_event_type(raw_event_type: str) -> str:
     The category with the highest total score wins.
     Falls back to "general" if no keywords match.
     """
-    import re
-
     if not raw_event_type:
         return "general"
 
@@ -257,7 +269,8 @@ def _normalize_event_type(raw_event_type: str) -> str:
                     score += 2
             elif len(kw) <= 4:
                 # Short keyword: require word boundaries (arXiv:1909.00161 §3.2)
-                if re.search(rf"\b{re.escape(kw)}\b", lower):
+                pat = _SHORT_KW_RE.get(kw)
+                if pat and pat.search(lower):
                     score += 1
             else:
                 if kw in lower:
@@ -550,6 +563,14 @@ async def _build_companies_from_leads(
 
     companies = list(seen.values())
     to_enrich = [c for c in companies if not c.description and not getattr(c, "wikidata_id", "")]
+    # Skip real enrichment in mock mode — no external API calls needed
+    if deps.mock_mode:
+        for c in to_enrich:
+            c.description = f"Mock: {c.company_name} is a mid-size company in {c.industry or 'technology'}."
+            c.ner_verified = True
+            c.verification_source = "mock"
+            c.verification_confidence = 0.90
+        to_enrich = []
     if to_enrich:
         try:
             from app.tools.company_enricher import enrich
@@ -607,6 +628,14 @@ async def _build_companies_from_leads(
             logger.debug(f"Batch enrichment failed: {e}")
 
     # Assign target_roles from lead event_type + trend context
+    # Load bandit once — avoids N disk reads (one per company in loop)
+    _role_bandit = None
+    try:
+        from app.learning.contact_bandit import ContactBandit
+        _role_bandit = ContactBandit.load()
+    except Exception:
+        pass
+
     roles_assigned = 0
     for c in companies:
         if c.target_roles:
@@ -618,6 +647,7 @@ async def _build_companies_from_leads(
             trend_type=lead.event_type or "general",
             pain_point=lead.pain_point or "",
             trend_title=lead.trend_title or "",
+            bandit=_role_bandit,
         )
         if roles:
             c.target_roles = roles
@@ -685,6 +715,8 @@ def _build_person_profiles(
                 linkedin_url=ct.linkedin_url,
                 seniority_tier=tier,
                 role_relevance=role_relevance,
+                hunter_seniority=getattr(ct, "hunter_seniority", ""),
+                phone_number=getattr(ct, "phone_number", ""),
             )
 
             outreach = outreach_by_contact.get(ct.id)

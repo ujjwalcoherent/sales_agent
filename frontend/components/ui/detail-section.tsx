@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 
-// ── Variant A: icon-based section (leads-panel, lead-detail-panel) ──────
+// ── Variant A: icon-based section (leads-panel) ──────
 // Uses an Icon component prop, padding + bottom border layout.
 
 interface DetailSectionProps {

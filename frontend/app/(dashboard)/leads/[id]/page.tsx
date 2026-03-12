@@ -787,9 +787,9 @@ function FeedbackTab({ lead }: { lead: LeadRecord }) {
         <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-xmuted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>HOW FEEDBACK TRAINS THE SYSTEM</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
           {[
-            { label: "Weight Learner",        desc: "Adjusts source weights — good leads boost their origin sources" },
-            { label: "Adaptive Thresholds",   desc: "Raises or lowers confidence bars for future lead filtering" },
-            { label: "Company Bandit",        desc: "Updates (size, event_type) arm posteriors via Thompson Sampling" },
+            { label: "Source Bandit",       desc: "Updates RSS source arm posteriors — good leads boost their origin sources via Thompson Sampling" },
+            { label: "Adaptive Thresholds", desc: "Raises or lowers confidence bars for future lead filtering" },
+            { label: "Company Bandit",      desc: "Updates (industry, size, event_type) arm posteriors via Thompson Sampling" },
           ].map(({ label, desc }) => (
             <div key={label} style={{ display: "flex", gap: 10 }}>
               <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent-mid)", flexShrink: 0, marginTop: 5 }} />

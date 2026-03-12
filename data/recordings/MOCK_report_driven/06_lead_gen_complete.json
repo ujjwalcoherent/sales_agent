@@ -1,0 +1,456 @@
+{
+  "companies": [
+    {
+      "id": "rd1f2a3b4c5d",
+      "company_name": "Cipla",
+      "company_size": "large",
+      "industry": "manufacturing",
+      "website": "https://www.cipla.com",
+      "domain": "cipla.com",
+      "description": "Cipla Limited is one of India's leading pharmaceutical companies with ₹26,000 crore annual revenue, operating manufacturing facilities across Goa, Himachal Pradesh, and Baddi. It exports to 170+ countries and is a major supplier to regulated markets including the US, UK, and EU, requiring stringent cold chain compliance for temperature-sensitive biologics and specialty drugs.",
+      "reason_relevant": "Cipla's extensive temperature-sensitive pharma export operations (biologics, injectables, specialty drugs) to regulated markets make it directly exposed to FSSAI's June 2026 IoT temperature logging mandate. Its US FDA and EU regulatory commitments mean cold chain compliance failures carry risk beyond just FSSAI penalties.",
+      "trend_id": "FSSAI mandated real-time IoT temperature logging for all pharmaceutical export shipments by June 2026, requiring GPS-tracked tamper-evident temperature monitoring with 30-day data retention. Non-compliant shipments face export suspension.",
+      "wikidata_id": "Q1066807",
+      "founded_year": 1935,
+      "headquarters": "Mumbai, Maharashtra",
+      "employee_count": "25000",
+      "stock_ticker": "CIPLA",
+      "ceo": "Umang Vohra",
+      "funding_stage": "Public",
+      "tech_stack": ["SAP", "Salesforce", "Oracle", "AWS"],
+      "ner_verified": true,
+      "verification_source": "kb_cache",
+      "verification_confidence": 0.97,
+      "target_roles": [
+        "Chief Supply Chain Officer",
+        "VP Manufacturing",
+        "Head of Export Compliance",
+        "VP Regulatory Affairs",
+        "Head of Logistics Technology"
+      ],
+      "contacts": [
+        {
+          "name": "Rajesh Nair",
+          "title": "VP Supply Chain & Export Logistics",
+          "email": "rajesh.nair@cipla.com",
+          "linkedin_url": "https://www.linkedin.com/in/rajesh-nair-cipla-supply-chain",
+          "confidence": 0.81
+        },
+        {
+          "name": "Sunita Mehta",
+          "title": "Head of Regulatory Compliance",
+          "email": "sunita.mehta@cipla.com",
+          "linkedin_url": "https://www.linkedin.com/in/sunita-mehta-cipla-regulatory",
+          "confidence": 0.77
+        }
+      ],
+      "outreach_email": {
+        "subject": "FSSAI cold chain IoT deadline June 2026: Cipla's export compliance gap",
+        "body": "Hi Rajesh,\n\nWith FSSAI's June 2026 deadline for IoT temperature logging on all pharmaceutical exports now 12 weeks away, I wanted to reach out directly — for companies of Cipla's scale with complex multi-modal export operations (sea, air, road pre-consolidation), the implementation is materially more complex than the mandate text suggests.\n\nThe specific challenge: FSSAI requires continuous GPS tracking AND tamper-evident temperature logging with 30-day data retention across the full chain of custody. For a multi-stop export involving ground transport to the airport, air freight, and customs handling — that's 4-6 custody transfers where the chain must remain unbroken and documented.\n\nWe've deployed FSSAI-compliant cold chain monitoring for two other pharma exporters (one with similar multi-modal complexity to Cipla's operations). Our platform is pre-certified for FSSAI format compliance, integrates with SAP for batch traceability, and generates the audit-ready export documentation automatically.\n\nWith June approaching, what does Cipla's current implementation timeline look like? Happy to do a rapid gap assessment.\n\nBest regards"
+      },
+      "lead_score": 0.9234
+    },
+    {
+      "id": "rd2g3h4i5j6k",
+      "company_name": "Tata Motors",
+      "company_size": "large",
+      "industry": "manufacturing",
+      "website": "https://www.tatamotors.com",
+      "domain": "tatamotors.com",
+      "description": "Tata Motors is India's largest commercial vehicle manufacturer and a leading passenger vehicle company with ₹4.4 lakh crore revenue (including JLR) in FY2026. It operates 8 manufacturing plants in India and is executing a major Industry 4.0 transformation across its Pune, Sanand, and Jamshedpur plants as part of its EV manufacturing scale-up.",
+      "reason_relevant": "Tata Motors' EV manufacturing scale-up across multiple plants is a natural trigger for private 5G deployment — real-time battery quality inspection, robotic assembly monitoring, and supply chain visibility for EV-specific components (battery cells, motors, power electronics) require the ultra-low-latency connectivity that only private 5G provides.",
+      "trend_id": "Enterprise private 5G networks for manufacturing: DoT simplified licensing and dedicated mmWave spectrum enable 50,000 factory deployments by FY2028. EV manufacturers are primary adopters for robotic assembly and battery quality inspection.",
+      "wikidata_id": "Q658987",
+      "founded_year": 1945,
+      "headquarters": "Mumbai, Maharashtra",
+      "employee_count": "84000",
+      "stock_ticker": "TATAMOTORS",
+      "ceo": "Shailesh Chandra",
+      "funding_stage": "Public",
+      "tech_stack": ["SAP", "Siemens MES", "AWS", "Azure", "Python"],
+      "ner_verified": true,
+      "verification_source": "kb_cache",
+      "verification_confidence": 0.98,
+      "target_roles": [
+        "CTO",
+        "VP Manufacturing Technology",
+        "Head of Industry 4.0",
+        "Chief Digital Officer",
+        "VP EV Manufacturing"
+      ],
+      "contacts": [
+        {
+          "name": "Arun Balakrishnan",
+          "title": "VP Manufacturing Technology & Industry 4.0",
+          "email": "arun.balakrishnan@tatamotors.com",
+          "linkedin_url": "https://www.linkedin.com/in/arun-balakrishnan-tata-motors-industry4",
+          "confidence": 0.82
+        },
+        {
+          "name": "Priti Srivastava",
+          "title": "Head of Digital Manufacturing",
+          "email": "priti.srivastava@tatamotors.com",
+          "linkedin_url": "https://www.linkedin.com/in/priti-srivastava-tata-motors-digital",
+          "confidence": 0.78
+        }
+      ],
+      "outreach_email": {
+        "subject": "Tata Motors EV plants: private 5G for battery QC and robotic assembly",
+        "body": "Hi Arun,\n\nTata Motors' EV manufacturing scale-up — particularly across Sanand and Pune — is exactly the use case where private 5G delivers measurable value that WiFi 6 and wired networks cannot match.\n\nBattery cell quality inspection requires real-time ultrasonic and thermal imaging data transfer from 200+ inspection stations simultaneously, with sub-10ms latency for reject decisions. Robotic assembly coordination for EV-specific components (battery pack assembly, motor integration) requires deterministic network timing that only mmWave private 5G provides.\n\nJio has already connected 200 factories through JioThings — and DoT's new mmWave allocation makes the radio planning significantly simpler for large manufacturing floors like Tata Motors' plants.\n\nWe've designed private 5G architectures for two automotive manufacturers scaling EV production. The ROI case for Tata Motors' EV plants is compelling: real-time battery defect detection in the manufacturing process catches problems that currently only show up in warranty claims at ₹80,000+ per battery pack replacement.\n\nWould it be useful to walk through what a private 5G network for Sanand or Pune would look like technically?\n\nBest regards"
+      },
+      "lead_score": 0.9045
+    },
+    {
+      "id": "rd3l4m5n6o7p",
+      "company_name": "ACC Limited",
+      "company_size": "large",
+      "industry": "manufacturing",
+      "website": "https://www.acclimited.com",
+      "domain": "acclimited.com",
+      "description": "ACC Limited is one of India's leading cement manufacturers, a subsidiary of Holcim, with 17 integrated plants and over 35 million tonnes annual cement capacity. Its plants operate large kiln systems, ball mills, and rotary equipment where unplanned failure can cost ₹1 crore+ per day in lost production.",
+      "reason_relevant": "ACC Limited's large rotary kilns, ball mills, and conveyor systems are exactly the equipment type where predictive maintenance delivers the highest ROI — competitors Ultratech and Dalmia Bharat have already deployed IoT predictive maintenance reporting 40% downtime reduction, creating direct board-level pressure on ACC to close the capability gap.",
+      "trend_id": "JSW Steel, Dalmia Bharat, and Ultratech Cement reported 40% unplanned downtime reduction from IoT predictive maintenance. Competitors' proven results create urgent board pressure for remaining heavy industry players to deploy similar systems.",
+      "wikidata_id": "",
+      "founded_year": 1936,
+      "headquarters": "Mumbai, Maharashtra",
+      "employee_count": "7500",
+      "stock_ticker": "ACC",
+      "ceo": "Neeraj Akhoury",
+      "funding_stage": "Public",
+      "tech_stack": ["SAP", "OSIsoft PI", "AWS", "Siemens automation"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.91,
+      "target_roles": [
+        "VP Operations",
+        "Head of Plant Maintenance",
+        "Chief Digital Officer",
+        "VP Technology",
+        "Head of Asset Reliability"
+      ],
+      "contacts": [
+        {
+          "name": "Santosh Kumar",
+          "title": "VP Plant Operations & Maintenance",
+          "email": "santosh.kumar@acclimited.com",
+          "linkedin_url": "https://www.linkedin.com/in/santosh-kumar-acc-limited-operations",
+          "confidence": 0.79
+        },
+        {
+          "name": "Deepak Joshi",
+          "title": "Head of Digital & Industry 4.0",
+          "email": "deepak.joshi@acclimited.com",
+          "linkedin_url": "https://www.linkedin.com/in/deepak-joshi-acc-digital",
+          "confidence": 0.75
+        }
+      ],
+      "outreach_email": {
+        "subject": "Ultratech's 40% downtime reduction: ACC's kiln reliability gap is now visible",
+        "body": "Hi Santosh,\n\nWhen Ultratech Cement publishes results showing 40% reduction in unplanned downtime from predictive maintenance IoT — and it's covered across the sector press — every cement company's board wants to know the same question: why don't we have this?\n\nFor ACC's kiln and ball mill operations, the economics are stark: a single unplanned kiln stoppage costs ₹1 crore+ per day. A predictive maintenance system that detects bearing failures and motor degradation 3-4 weeks in advance, enabling planned maintenance windows that don't interrupt production, pays for itself after avoiding one stoppage.\n\nThe good news: ACC's existing SAP and OSIsoft PI data historians already have the machine data that predictive maintenance models need. We don't require new sensor installations for most critical rotating equipment — we connect to your existing data infrastructure and layer in the failure prediction models.\n\nWould it be useful to run a quick analysis of your existing PI historian data to identify which equipment currently has the highest unplanned failure rate and predictive maintenance potential?\n\nBest regards"
+      },
+      "lead_score": 0.8812
+    },
+    {
+      "id": "rd4q5r6s7t8u",
+      "company_name": "Shadowfax Technologies",
+      "company_size": "mid",
+      "industry": "logistics_supply_chain",
+      "website": "https://www.shadowfax.in",
+      "domain": "shadowfax.in",
+      "description": "Shadowfax Technologies is a technology-first last-mile and hyperlocal delivery company with over 1.5 million delivery partner network across 2,000+ cities. It serves major e-commerce platforms, quick commerce, and D2C brands, processing 2 million+ deliveries daily.",
+      "reason_relevant": "Shadowfax's 2 million daily deliveries and 1.5 million delivery partner network represent a massive efficiency opportunity — Delhivery and Ecom Express have demonstrated 22% efficiency gains from AI routing optimization, and at Shadowfax's scale, the same improvement would translate to ₹150+ crore in annual fuel and time cost savings.",
+      "trend_id": "AI-powered last-mile delivery optimization using 5G real-time data demonstrated 22% efficiency improvement and 18% fuel cost reduction at Delhivery and Ecom Express, creating competitive pressure across the logistics sector.",
+      "wikidata_id": "",
+      "founded_year": 2015,
+      "headquarters": "Bangalore, Karnataka",
+      "employee_count": "3000",
+      "stock_ticker": "",
+      "ceo": "Abhishek Bansal",
+      "funding_stage": "Series E",
+      "tech_stack": ["AWS", "Python", "React Native", "PostgreSQL", "Kafka"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.88,
+      "target_roles": [
+        "CTO",
+        "VP Operations",
+        "Head of Delivery Technology",
+        "VP Product",
+        "Chief Operating Officer"
+      ],
+      "contacts": [
+        {
+          "name": "Vikram Singh",
+          "title": "Chief Technology Officer",
+          "email": "vikram.singh@shadowfax.in",
+          "linkedin_url": "https://www.linkedin.com/in/vikram-singh-shadowfax-cto",
+          "confidence": 0.83
+        },
+        {
+          "name": "Neha Gupta",
+          "title": "VP Operations & Technology",
+          "email": "neha.gupta@shadowfax.in",
+          "linkedin_url": "https://www.linkedin.com/in/neha-gupta-shadowfax",
+          "confidence": 0.78
+        }
+      ],
+      "outreach_email": {
+        "subject": "2M deliveries/day, 22% efficiency gap vs Delhivery — Shadowfax's AI routing opportunity",
+        "body": "Hi Vikram,\n\nDelhivery has published that their AI routing optimization delivers 22% delivery efficiency improvement and 18% fuel cost reduction. At Shadowfax's scale of 2 million daily deliveries, the same improvement would translate to roughly ₹150 crore in annual operational savings — that's the scale of the gap we're looking at.\n\nThe key difference between basic route optimization (which most delivery companies have) and AI optimization that delivers 22% gains is real-time constraint integration: live traffic, weather, vehicle capacity, delivery partner current location, time window constraints, and customer priority weighting all processed simultaneously with sub-second rerouting.\n\nFor a platform with 1.5 million delivery partners across 2,000 cities, the algorithm complexity is substantial — but so is the payback. We've built routing systems that operate at comparable network scale.\n\nWould a pilot on a specific city or delivery cluster make sense to demonstrate the improvement potential before a full deployment discussion?\n\nBest regards"
+      },
+      "lead_score": 0.8723
+    },
+    {
+      "id": "rd5v6w7x8y9z",
+      "company_name": "Lupin Pharmaceuticals",
+      "company_size": "large",
+      "industry": "manufacturing",
+      "website": "https://www.lupin.com",
+      "domain": "lupin.com",
+      "description": "Lupin Limited is among India's top 5 pharmaceutical companies with ₹20,000+ crore annual revenue, operating 15+ manufacturing facilities in India. It is a major supplier to regulated markets (US, EU, Japan) with significant injectable and controlled substance manufacturing — both categories with strict cold chain requirements.",
+      "reason_relevant": "Lupin's injectable and controlled substance product lines are the most temperature-sensitive and compliance-critical in its portfolio — FSSAI's June 2026 mandate for IoT temperature logging directly impacts its export operations, and FDA 21 CFR Part 11 requirements for electronic records create an overlay compliance requirement that complicates implementation.",
+      "trend_id": "FSSAI mandated real-time IoT temperature logging for all pharmaceutical export shipments by June 2026. Lupin's injectable and controlled substance product lines require cold chain monitoring that simultaneously satisfies FSSAI, US FDA 21 CFR Part 11, and EU GDP guidelines.",
+      "wikidata_id": "",
+      "founded_year": 1968,
+      "headquarters": "Mumbai, Maharashtra",
+      "employee_count": "22000",
+      "stock_ticker": "LUPIN",
+      "ceo": "Nilesh Gupta",
+      "funding_stage": "Public",
+      "tech_stack": ["SAP", "Oracle", "AWS", "Veeva"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.93,
+      "target_roles": [
+        "Chief Supply Chain Officer",
+        "Head of Export Compliance",
+        "VP Manufacturing",
+        "VP Regulatory Affairs",
+        "Head of Cold Chain Operations"
+      ],
+      "contacts": [
+        {
+          "name": "Anand Krishnan",
+          "title": "VP Supply Chain & Distribution",
+          "email": "anand.krishnan@lupin.com",
+          "linkedin_url": "https://www.linkedin.com/in/anand-krishnan-lupin-supply-chain",
+          "confidence": 0.80
+        },
+        {
+          "name": "Priya Desai",
+          "title": "Head of Regulatory Compliance — Export",
+          "email": "priya.desai@lupin.com",
+          "linkedin_url": "https://www.linkedin.com/in/priya-desai-lupin-regulatory",
+          "confidence": 0.76
+        }
+      ],
+      "outreach_email": {
+        "subject": "FSSAI + FDA 21 CFR Part 11: Lupin's injectables cold chain requires dual-compliance",
+        "body": "Hi Anand,\n\nFor most pharma exporters, FSSAI's June 2026 IoT mandate is a single compliance implementation. For Lupin's injectable product lines exported to the US and EU, it's a dual-compliance problem — FSSAI requires the specific GPS and tamper-evidence format, while FDA 21 CFR Part 11 governs the electronic record requirements, and EU GDP adds chain-of-custody documentation standards that are partially contradictory with FSSAI's format.\n\nWe've worked through this dual-compliance challenge specifically for injectable and controlled substance exporters. The key is a unified monitoring platform that generates FSSAI-compliant export documentation, FDA Part 11 electronic records (signed, dated, audit trail), and EU GDP chain-of-custody reports from a single data stream — not three separate systems.\n\nWith 12 weeks to the FSSAI deadline and complex multi-regulatory overlay requirements, the window for implementation is tight. We can complete a gap assessment and deployment plan in 2 weeks.\n\nWould it be useful to start with a review of your current cold chain monitoring capabilities against the FSSAI technical requirements?\n\nBest regards"
+      },
+      "lead_score": 0.8634
+    },
+    {
+      "id": "rd6a1b2c3d4e",
+      "company_name": "Snowman Logistics",
+      "company_size": "mid",
+      "industry": "logistics_supply_chain",
+      "website": "https://www.snowman.in",
+      "domain": "snowman.in",
+      "description": "Snowman Logistics is India's leading integrated temperature-controlled logistics company with 40+ cold storage facilities and ₹900 crore annual revenue. It serves pharmaceutical, food, and retail sectors across India's cold chain infrastructure, and is positioning as the compliant logistics partner for pharma exporters under new FSSAI mandates.",
+      "reason_relevant": "FSSAI's June 2026 cold chain IoT mandate is a major business opportunity for Snowman — pharmaceutical companies that cannot build in-house IoT monitoring capability will outsource to cold chain 3PLs who offer FSSAI-certified monitoring as a managed service. Snowman can capture premium pricing on compliant cold chain services.",
+      "trend_id": "FSSAI's cold chain IoT mandate creates a managed service opportunity for cold chain logistics providers — pharma exporters who outsource cold chain will pay premium for FSSAI-certified managed temperature monitoring services.",
+      "wikidata_id": "",
+      "founded_year": 1993,
+      "headquarters": "Bangalore, Karnataka",
+      "employee_count": "2500",
+      "stock_ticker": "SNOWMAN",
+      "ceo": "Sunil Nair",
+      "funding_stage": "Public",
+      "tech_stack": ["Oracle", "AWS", "cold chain monitoring systems"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.87,
+      "target_roles": [
+        "CEO",
+        "VP Sales",
+        "Head of Business Development",
+        "VP Pharmaceutical Logistics",
+        "Head of Technology"
+      ],
+      "contacts": [
+        {
+          "name": "Prakash Rao",
+          "title": "VP Pharmaceutical & Healthcare Logistics",
+          "email": "prakash.rao@snowman.in",
+          "linkedin_url": "https://www.linkedin.com/in/prakash-rao-snowman-logistics",
+          "confidence": 0.81
+        },
+        {
+          "name": "Divya Krishnamurthy",
+          "title": "Head of Business Development",
+          "email": "divya.krishnamurthy@snowman.in",
+          "linkedin_url": "https://www.linkedin.com/in/divya-krishnamurthy-snowman",
+          "confidence": 0.77
+        }
+      ],
+      "outreach_email": {
+        "subject": "FSSAI June 2026: Snowman can be the compliant cold chain partner 500+ pharma exporters need",
+        "body": "Hi Prakash,\n\nThe FSSAI June 2026 IoT cold chain mandate is creating a two-tier market in pharma logistics: 3PLs with certified IoT monitoring get premium contracts; those without face pharma client attrition as exporters are forced to consolidate around compliant partners.\n\nSnowman's 40+ facilities and established pharma client base position you perfectly to be the go-to compliant cold chain partner for the 500+ pharma exporters who cannot afford to build in-house monitoring. The business case for Snowman is clear — FSSAI compliance becomes a differentiation that justifies premium pricing and long-term contract extensions.\n\nWe help cold chain logistics companies deploy FSSAI-compliant IoT monitoring as a managed service across all their facilities — including the GPS tamper-evident hardware, the 30-day data retention system, the FSSAI export documentation generation, and the client-facing dashboard that pharma companies use to verify chain-of-custody.\n\nWould it be useful to explore what a Snowman-branded FSSAI-compliant cold chain monitoring service offering would look like?\n\nBest regards"
+      },
+      "lead_score": 0.8512
+    },
+    {
+      "id": "rd7b8c9d0e1f",
+      "company_name": "Dixon Technologies",
+      "company_size": "large",
+      "industry": "manufacturing",
+      "website": "https://www.dixontechnologies.com",
+      "domain": "dixontechnologies.com",
+      "description": "Dixon Technologies is India's largest electronics manufacturing services (EMS) company with ₹25,000+ crore revenue in FY2026, producing mobile phones, LED TVs, washing machines, and smart meters. It operates 8 plants in Noida and is a key PLI scheme beneficiary with mandatory digital production traceability requirements.",
+      "reason_relevant": "Dixon Technologies' PLI scheme obligations require digital traceability of production metrics and quality data — the PLI performance incentives are directly tied to achieving and documenting production efficiency milestones, making smart factory IoT investment both a compliance necessity and a revenue accelerator. Its high-volume electronics assembly lines are ideal for private 5G-enabled IoT quality inspection.",
+      "trend_id": "PLI scheme recipients require digital production traceability for performance incentive verification. Dixon's high-volume electronics assembly (25,000+ crore revenue) justifies private 5G investment for real-time quality inspection and production monitoring.",
+      "wikidata_id": "",
+      "founded_year": 1993,
+      "headquarters": "Noida, Uttar Pradesh",
+      "employee_count": "16000",
+      "stock_ticker": "DIXON",
+      "ceo": "Atul B. Lall",
+      "funding_stage": "Public",
+      "tech_stack": ["SAP", "Oracle Manufacturing Cloud", "AWS"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.91,
+      "target_roles": [
+        "VP Manufacturing",
+        "Head of Industry 4.0",
+        "CTO",
+        "VP Technology",
+        "Head of PLI Compliance"
+      ],
+      "contacts": [
+        {
+          "name": "Saurabh Gupta",
+          "title": "VP Manufacturing & Operations",
+          "email": "saurabh.gupta@dixontechnologies.com",
+          "linkedin_url": "https://www.linkedin.com/in/saurabh-gupta-dixon-technologies",
+          "confidence": 0.79
+        },
+        {
+          "name": "Meenakshi Agarwal",
+          "title": "Head of Industry 4.0 & Digital Manufacturing",
+          "email": "meenakshi.agarwal@dixontechnologies.com",
+          "linkedin_url": "https://www.linkedin.com/in/meenakshi-agarwal-dixon",
+          "confidence": 0.75
+        }
+      ],
+      "outreach_email": {
+        "subject": "Dixon PLI traceability + smart factory: IoT ROI that goes beyond compliance",
+        "body": "Hi Saurabh,\n\nDixon's PLI scheme obligations create a floor requirement for digital production traceability — but the same IoT infrastructure that satisfies PLI reporting requirements can also drive the 35% defect rate reduction that makes Dixon's factories genuinely competitive against Chinese EMS at the product quality level.\n\nFor mobile phone assembly at Dixon's Noida scale, AI vision inspection integrated with 5G-connected production lines can catch PCB defects, solder joint failures, and component misalignment in real time — before they pass to downstream assembly stages where rework cost is 10x higher.\n\nThe PLI compliance case pays for the infrastructure; the quality inspection ROI is where the actual returns are. And DoT's new private 5G mmWave allocation makes deploying a dedicated factory network at Noida significantly more cost-effective than it was 12 months ago.\n\nWould it be useful to walk through what a smart factory deployment for Dixon's largest Noida line would look like — covering both PLI traceability and real-time quality inspection?\n\nBest regards"
+      },
+      "lead_score": 0.8423
+    },
+    {
+      "id": "rd8e9f0a1b2c",
+      "company_name": "XpressBees",
+      "company_size": "mid",
+      "industry": "logistics_supply_chain",
+      "website": "https://www.xpressbees.com",
+      "domain": "xpressbees.com",
+      "description": "XpressBees is a technology-led logistics company backed by Alibaba, Blackrock, and Tiger Global, processing 2.5 million+ shipments daily across India. It serves major e-commerce platforms including Meesho, Flipkart, and Myntra, and operates 5,000+ delivery hubs with an owned delivery fleet.",
+      "reason_relevant": "XpressBees processes 2.5 million daily shipments — larger than Delhivery's volume where 22% AI routing efficiency gains were demonstrated. The company's Alibaba backing brings access to Cainiao's logistics AI playbook, but India-specific road network and traffic pattern models require local AI development that XpressBees hasn't yet deployed at scale.",
+      "trend_id": "AI-powered last-mile delivery optimization demonstrated 22% efficiency improvement at Indian logistics companies. XpressBees' 2.5M daily shipment scale makes it one of the highest-value optimization targets in the sector.",
+      "wikidata_id": "",
+      "founded_year": 2015,
+      "headquarters": "Pune, Maharashtra",
+      "employee_count": "25000",
+      "stock_ticker": "",
+      "ceo": "Amitava Saha",
+      "funding_stage": "Series F",
+      "tech_stack": ["AWS", "Python", "React", "Kafka", "MongoDB"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.88,
+      "target_roles": [
+        "CTO",
+        "VP Operations",
+        "Head of Delivery Technology",
+        "VP Product",
+        "Chief Operating Officer"
+      ],
+      "contacts": [
+        {
+          "name": "Rahul Jha",
+          "title": "Chief Technology Officer",
+          "email": "rahul.jha@xpressbees.com",
+          "linkedin_url": "https://www.linkedin.com/in/rahul-jha-xpressbees-cto",
+          "confidence": 0.82
+        },
+        {
+          "name": "Pooja Sharma",
+          "title": "VP Technology — Delivery Operations",
+          "email": "pooja.sharma@xpressbees.com",
+          "linkedin_url": "https://www.linkedin.com/in/pooja-sharma-xpressbees",
+          "confidence": 0.77
+        }
+      ],
+      "outreach_email": {
+        "subject": "XpressBees 2.5M shipments: India-specific AI routing vs Cainiao's generic model",
+        "body": "Hi Rahul,\n\nXpressBees has access to Cainiao's logistics AI platform through Alibaba's backing — but Cainiao's routing models are trained on China's road network and delivery patterns, and the India adaptation gap is real. Indian last-mile delivery involves different constraints: informal address formats, lane restrictions in dense urban areas, monsoon route disruptions, and cash-on-delivery reattempt patterns that differ fundamentally from China or Western markets.\n\nAt 2.5 million daily shipments, even a 15% delivery efficiency improvement (conservative vs the 22% Delhivery published) translates to ₹200+ crore in annual cost savings. The question is whether XpressBees is getting that from Cainiao's India adaptation or leaving it on the table.\n\nWe've built India-specific delivery optimization models trained on 500+ million Indian delivery data points covering all major Indian metros, Tier 2 cities, and rural delivery patterns. The models account for India-specific delivery failure patterns (address ambiguity, RTO rates by locality) that Cainiao's China-trained models systematically underperform on.\n\nWould a comparison of current XpressBees routing efficiency vs our India-optimized model on a sample delivery cluster be useful?\n\nBest regards"
+      },
+      "lead_score": 0.8334
+    },
+    {
+      "id": "rd9c0d1e2f3a",
+      "company_name": "Vedanta Limited",
+      "company_size": "large",
+      "industry": "manufacturing",
+      "website": "https://www.vedantalimited.com",
+      "domain": "vedantalimited.com",
+      "description": "Vedanta Limited is a global natural resources company with major operations in India including aluminum (Jharsuguda), zinc (Rajasthan), copper, and oil & gas. It operates some of India's largest continuous process manufacturing facilities where unplanned equipment failure has catastrophic safety and financial consequences.",
+      "reason_relevant": "Vedanta's continuous process manufacturing operations (smelters, refineries, mines) are high-value predictive maintenance targets — unplanned failure at an aluminum smelter or zinc refinery can cause safety incidents and production losses of ₹10-50 crore per day. The company has large rotating equipment fleets (pumps, compressors, conveyors) that generate the vibration and thermal data that predictive maintenance models use.",
+      "trend_id": "IoT predictive maintenance demonstrated 40% downtime reduction at heavy industry companies. Vedanta's smelter and mining operations have the highest downtime cost in the sector (₹10-50 crore per unplanned day), making it the highest ROI predictive maintenance deployment opportunity.",
+      "wikidata_id": "Q2044929",
+      "founded_year": 1976,
+      "headquarters": "Mumbai, Maharashtra",
+      "employee_count": "65000",
+      "stock_ticker": "VEDL",
+      "ceo": "Arun Misra",
+      "funding_stage": "Public",
+      "tech_stack": ["SAP", "OSIsoft PI", "AWS", "Rockwell Automation"],
+      "ner_verified": true,
+      "verification_source": "kb_cache",
+      "verification_confidence": 0.95,
+      "target_roles": [
+        "VP Operations",
+        "Chief Digital Officer",
+        "Head of Mining Technology",
+        "VP Asset Management",
+        "Head of Plant Reliability"
+      ],
+      "contacts": [
+        {
+          "name": "Sunil Duggal",
+          "title": "Chief Operating Officer — Zinc India",
+          "email": "sunil.duggal@vedanta.co.in",
+          "linkedin_url": "https://www.linkedin.com/in/sunil-duggal-vedanta-zinc",
+          "confidence": 0.80
+        },
+        {
+          "name": "Mahesh Agarwal",
+          "title": "VP Digital & Technology",
+          "email": "mahesh.agarwal@vedanta.co.in",
+          "linkedin_url": "https://www.linkedin.com/in/mahesh-agarwal-vedanta-digital",
+          "confidence": 0.76
+        }
+      ],
+      "outreach_email": {
+        "subject": "Vedanta smelter reliability: predictive maintenance ROI at ₹10-50 crore/day downtime cost",
+        "body": "Hi Mahesh,\n\nFor Vedanta's aluminum and zinc operations, the financial case for predictive maintenance is more compelling than anywhere else in Indian manufacturing — you're operating continuous process facilities where an unplanned compressor failure or furnace breakdown can cost ₹10-50 crore per day in lost production, plus safety consequence risk.\n\nJSW Steel published 40% downtime reduction from their IoT predictive maintenance deployment. At Vedanta's operational scale and downtime cost profile, the equivalent improvement would generate hundreds of crores in annual avoided losses.\n\nThe data is already there: your OSIsoft PI historian is capturing the vibration, temperature, current, and pressure signals that predictive failure models use. We don't need new sensor infrastructure for most of your rotating equipment — we connect to the existing PI data streams and layer in the failure detection algorithms.\n\nWe've deployed predictive maintenance for two other large metals and mining companies in India. The failure pattern libraries for aluminum smelter equipment (pot tending machines, crucible trucks, compressors) and zinc refinery equipment are part of our pre-trained model set.\n\nWould it be worth reviewing what Vedanta's current PI data could reveal about near-term failure risk in your highest-consequence equipment?\n\nBest regards"
+      },
+      "lead_score": 0.8245
+    }
+  ],
+  "lead_count": 9,
+  "log_messages": []
+}

@@ -3,12 +3,10 @@ Common enums and value objects used across the entire application.
 
 These are foundational types that don't belong to any specific domain layer.
 They define the vocabulary of the system: severity levels, industry sectors,
-service types, trend classifications, and reusable value objects.
+trend classifications, and source metadata.
 """
 
 from enum import Enum
-from typing import List
-from pydantic import BaseModel, Field
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -49,19 +47,6 @@ class Sector(str, Enum):
     LOGISTICS = "Logistics & Supply Chain"
 
 
-class ServiceType(str, Enum):
-    """9 CMI Core Services."""
-    PROCUREMENT_INTELLIGENCE = "Procurement Intelligence"
-    MARKET_INTELLIGENCE = "Market Intelligence"
-    COMPETITIVE_INTELLIGENCE = "Competitive Intelligence"
-    MARKET_MONITORING = "Market Monitoring"
-    INDUSTRY_ANALYSIS = "Industry Analysis"
-    TECHNOLOGY_RESEARCH = "Technology Research"
-    CROSS_BORDER_EXPANSION = "Cross Border Expansion"
-    CONSUMER_INSIGHTS = "Consumer Insights"
-    CONSULTING_ADVISORY = "Consulting and Advisory Services"
-
-
 class TrendType(str, Enum):
     """Trend classification by business impact."""
     REGULATION = "regulation"
@@ -89,15 +74,6 @@ class TrendType(str, Enum):
     CRISIS = "crisis"
     GENERAL = "general"
     EMERGING = "emerging"
-
-
-class ImpactType(str, Enum):
-    """Direction of impact."""
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-    MIXED = "mixed"
-    NEUTRAL = "neutral"
-    DISRUPTIVE = "disruptive"
 
 
 class SourceType(str, Enum):
@@ -131,80 +107,3 @@ class SourceTier(str, Enum):
     UNKNOWN = "unknown"
 
 
-class IntentLevel(str, Enum):
-    """Buying intent classification."""
-    HOT = "hot"
-    WARM = "warm"
-    COLD = "cold"
-    DORMANT = "dormant"
-
-
-class LifecycleStage(str, Enum):
-    """Trend lifecycle stage classification."""
-    EMERGING = "emerging"
-    GROWING = "growing"
-    PEAK = "peak"
-    DECLINING = "declining"
-
-
-class BuyingIntentSignalType(str, Enum):
-    """Buying intent signal types from synthesis."""
-    COMPLIANCE_NEED = "compliance_need"
-    GROWTH_OPPORTUNITY = "growth_opportunity"
-    CRISIS_RESPONSE = "crisis_response"
-    TECHNOLOGY_ADOPTION = "technology_adoption"
-    MARKET_ENTRY = "market_entry"
-    RESTRUCTURING = "restructuring"
-    PROCUREMENT_OPTIMIZATION = "procurement_optimization"
-    COMPETITIVE_PRESSURE = "competitive_pressure"
-    UNKNOWN = "unknown"
-
-
-class BuyingUrgency(str, Enum):
-    """Buying urgency levels from synthesis."""
-    IMMEDIATE = "immediate"
-    SHORT_TERM = "short_term"
-    MEDIUM_TERM = "medium_term"
-    UNKNOWN = "unknown"
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# VALUE OBJECTS - Immutable, Reusable
-# ══════════════════════════════════════════════════════════════════════════════
-
-class GeoLocation(BaseModel):
-    """Geographic location."""
-    country: str = ""  # Populated from settings.country by caller
-    state: str | None = None
-    city: str | None = None
-
-    class Config:
-        frozen = True
-
-
-class MoneyAmount(BaseModel):
-    """Financial amount with currency."""
-    amount: float
-    currency: str = "INR"
-    is_estimated: bool = False
-
-    class Config:
-        frozen = True
-
-
-class ConfidenceScore(BaseModel):
-    """Confidence with explanation factors."""
-    score: float = Field(ge=0.0, le=1.0, default=0.5)
-    factors: List[str] = Field(default_factory=list)
-
-    @property
-    def level(self) -> str:
-        if self.score >= 0.9:
-            return "very_high"
-        if self.score >= 0.75:
-            return "high"
-        if self.score >= 0.5:
-            return "medium"
-        if self.score >= 0.25:
-            return "low"
-        return "very_low"

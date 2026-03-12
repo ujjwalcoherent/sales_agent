@@ -27,44 +27,58 @@ def _coerce_to_str(v):
 StrFromDict = Annotated[str, BeforeValidator(_coerce_to_str)]
 
 
-class TrendValidationLLM(BaseModel):
-    """LLM output for trend validation (Stage A council)."""
-    importance_score: float = Field(ge=0.0, le=1.0, default=0.5)
-    validated_depth: str = Field(default="SUB", description="MAJOR, SUB, MICRO, or NOISE")
-    reasoning: str = Field(default="", description="2-3 sentences explaining classification")
-    cmi_relevance_score: float = Field(ge=0.0, le=1.0, default=0.5)
-    relevant_services: List[str] = Field(default_factory=list)
-    should_subcluster: bool = False
-    subcluster_reason: str = ""
-    validated_event_type: str = "general"
-    event_type_reasoning: str = ""
+def _coerce_to_str_list(v):
+    """Coerce common LLM output variants to List[str].
+
+    Handles: None→[], str→[str], dict→[str(dict)], non-list→[str(val)].
+    Filters empty items from existing lists.
+    """
+    if v is None:
+        return []
+    if isinstance(v, str):
+        return [v.strip()] if v.strip() else []
+    if isinstance(v, list):
+        return [str(item).strip() for item in v if item and str(item).strip()]
+    return [str(v)] if v else []
 
 
-class LeadValidationLLM(BaseModel):
-    """LLM output for lead quality validation (Stage C council)."""
-    relevance_score: float = Field(ge=0.0, le=1.0, default=0.5)
-    is_relevant: bool = True
-    reasoning: str = ""
-    improved_pitch: str = ""
-    recommended_service: str = ""
-    recommended_offering: str = ""
+StrList = Annotated[List[str], BeforeValidator(_coerce_to_str_list)]
 
 
 class ImpactAnalysisLLM(BaseModel):
     """LLM output for impact analysis (per trend)."""
-    direct_impact: List[str] = Field(default_factory=list)
+    direct_impact: StrList = Field(default_factory=list)
     direct_impact_reasoning: str = ""
-    indirect_impact: List[str] = Field(default_factory=list)
+    indirect_impact: StrList = Field(default_factory=list)
     indirect_impact_reasoning: str = ""
-    additional_verticals: List[str] = Field(default_factory=list)
+    additional_verticals: StrList = Field(default_factory=list)
     additional_verticals_reasoning: str = ""
-    midsize_pain_points: List[str] = Field(default_factory=list)
-    consulting_projects: List[str] = Field(default_factory=list)
-    positive_sectors: List[str] = Field(default_factory=list)
-    negative_sectors: List[str] = Field(default_factory=list)
-    relevant_services: List[str] = Field(default_factory=list)
-    target_roles: List[str] = Field(default_factory=list)
+    midsize_pain_points: StrList = Field(default_factory=list)
+    consulting_projects: StrList = Field(default_factory=list)
+    positive_sectors: StrList = Field(default_factory=list)
+    negative_sectors: StrList = Field(default_factory=list)
+    relevant_services: StrList = Field(default_factory=list)
+    target_roles: StrList = Field(default_factory=list)
     pitch_angle: str = ""
+
+    @model_validator(mode='before')
+    @classmethod
+    def coerce_str_fields(cls, values):
+        """Coerce string fields from non-str types (None, int, list)."""
+        if not isinstance(values, dict):
+            return values
+        for key in ("direct_impact_reasoning", "indirect_impact_reasoning",
+                     "additional_verticals_reasoning", "pitch_angle"):
+            val = values.get(key)
+            if val is not None and not isinstance(val, str):
+                values[key] = str(val)
+            elif val is None:
+                values[key] = ""
+        # Truncate pitch_angle
+        pitch = values.get("pitch_angle", "")
+        if isinstance(pitch, str) and len(pitch) > 150:
+            values["pitch_angle"] = pitch[:147] + "..."
+        return values
 
 
 class ServiceRecommendationLLM(BaseModel):
@@ -150,207 +164,162 @@ class UnifiedImpactAnalysisLLM(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0, default=0.5)
 
 
-# ── Stage 0: Article Triage (pre-clustering noise filter) ─────────────
-
-class ArticleTriageItemLLM(BaseModel):
-    """LLM judgment for a single article in a batch triage call."""
-    id: int = Field(description="Article number from the batch (1-indexed)")
-    is_business: bool = Field(
-        default=True,
-        description="True if article discusses business, finance, companies, markets, "
-        "economy, technology adoption, or corporate/government activity"
-    )
-    confidence: float = Field(ge=0.0, le=1.0, default=0.7)
-    noise_category: str = Field(
-        default="none",
-        description="If not business: entertainment, sports, lifestyle, opinion, "
-        "astrology, or other. Use 'none' if business-relevant."
-    )
-    reasoning: str = Field(default="", description="1 sentence explaining the decision")
-
-
-class ArticleTriageBatchLLM(BaseModel):
-    """LLM output for batch article triage (10-15 articles per call).
-
-    Reasoning field comes FIRST to preserve chain-of-thought quality
-    (OpenAI Structured Outputs research, 2024).
-    """
-    reasoning: str = Field(
-        default="",
-        description="Brief overall assessment of this batch before individual judgments"
-    )
-    articles: List[ArticleTriageItemLLM] = Field(default_factory=list)
-
-
-class CompanyExtractionLLM(BaseModel):
-    """Single company extracted by LLM from search results."""
-    company_name: str = ""
-    industry: str = ""
-    website: str = ""
-    reason_relevant: str = ""
-    company_size: str = "mid"
-    intent_signal: str = ""
-    description: str = ""
-
-
-class CompanyListLLM(BaseModel):
-    """LLM output for company extraction (list of companies).
-
-    Handles two LLM output patterns:
-      - Wrapped:  {"companies": [{...}, ...]}        (expected)
-      - Flat list: [{...}, ...]                       (LLM shortcut)
-    """
-    companies: List[CompanyExtractionLLM] = Field(default_factory=list)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_list(cls, v):
-        if isinstance(v, list):
-            return {"companies": v}
-        return v
-
-
 class OutreachDraftLLM(BaseModel):
     """LLM output for email outreach generation."""
     subject: str = ""
     body: str = ""
 
 
-class TrendSynthesisLLM(BaseModel):
-    """LLM output for cluster synthesis (Phase 8)."""
-    trend_title: str = ""
-    trend_summary: str = ""
-    trend_type: str = "general"
-    severity: str = "medium"
-    lifecycle_stage: str = "emerging"
-    primary_sectors: List[str] = Field(default_factory=list)
-    key_entities: List[str] = Field(default_factory=list)
-    affected_companies: List[str] = Field(default_factory=list)
-    affected_regions: List[str] = Field(default_factory=list)
-    actionable_insight: str = ""
-    event_5w1h: dict = Field(default_factory=dict)
-    causal_chain: List[str] = Field(default_factory=list)
-    buying_intent: dict = Field(default_factory=dict)
+class PersonOutreachInsightsLLM(BaseModel):
+    """LLM output for person outreach intelligence synthesis."""
+    background_summary: str = ""
+    recent_focus: str = ""
+    notable_achievements: StrList = Field(default_factory=list)
+    shared_interests: StrList = Field(default_factory=list)
+    talking_points: StrList = Field(default_factory=list)
 
 
-# ── Stage D: Causal Council (multi-agent causal reasoning) ────────────
+class ContentThemesLLM(BaseModel):
+    """LLM output for person content theme extraction.
 
-# ── Layer 2.75: LLM Cluster Validation ────────────────────────────────
-
-class ClusterValidationLLM(BaseModel):
-    """LLM output for cluster coherence validation.
-
-    Reasoning-first pattern (OpenAI Structured Outputs, 2024).
-    Used in curriculum-learning cascade: deterministic checks first,
-    LLM only for borderline clusters. Cost: ~$0.0003/cluster.
-
-    REF: NewsCatcher rejects 80% of clusters via LLM validation.
+    Handles both patterns:
+      - Array:  ["theme1", "theme2"]            (LLM returns raw list)
+      - Object: {"themes": ["theme1", ...]}     (wrapped)
     """
-    reasoning: str = Field(
-        default="",
-        description="Step-by-step analysis: (1) Do these articles describe the SAME "
-        "real-world event or closely related developments? (2) What specific "
-        "evidence links them? (3) Are there any outlier articles that don't "
-        "belong? (4) Could this cluster be split into tighter sub-topics?"
-    )
-    is_coherent: bool = Field(
-        default=True,
-        description="True if all articles discuss the same event/development. "
-        "False if the cluster is a grab-bag of loosely related topics."
-    )
-    coherence_score: float = Field(
-        ge=0.0, le=1.0, default=0.5,
-        description="0.0=completely incoherent grab-bag, 1.0=perfect single-event cluster"
-    )
-    suggested_label: str = Field(
-        default="",
-        description="A concise label for this cluster (e.g., 'Peak XV $1.3B Fund Raise', "
-        "'Trump Tariff Market Impact')"
-    )
-    outlier_indices: List[int] = Field(
-        default_factory=list,
-        description="0-indexed positions of articles that don't belong in this cluster"
-    )
-    should_split: bool = Field(
-        default=False,
-        description="True if the cluster contains 2+ distinct sub-topics that "
-        "should be separated into their own clusters"
-    )
-    split_reason: str = Field(
-        default="",
-        description="If should_split=True, explain what sub-topics exist"
-    )
+    themes: StrList = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_list(cls, v):
+        if isinstance(v, list):
+            return {"themes": v}
+        return v
 
 
-class CausalEdgeLLM(BaseModel):
-    """LLM output for pairwise causal evaluation between two trends.
+class ContactRolesLLM(BaseModel):
+    """LLM output for contact role inference.
 
-    The reasoning field comes FIRST to preserve chain-of-thought quality
-    (OpenAI Structured Outputs research, 2024).
+    Handles both patterns:
+      - Array:  ["CEO", "VP Engineering"]       (LLM returns raw list)
+      - Object: {"roles": ["CEO", ...]}         (wrapped)
     """
-    reasoning: str = Field(
-        default="",
-        description="Step-by-step analysis: (1) What evidence links these trends? "
-        "(2) Is the connection causal or coincidental? "
-        "(3) What is the mechanism? (4) What direction?"
-    )
-    is_causal: bool = Field(
-        default=False,
-        description="True if evidence supports a causal link, not just co-occurrence"
-    )
-    relationship_type: str = Field(
-        default="co-occurs",
-        description="causes | amplifies | mitigates | co-occurs"
-    )
-    causal_mechanism: str = Field(
-        default="",
-        description="HOW Trend A affects Trend B — the specific transmission channel "
-        "(e.g., 'RBI rate hike → higher NBFC borrowing costs → reduced lending')"
-    )
-    direction: str = Field(
-        default="a_to_b",
-        description="a_to_b | b_to_a | bidirectional"
-    )
-    confidence: float = Field(ge=0.0, le=1.0, default=0.3)
-    evidence_quotes: List[str] = Field(
-        default_factory=list,
-        description="Direct quotes or facts from articles that support this causal link"
-    )
-    business_implication: str = Field(
-        default="",
-        description="What this causal link means for affected companies RIGHT NOW"
-    )
+    roles: StrList = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_list(cls, v):
+        if isinstance(v, list):
+            return {"roles": v}
+        return v
 
 
-class CascadeNarrativeLLM(BaseModel):
-    """LLM output for multi-hop cascade narrative (3+ linked trends).
+class ResolvedCompanyLLM(BaseModel):
+    """Single company resolved from segment search results."""
+    name: str = ""
+    city: str = ""
+    state: str = ""
+    size_band: str = "sme"
 
-    Produces a coherent chain-reaction story showing how Trend A → B → C
-    with specific evidence at each hop.
+
+class SegmentResolutionLLM(BaseModel):
+    """Segment-level company resolution result."""
+    index: int = 0
+    companies: List[ResolvedCompanyLLM] = Field(default_factory=list)
+
+
+class SegmentResolutionListLLM(BaseModel):
+    """LLM output for batch company resolution from segment search results.
+
+    Handles both patterns:
+      - Array:  [{index, companies: [...]}, ...]   (LLM returns raw list)
+      - Object: {"segments": [{...}]}              (wrapped)
     """
-    reasoning: str = Field(
-        default="",
-        description="Step-by-step analysis of the full cascade chain"
-    )
-    cascade_narrative: str = Field(
-        default="",
-        description="Plain-English paragraph explaining the full chain reaction "
-        "(e.g., 'Silver price surge → jewellery manufacturers face cost pressure "
-        "→ downstream retail pricing disruption → consumer demand shift to gold')"
-    )
-    hop_mechanisms: List[str] = Field(
-        default_factory=list,
-        description="One mechanism per hop in the cascade "
-        "(e.g., ['Silver price surge drives raw material costs up 12%', "
-        "'Cost pressure forces jewellery manufacturers to raise retail prices', ...])"
-    )
-    cascade_confidence: float = Field(ge=0.0, le=1.0, default=0.3)
-    weakest_link: str = Field(
-        default="",
-        description="Which hop in the chain has the weakest evidence?"
-    )
-    compound_business_impact: str = Field(
-        default="",
-        description="The COMBINED business effect of the full cascade — "
-        "what decision must companies make knowing the full chain?"
-    )
+    segments: List[SegmentResolutionLLM] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_list(cls, v):
+        if isinstance(v, list):
+            return {"segments": v}
+        return v
+
+
+class ProductServicesLLM(BaseModel):
+    """LLM output for company products/services extraction.
+
+    Handles both patterns:
+      - Array:  ["Product A", "Service B"]      (LLM returns raw list)
+      - Object: {"products": ["Product A",...]} (wrapped)
+    """
+    products: StrList = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_list(cls, v):
+        if isinstance(v, list):
+            return {"products": v}
+        # Also try common dict keys
+        if isinstance(v, dict):
+            for key in ("products", "services", "solutions", "offerings", "items"):
+                if key in v:
+                    return {"products": v[key]}
+        return v
+
+
+class ReportEntitiesLLM(BaseModel):
+    """LLM output for report entity extraction (report-driven pipeline).
+
+    Extracts company names, industries, and topics from analyst report text.
+    Coercion via StrList handles common LLM quirks (None→[], str→[str]).
+    """
+    companies: StrList = Field(default_factory=list)
+    industries: StrList = Field(default_factory=list)
+    topics: StrList = Field(default_factory=list)
+
+
+class CompanyFieldsLLM(BaseModel):
+    """LLM output for structured company field extraction.
+
+    All fields optional — the LLM fills whatever it can find in the source text.
+    StrList coercion handles common LLM quirks (comma-separated strings, None, etc.).
+    """
+    industry: str = ""
+    headquarters: str = ""
+    ceo: str = ""
+    employee_count: str = ""
+    founded_year: Optional[int] = None
+    products_services: StrList = Field(default_factory=list)
+    competitors: StrList = Field(default_factory=list)
+    sub_industries: StrList = Field(default_factory=list)
+    tech_stack: StrList = Field(default_factory=list)
+    investors: StrList = Field(default_factory=list)
+    funding_stage: str = ""
+    revenue: str = ""
+    stock_ticker: str = ""
+
+    @model_validator(mode='before')
+    @classmethod
+    def coerce_str_fields(cls, values):
+        """Coerce None/int/list to str for string fields."""
+        if not isinstance(values, dict):
+            return values
+        for key in ("industry", "headquarters", "ceo", "employee_count",
+                     "funding_stage", "revenue", "stock_ticker"):
+            val = values.get(key)
+            if val is not None and not isinstance(val, str):
+                values[key] = str(val)
+            elif val is None:
+                values[key] = ""
+        return values
+
+
+class HiringSignalsLLM(BaseModel):
+    """LLM output for company hiring signal extraction."""
+    hiring_signals: StrList = Field(default_factory=list)
+
+
+class TechIpLLM(BaseModel):
+    """LLM output for company tech stack and IP intelligence."""
+    tech_stack: StrList = Field(default_factory=list)
+    patents: StrList = Field(default_factory=list)
+    partnerships: StrList = Field(default_factory=list)

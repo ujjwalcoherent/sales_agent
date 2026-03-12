@@ -1,0 +1,149 @@
+{
+  "signal_count": 7,
+  "avg_oss": 0.811,
+  "avg_kb_hit": 0.914,
+  "signals": [
+    {
+      "trend_title": "RBI Digital Lending Compliance Deadline Q1 2026",
+      "event_type": "regulation",
+      "oss_score": 0.85,
+      "hops_generated": 3,
+      "causal_tool_calls": 2,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 3,
+      "leads_with_companies": 3,
+      "avg_lead_confidence": 0.892
+    },
+    {
+      "trend_title": "UPI Payment Aggregator Licensing Mandate",
+      "event_type": "regulation",
+      "oss_score": 0.85,
+      "hops_generated": 3,
+      "causal_tool_calls": 2,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 2,
+      "leads_with_companies": 2,
+      "avg_lead_confidence": 0.874
+    },
+    {
+      "trend_title": "SEBI Virtual Digital Asset Regulation Framework",
+      "event_type": "regulation",
+      "oss_score": 0.75,
+      "hops_generated": 3,
+      "causal_tool_calls": 2,
+      "kb_hit_rate": 0.917,
+      "leads_generated": 2,
+      "leads_with_companies": 2,
+      "avg_lead_confidence": 0.867
+    },
+    {
+      "trend_title": "Account Aggregator Framework 10x Adoption Surge",
+      "event_type": "technology",
+      "oss_score": 0.85,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 0.875,
+      "leads_generated": 2,
+      "leads_with_companies": 2,
+      "avg_lead_confidence": 0.856
+    },
+    {
+      "trend_title": "RBI NBFC Stress Test: 18 Firms Undercapitalized",
+      "event_type": "regulation",
+      "oss_score": 0.75,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 0.875,
+      "leads_generated": 1,
+      "leads_with_companies": 1,
+      "avg_lead_confidence": 0.842
+    },
+    {
+      "trend_title": "e-KYC 2.0 Launch: Aadhaar-PAN Digital Identity for Finance",
+      "event_type": "technology",
+      "oss_score": 0.85,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 2,
+      "leads_with_companies": 2,
+      "avg_lead_confidence": 0.869
+    },
+    {
+      "trend_title": "India Fintech Raises $2.1B in Q4 FY2026 Despite Global Slowdown",
+      "event_type": "m_and_a",
+      "oss_score": 0.75,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 0.875,
+      "leads_generated": 1,
+      "leads_with_companies": 1,
+      "avg_lead_confidence": 0.816
+    }
+  ],
+  "signal_bus": {
+    "system_confidence": 0.871,
+    "exploration_budget": 0.129,
+    "learning_path": "exploitation",
+    "total_drift": 0.0,
+    "source_degraded": [],
+    "feedback_distribution": {
+      "good_trend": 7,
+      "already_knew": 0,
+      "bad_trend": 0
+    },
+    "reasoning_grade": "A",
+    "reasoning_quality": 0.884,
+    "strategy_adjustments": {
+      "source_intel": {
+        "real_time_relevance": "Continue prioritizing RBI official releases and ET Finance for regulatory signals — high hit rate confirmed.",
+        "noise_filtering": "Maintain current filter thresholds; low noise in fintech_bfsi regulatory topic cluster.",
+        "quality_metrics": "Regulatory deadline proximity (days to compliance deadline) should be weighted in trend scoring."
+      },
+      "analysis": {
+        "drop_trends": [],
+        "boost_trends": [
+          "Regulatory deadline-driven trends outperform — prioritize upcoming SEBI, RBI, IRDAI deadline events",
+          "Account Aggregator ecosystem expansion continues to yield high-confidence leads"
+        ]
+      },
+      "lead_gen": {
+        "personalization_tips": [
+          "Regulatory penalty specificity (₹50L per violation) significantly increases email response rates — always include.",
+          "Reference the company's specific regulatory exposure tier (transaction volume, loan book size) in outreach."
+        ],
+        "targeting_improvements": [
+          "Chief Compliance Officer is the highest-converting title for regulatory-driven outreach in BFSI.",
+          "Combine CCO + CTO outreach pairs — compliance mandate always has a technology implementation component.",
+          "Filter for NBFCs with RBI supervisory action history for highest urgency."
+        ]
+      }
+    }
+  },
+  "retrospective": {
+    "grade": "A",
+    "summary": "Exceptional run driven by the convergence of multiple simultaneous RBI/SEBI regulatory deadlines in Q1 2026. Industry-first mode on fintech_bfsi generated 11 high-quality leads across 7 distinct trends, all with verified company data and personalized outreach. Regulatory compliance mandates proved highly predictive of sales urgency — the ₹50L penalty exposure created genuine procurement timelines that map directly to pipeline velocity.",
+    "successes": [
+      "7/7 trends converted to actionable lead sets — highest trend-to-lead conversion rate in 30 runs.",
+      "11 leads generated with 100% contact coverage (email + LinkedIn) — no empty contact sets.",
+      "Average lead confidence of 0.858 — significantly above 0.78 historical baseline for industry_first mode.",
+      "Regulatory deadline specificity (March 31, Q1 2026) created natural urgency hooks in all outreach emails."
+    ],
+    "failures": [],
+    "improvement_plan": [
+      {
+        "target": "source_bandit",
+        "action": "increase",
+        "expected_impact": "Add rbi.org.in and sebi.gov.in as Tier 1 sources for regulatory announcement detection — current pipeline detected these via news coverage, not primary sources.",
+        "priority": "medium"
+      },
+      {
+        "target": "analysis",
+        "action": "focus",
+        "expected_impact": "Add a regulatory deadline proximity signal to trend scoring — trends with deadlines within 90 days should receive urgency multiplier.",
+        "priority": "high"
+      }
+    ]
+  },
+  "log_messages": []
+}

@@ -6,13 +6,16 @@ Three tight clusters per use-case so clustering/synthesis/impact stages
 get realistic, mode-appropriate input.
 
 Datasets:
-  MOCK_ARTICLES_RAW            — default / industry_first (fintech + regulation + quick-commerce)
+  MOCK_ARTICLES_RAW            — default / industry_first (fintech regulation [:12] + quick-commerce + semiconductor)
   MOCK_ARTICLES_COMPANY_FIRST  — IT services companies (TCS, Infosys, Wipro, HCL, etc.)
-  MOCK_ARTICLES_REPORT_DRIVEN  — 5G / IoT / telecom theme
+  MOCK_ARTICLES_REPORT_DRIVEN  — carrier rocket / space launch theme
+  MOCK_REPORT_SUMMARY          — default report text for report_driven mock mode
 """
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Default dataset — used for industry_first (fintech / regulation / e-commerce)
+# Default dataset — used for industry_first
+# First 12 articles = fintech (KYC + UPI/BNPL) — sliced for fintech_bfsi mode
+# Full 23 articles = mixed (fintech + quick-commerce + semiconductor)
 # ──────────────────────────────────────────────────────────────────────────────
 
 MOCK_ARTICLES_RAW = [
@@ -84,7 +87,72 @@ MOCK_ARTICLES_RAW = [
         "YourStory", "regulation",
     ),
 
-    # ── Cluster 2: Quick commerce funding (6 articles) ───────────────────────
+    # ── Cluster 2: UPI / Digital Payments regulation (6 articles) ────────────
+    (
+        "NPCI Caps UPI Market Share at 30%, Forcing PhonePe and Google Pay to Slow",
+        "The National Payments Corporation of India has enforced its 30% UPI market share cap, "
+        "directly impacting PhonePe (48% share) and Google Pay (36% share). Mid-size fintech "
+        "payment apps like Paytm Payments Bank, BharatPe and CRED must now decide whether to "
+        "aggressively acquire the diverted transaction volume. NPCI's circular gives PhonePe and "
+        "Google Pay until December 2026 to comply. Industry estimates suggest Rs 12,000 crore in "
+        "annual transaction volume will shift to smaller UPI apps. The cap also creates an opening "
+        "for bank-owned UPI apps like SBI YONO and HDFC PayZapp to regain market share.",
+        "Economic Times", "regulation",
+    ),
+    (
+        "Mid-Size Fintech Apps Race to Capture UPI Volume from Market Share Cap",
+        "BharatPe, CRED and Freecharge are investing Rs 500 crore combined in merchant acquisition "
+        "to capture the UPI volume that PhonePe and Google Pay must shed under NPCI's 30% cap. "
+        "BharatPe CEO Suhail Sameer confirmed a target of 10 million new merchants by March 2027. "
+        "Meanwhile, Razorpay and Cashfree are positioning their payment gateway services to help "
+        "mid-size NBFCs and digital lenders build their own UPI collection infrastructure. The "
+        "RBI has also signalled that UPI credit line products will be subject to the same KYC "
+        "norms that currently apply to digital lending.",
+        "Livemint", "regulation",
+    ),
+    (
+        "RBI Digital Lending Guidelines Force Fintech Lenders to Restructure BNPL",
+        "The Reserve Bank's updated digital lending guidelines now classify buy-now-pay-later "
+        "products as credit instruments, requiring full NBFC registration. Mid-size BNPL providers "
+        "like LazyPay, Simpl, and Uni Cards must restructure their lending partnerships or face "
+        "enforcement action. Simpl has already pivoted to a co-lending model with Federal Bank. "
+        "The guidelines also mandate that loan service providers (LSPs) display all-in interest "
+        "rates prominently, affecting customer acquisition costs for digital lenders.",
+        "Business Standard", "regulation",
+    ),
+    (
+        "Fintech Lending Consolidation Accelerates as RBI Tightens Oversight",
+        "Three mid-size digital lenders — ZestMoney, MoneyTap and EarlySalary — are in advanced "
+        "merger talks following RBI's regulatory tightening. The combined entity would serve 8 "
+        "million borrowers with an AUM of Rs 6,000 crore. Industry sources say compliance costs "
+        "have risen 40% since the new KYC and BNPL regulations, making standalone operations "
+        "unviable for lenders below Rs 2,000 crore AUM. Private equity firm Warburg Pincus is "
+        "reportedly evaluating a controlling stake in the merged entity.",
+        "Mint", "regulation",
+    ),
+    (
+        "NBFC Microfinance Institutions Face Double Squeeze from RBI and RBI KYC",
+        "Small-finance banks and NBFC-MFIs face simultaneous pressure from the RBI's revised "
+        "microfinance pricing guidelines and the new KYC mandate. Institutions like CreditAccess "
+        "Grameen, Spandana Sphoorty, and Arohan Financial must cap interest rates at cost-plus "
+        "model while also upgrading KYC infrastructure. CreditAccess Grameen CEO noted that "
+        "compliance costs now consume 2.8% of their AUM, up from 1.5% a year ago. The double "
+        "regulatory burden has triggered a wave of branch rationalization among mid-size MFIs, "
+        "with 200+ branches closed industry-wide in Q4 FY26.",
+        "Hindu BusinessLine", "regulation",
+    ),
+    (
+        "Digital Payment Fraud Rises 28%, Forcing Fintech Investment in AI Detection",
+        "RBI's annual fraud report shows digital payment fraud rose 28% YoY to Rs 1,457 crore. "
+        "UPI fraud alone accounted for Rs 573 crore. Mid-size fintech companies including "
+        "Razorpay, Cashfree, and Juspay are investing Rs 300 crore combined in AI-based fraud "
+        "detection systems. The RBI has mandated that all payment aggregators implement device "
+        "fingerprinting and behavioral biometrics by September 2026. Signzy and Bureau (formerly "
+        "Bureau.id) are seeing 4x demand for real-time transaction monitoring APIs from NBFCs.",
+        "Inc42", "regulation",
+    ),
+
+    # ── Cluster 3: Quick commerce funding (6 articles) ───────────────────────
     (
         "Zepto Raises $200M at $5B Valuation for Dark Store Expansion",
         "Quick commerce startup Zepto closed a $200 million Series F at $5 billion valuation. "
@@ -469,259 +537,252 @@ MOCK_ARTICLES_COMPANY_FIRST = [
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Report-Driven dataset — 5G / IoT / telecom theme
-# Cluster 1: 5G rollout and enterprise IoT adoption in India
-# Cluster 2: Airtel / Jio / BSNL 5G B2B contracts
-# Cluster 3: IoT device management platform funding
+# Report-Driven dataset — Carrier Rocket / Space Launch theme
+# Based on Coherent Market Insights "Carrier Rocket Market" report.
+# Cluster 1: Reusable rocket development and cost reduction
+# Cluster 2: Small satellite constellation launches
+# Cluster 3: Space launch startup funding and partnerships
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Default report summary for mock mode and frontend demo.
+# Condensed from the Coherent Market Insights Carrier Rocket Market report.
+MOCK_REPORT_SUMMARY = (
+    "The Global Carrier Rocket Market is estimated to be valued at USD 18.73 Bn in 2026 "
+    "and is expected to reach USD 35.58 Bn by 2033, exhibiting a CAGR of 9.6%. Liquid rocket "
+    "engines dominate with 37.5% share due to superior throttling and restart capabilities. "
+    "Satellite deployment accounts for 60.6% of launch demand, driven by LEO communication "
+    "constellations and earth observation networks. North America leads with 37.8% share, "
+    "anchored by SpaceX, Boeing, and Lockheed Martin, while Asia Pacific (18.1%) is the "
+    "fastest-growing region with CNSA and ISRO expanding launch cadence. Key market trends "
+    "include reusable rocket development reducing launch costs by 40-60%, AI-driven trajectory "
+    "optimization improving fuel efficiency, and 3D-printed rocket components cutting "
+    "production time. Relativity Space is 3D-printing over 85% of its Terran R vehicle. "
+    "SpaceX's Falcon 9 and Starship use AI for real-time landing decisions. Rocket Lab's "
+    "Neutron targets the medium-lift reusable segment. The rise of private-public partnerships "
+    "and the growing small satellite market are creating opportunities for new entrants "
+    "in both launch services and ground systems infrastructure."
+)
+
 MOCK_ARTICLES_REPORT_DRIVEN = [
-    # ── Cluster 1: 5G rollout and enterprise IoT adoption (6 articles) ────────
+    # ── Cluster 1: Reusable rocket development and cost reduction (6 articles) ─
     (
-        "India's 5G Enterprise Rollout Reaches 80 Cities, IoT Pilots Scale Up",
-        "India's 5G enterprise coverage has expanded to 80 cities in early 2026, with Jio "
-        "and Airtel both announcing accelerated rollouts targeting industrial corridors in "
-        "Gujarat, Maharashtra and Tamil Nadu. Enterprise IoT adoption on 5G networks is "
-        "accelerating in manufacturing, logistics and healthcare verticals. Siemens India "
-        "has deployed a 5G-connected robotic assembly line at its Aurangabad plant that "
-        "processes sensor data from 2,000 IoT endpoints in real time. Bosch India and "
-        "Mahindra Logistics are separately piloting 5G-enabled asset tracking across "
-        "their respective supply chains. The TRAI estimates enterprise 5G services "
-        "will generate Rs 45,000 crore in annual revenue by 2028. HCL Technologies and "
-        "Wipro have both launched dedicated 5G IoT practice groups targeting this market.",
-        "Economic Times", "technology",
+        "SpaceX Starship Achieves Full Reusability Milestone, Cuts Launch Cost to $15M",
+        "SpaceX has successfully recovered both the Super Heavy booster and Starship upper "
+        "stage for the third consecutive flight, marking full operational reusability. CEO "
+        "Elon Musk confirmed the cost per Starship launch has dropped to approximately "
+        "$15 million, down from $90 million for expendable variants. The milestone positions "
+        "SpaceX to dominate the heavy-lift market for satellite constellation deployment "
+        "and NASA's Artemis lunar cargo missions. Boeing and Lockheed Martin's ULA joint "
+        "venture is accelerating development of Vulcan Centaur's reusable engine pod in "
+        "response. Analysts at Morgan Stanley estimate SpaceX now controls 62% of global "
+        "commercial launch revenue, up from 48% in 2024.",
+        "Reuters", "technology",
     ),
     (
-        "Manufacturing Sector Drives 60% of Enterprise 5G Demand in India",
-        "A Deloitte survey of 250 Indian enterprises found that the manufacturing sector "
-        "accounts for 60% of enterprise 5G pilot demand, followed by logistics at 18% and "
-        "healthcare at 11%. The survey found that Jio and Airtel are the dominant 5G "
-        "enterprise providers, with BSNL gaining ground in government and defence verticals. "
-        "Key use cases driving adoption include: automated guided vehicles in warehouses, "
-        "predictive maintenance on factory floors, and drone-based inventory inspection. "
-        "Tata Steel, Jindal Steel and JSW Steel are among the large manufacturers "
-        "running advanced 5G IoT pilots, while mid-size auto-component makers are "
-        "beginning to explore smaller-scale 5G private network deployments.",
-        "Hindu BusinessLine", "technology",
+        "Relativity Space Completes First Terran R Flight with 85% 3D-Printed Components",
+        "Relativity Space has completed the inaugural orbital flight of its Terran R rocket, "
+        "which uses additive manufacturing for over 85% of its structural components. The "
+        "Long Beach-based company demonstrated that 3D-printed rocket engines and fuel tanks "
+        "can withstand the thermal and mechanical stresses of orbital insertion. Production "
+        "time for Terran R is 60 days from raw material to launch-ready vehicle, compared "
+        "to 18-24 months for traditionally manufactured rockets. The U.S. Space Force has "
+        "awarded Relativity a $1.2 billion contract for national security launches through "
+        "2030. Boeing's space division is evaluating Relativity's Stargate 3D printer "
+        "technology for potential use in its own satellite manufacturing processes.",
+        "SpaceNews", "technology",
     ),
     (
-        "5G Private Networks Enable Real-Time IoT on Factory Floors",
-        "Private 5G networks are emerging as a transformative technology for Indian "
-        "manufacturers seeking ultra-low latency IoT connectivity on factory floors. "
-        "Nokia and Ericsson are competing with Jio and Airtel's enterprise 5G offerings "
-        "to provide private network infrastructure to large industrials. Larsen and Toubro's "
-        "precision engineering division has deployed a Nokia private 5G network at its "
-        "Pune facility, connecting 500 CNC machines and 300 robotic arms to a central "
-        "AI analytics platform. Honeywell India is marketing its enterprise IoT middleware "
-        "stack specifically for Indian manufacturers transitioning to private 5G. "
-        "The private 5G network market in India is expected to reach Rs 8,000 crore by 2027.",
-        "Business Standard", "technology",
+        "Rocket Lab Unveils Neutron Medium-Lift Vehicle with Reusable First Stage",
+        "Rocket Lab has unveiled the production version of its Neutron medium-lift launch "
+        "vehicle, designed to carry 13,000 kg to low Earth orbit with a reusable first stage. "
+        "CEO Peter Beck confirmed that Neutron targets the gap between SpaceX's Falcon 9 and "
+        "smaller dedicated smallsat launchers. The vehicle uses Archimedes engines running on "
+        "liquid oxygen and methane, enabling rapid turnaround between flights. Rocket Lab has "
+        "secured $2.1 billion in launch contracts for Neutron from constellation operators "
+        "including Globalstar and MDA. The company's Electron small launcher has already "
+        "completed 55 missions, establishing Rocket Lab as the second most frequent Western "
+        "launch provider after SpaceX.",
+        "Ars Technica", "product_launch",
     ),
     (
-        "Healthcare IoT Gains Momentum as Apollo, Fortis Deploy 5G-Connected Devices",
-        "Apollo Hospitals and Fortis Healthcare are deploying 5G-connected IoT devices "
-        "across their hospital networks to enable real-time patient monitoring and "
-        "predictive equipment maintenance. Apollo's partnership with Jio involves connecting "
-        "over 15,000 IoT-enabled medical devices across 40 hospitals to a cloud analytics "
-        "platform. Fortis has chosen Airtel's enterprise 5G solution for a similar deployment "
-        "at its 22 hospitals. Philips India and GE HealthCare India are supplying the "
-        "connected medical devices and associated cloud analytics. The healthcare IoT segment "
-        "is growing at 38% annually in India, driven by regulatory pressure for real-time "
-        "equipment calibration records and post-pandemic interest in remote patient monitoring.",
-        "Livemint", "technology",
+        "ULA Vulcan Centaur Wins $3.5B Pentagon Contract, Competing with SpaceX Falcon Heavy",
+        "United Launch Alliance has secured a $3.5 billion contract from the U.S. Department "
+        "of Defense for national security space launches using its Vulcan Centaur rocket. The "
+        "award covers 25 launches through 2029 for classified military satellite deployments. "
+        "Vulcan Centaur uses Blue Origin's BE-4 liquid methane engines and an innovative "
+        "mid-air booster recovery system to partially reduce launch costs. Boeing and Lockheed "
+        "Martin, ULA's parent companies, have committed an additional $800 million in capital "
+        "to accelerate Vulcan production at ULA's Decatur, Alabama factory. SpaceX challenged "
+        "the contract award, arguing that its Falcon Heavy offers lower cost per kilogram.",
+        "Defense News", "contract",
     ),
     (
-        "5G-Enabled Smart Logistics Hubs Proliferate Along Dedicated Freight Corridors",
-        "Logistics parks along India's Dedicated Freight Corridors are being upgraded with "
-        "5G-enabled IoT infrastructure, creating smart logistics hubs that can track "
-        "shipments in real time and automate warehouse operations. Mahindra Logistics, "
-        "Delhivery and BlueDart are the most active deployers of 5G IoT at their mega "
-        "logistics hubs. Each company is using Jio's enterprise 5G connectivity to link "
-        "warehouse management systems, automated conveyor belts and fleet telematics into "
-        "a single operational dashboard. The Ministry of Commerce estimates that 5G-enabled "
-        "logistics optimisation could reduce India's logistics costs from 13% of GDP to "
-        "below 10% by 2030. Airtel is competing with Jio for the next tranche of logistics "
-        "hub 5G contracts by bundling managed security and SLA-backed uptime guarantees "
-        "that Jio's standard enterprise plans currently do not include.",
-        "Mint", "technology",
+        "Blue Origin New Glenn Completes Qualification Flights, Opens Commercial Bookings",
+        "Blue Origin has successfully completed three qualification flights of its New Glenn "
+        "heavy-lift rocket and is now accepting commercial launch bookings for 2027. New Glenn "
+        "features a reusable first stage powered by seven BE-4 engines and can deliver 45,000 "
+        "kg to LEO. Amazon's Project Kuiper has contracted 12 New Glenn flights for its "
+        "broadband satellite constellation deployment. Telesat and AST SpaceMobile have also "
+        "signed multi-launch agreements. Blue Origin founder Jeff Bezos announced a $2 billion "
+        "expansion of the company's Cape Canaveral manufacturing facility to support a target "
+        "launch cadence of 24 flights per year by 2029.",
+        "CNBC", "product_launch",
     ),
     (
-        "IoT Sensor Costs Fall 40%, Triggering Broad 5G Adoption Among SME Manufacturers",
-        "The average cost of an industrial IoT sensor has fallen 40% over the past two years, "
-        "bringing 5G-connected factory automation within reach of small and medium "
-        "manufacturers for the first time. Mid-size auto-component makers such as Endurance "
-        "Technologies and Sundram Fasteners are deploying 5G IoT pilots at their plants. "
-        "Airtel Business reports that SME manufacturers now account for 25% of its enterprise "
-        "5G enquiries, up from under 5% in 2024. Technology solution providers like Tata "
-        "Elxsi and Wipro are packaging 5G IoT deployments as managed services for mid-size "
-        "manufacturers, reducing the upfront capital requirement. Jio is responding with "
-        "a subsidised device programme that provides free IoT sensor hardware in exchange "
-        "for multi-year 5G connectivity contracts, targeting the same SME manufacturing "
-        "segment.",
-        "Inc42", "technology",
+        "AI-Driven Trajectory Optimization Reduces Rocket Fuel Consumption by 12%",
+        "A joint study by NASA JPL and SpaceX demonstrates that machine learning-based "
+        "trajectory optimization reduces fuel consumption by 8-12% across typical LEO "
+        "insertion profiles. SpaceX has integrated the AI system into Falcon 9 and Starship "
+        "flight computers for real-time adjustment during ascent. The technology also enables "
+        "autonomous abort decisions within 50 milliseconds, improving crew safety for future "
+        "manned missions. Rocket Lab and Relativity Space are developing competing AI flight "
+        "software, while Boeing's Starliner programme is licensing NASA JPL's trajectory "
+        "algorithms for its CST-100 capsule missions. The European Space Agency has funded "
+        "a parallel research programme with ArianeGroup to apply similar techniques to "
+        "Ariane 6 launches.",
+        "MIT Technology Review", "technology",
     ),
 
-    # ── Cluster 2: Airtel / Jio / BSNL 5G B2B contracts (5 articles) ─────────
+    # ── Cluster 2: Small satellite constellation launches (6 articles) ─────────
     (
-        "Airtel Wins Rs 2,400 Crore B2B 5G Contract from Maruti Suzuki",
-        "Airtel Business has signed a five-year Rs 2,400 crore contract to deploy private "
-        "5G connectivity and IoT management services across Maruti Suzuki's three "
-        "manufacturing plants in Haryana and Gujarat. The contract covers private network "
-        "infrastructure, SIM management for over 30,000 connected machines and a managed "
-        "security layer to protect operational technology systems from cyber threats. "
-        "Jio had also been shortlisted but Maruti chose Airtel for its track record in "
-        "large enterprise network management. This win positions Airtel as the leading "
-        "5G B2B provider for automotive manufacturing, a sector where it already holds "
-        "contracts with Tata Motors and Bajaj Auto. Infosys is the system integration "
-        "partner for the Airtel 5G deployment at Maruti's Gurugram facility.",
-        "Economic Times", "technology",
+        "Amazon Kuiper Constellation Deploys First 600 Satellites via SpaceX and Blue Origin",
+        "Amazon's Project Kuiper has deployed its first batch of 600 broadband satellites "
+        "across three launch providers: SpaceX Falcon 9, Blue Origin New Glenn, and "
+        "Arianespace Ariane 6. The deployment marks the beginning of Amazon's plan to "
+        "launch 3,236 satellites by 2029 to provide global low-latency internet. SpaceX "
+        "handled 8 of the 14 initial launches despite being a direct competitor to Kuiper "
+        "through its Starlink network. ULA's Vulcan Centaur is scheduled to join the Kuiper "
+        "launch manifest in mid-2027. Amazon has invested $10 billion in the Kuiper programme, "
+        "making it the largest commercial satellite constellation project after Starlink.",
+        "Wall Street Journal", "expansion",
     ),
     (
-        "Jio Secures 5G IoT Deals with Indian Railways and Port Trust",
-        "Reliance Jio has announced 5G IoT contracts with Indian Railways and the Jawaharlal "
-        "Nehru Port Trust to modernise tracking and operations systems. The Indian Railways "
-        "contract, valued at Rs 1,800 crore over seven years, will deploy Jio's 5G network "
-        "across 50 railway yards for real-time freight wagon tracking and predictive "
-        "maintenance of locomotives. The JNPT contract involves 5G-connected autonomous "
-        "straddle carriers and IoT sensors across the port's container handling equipment. "
-        "Airtel and Nokia are watching these wins closely as indicators that Jio is "
-        "targeting government infrastructure as a 5G B2B anchor segment. TCS and HCL "
-        "Technologies, which serve as IT partners to Indian Railways, are expected to "
-        "integrate Jio's 5G IoT layer into their existing railway management system "
-        "contracts.",
-        "Hindu BusinessLine", "technology",
+        "ISRO's Small Satellite Launch Vehicle Wins Export Orders from European Operators",
+        "The Indian Space Research Organisation's Small Satellite Launch Vehicle (SSLV) has "
+        "secured launch contracts worth $180 million from European satellite operators OneWeb "
+        "and Eutelsat. The SSLV can deliver 500 kg to LEO at one-fifth the cost of European "
+        "alternatives, making it attractive for operators seeking affordable dedicated launches. "
+        "ISRO plans to ramp up SSLV production to 12 launches per year by 2028 through its "
+        "commercialisation arm NewSpace India Limited (NSIL). L&T and Godrej Aerospace are "
+        "manufacturing SSLV components under ISRO's outsourcing programme. The export wins "
+        "position India as a credible alternative to SpaceX and Rocket Lab for the growing "
+        "small satellite launch market.",
+        "Hindu BusinessLine", "contract",
     ),
     (
-        "BSNL Pivots to Enterprise 5G After Consumer Market Setbacks",
-        "State-owned BSNL, which has struggled to compete with Jio and Airtel in the "
-        "consumer mobile market, is pivoting to enterprise 5G as a revenue recovery strategy. "
-        "BSNL has signed MoUs with DRDO, HAL and other defence-linked organisations to "
-        "provide private 5G connectivity for sensitive facilities that cannot use foreign "
-        "network equipment. The company is deploying TCS-manufactured 5G base stations "
-        "under the Atma Nirbhar programme to create an end-to-end indigenous 5G network. "
-        "BSNL's enterprise 5G chief Shyam Sunda Taneja told reporters that the defence "
-        "and smart city verticals will account for 60% of BSNL's 5G revenue in FY27. "
-        "HCL Technologies is supporting BSNL's OSS/BSS modernisation as part of the "
-        "same transformation programme, providing network operations software to manage "
-        "the new 5G infrastructure.",
-        "Business Standard", "technology",
+        "Starlink Reaches 5 Million Subscribers as SpaceX Launches 60 Satellites Per Week",
+        "SpaceX's Starlink broadband network has reached 5 million active subscribers globally, "
+        "supported by an unprecedented launch cadence of approximately 60 satellites per week "
+        "on Falcon 9 rockets. The constellation now includes over 6,800 operational satellites "
+        "in LEO. SpaceX is transitioning to Starship for Starlink V3 satellite deployment, "
+        "which will carry 100+ larger satellites per launch compared to Falcon 9's 23. "
+        "Amazon's Kuiper and Telesat's Lightspeed are the primary competitors, though both "
+        "lag significantly in deployment scale. Analysts at Quilty Space estimate Starlink's "
+        "2026 revenue will exceed $8.5 billion, driven by enterprise maritime and aviation "
+        "connectivity contracts with Delta Air Lines and Maersk.",
+        "Bloomberg", "expansion",
     ),
     (
-        "Airtel, Jio Clash Over Rs 5,000 Crore Smart City 5G IoT Tenders",
-        "Airtel and Jio are competing aggressively for a cluster of smart city 5G IoT "
-        "tenders floated by state governments in Uttar Pradesh, Rajasthan and Karnataka, "
-        "collectively valued at Rs 5,000 crore. The tenders cover street lighting automation, "
-        "traffic management, CCTV surveillance and municipal utility monitoring using 5G "
-        "connected IoT sensors. Both operators have formed consortia with IT services "
-        "companies — Airtel with HCL Technologies and Jio with TCS — to offer integrated "
-        "5G network plus software platform solutions. BSNL is also bidding for the UP "
-        "smart city contract on price and indigenisation grounds. Wipro and Infosys are "
-        "offering independent software platform bids for the Karnataka smart city tender, "
-        "targeting the application layer without committing to full network infrastructure "
-        "ownership.",
-        "Livemint", "technology",
+        "China's Long March 8 Reusable Variant Targets Commercial Constellation Market",
+        "China Aerospace Science and Technology Corporation (CASC) has unveiled a reusable "
+        "variant of its Long March 8 rocket designed to compete for commercial constellation "
+        "deployment contracts. The Long March 8R features grid fins and landing legs for "
+        "first-stage recovery, directly modelled on SpaceX's Falcon 9 approach. China's "
+        "Guowang broadband constellation requires 13,000 satellites, creating domestic "
+        "demand for over 300 launches. CASC is also marketing the Long March 8R to "
+        "international customers at $25 million per launch, undercutting Rocket Lab's "
+        "Neutron and Arianespace's Ariane 6. The European Commission has raised concerns "
+        "about Chinese state subsidies enabling below-market launch pricing.",
+        "South China Morning Post", "product_launch",
     ),
     (
-        "Vodafone Idea's 5G Delay Cedes Enterprise Contracts to Jio and Airtel",
-        "Vodafone Idea's inability to launch 5G commercially in most markets is costing it "
-        "significant enterprise contracts that are going to Jio and Airtel instead. "
-        "Industry estimates suggest Vi has lost Rs 800-1,200 crore in potential 5G "
-        "enterprise annual recurring revenue in the past 12 months. Tata Communications, "
-        "which resells capacity from Jio and Airtel, is picking up some displaced Vi "
-        "enterprise customers but is constrained by its own 5G infrastructure investments. "
-        "Analysts at ICICI Securities warn that if Vi cannot close its 5G gap within "
-        "18 months it may be forced to merge with BSNL or exit enterprise 5G entirely. "
-        "Ericsson, which supplies Airtel's 5G equipment and is also a candidate for Vi's "
-        "delayed network modernisation, confirmed it is in discussions with Vi about "
-        "an accelerated deployment timeline.",
-        "Mint", "technology",
+        "AST SpaceMobile Launches First Commercial Direct-to-Cell Satellites on Falcon 9",
+        "AST SpaceMobile has launched five BlueBird satellites on a SpaceX Falcon 9 rocket, "
+        "initiating the first commercial direct-to-smartphone satellite broadband service. "
+        "The satellites connect standard unmodified smartphones to broadband internet from "
+        "LEO orbit without specialized hardware. AT&T, Vodafone, and Rakuten are the anchor "
+        "mobile network partners providing ground-network integration. AST's constellation "
+        "plan calls for 168 satellites to cover the equatorial and mid-latitude regions. "
+        "Rocket Lab's Neutron and Blue Origin's New Glenn are being evaluated for future "
+        "AST launches to diversify launch provider risk away from sole dependence on SpaceX.",
+        "TechCrunch", "product_launch",
+    ),
+    (
+        "OneWeb-Eutelsat Merger Creates $8B LEO Constellation Operator, Orders 600 New Satellites",
+        "The merged OneWeb-Eutelsat entity has ordered 600 next-generation LEO satellites from "
+        "Airbus Defence and Space, valued at approximately $3.2 billion. The new satellites "
+        "will expand OneWeb's constellation from 648 to over 1,200 spacecraft by 2029. Launch "
+        "contracts have been awarded to Arianespace, SpaceX, and ISRO's NSIL. Boeing's "
+        "satellite manufacturing division lost the contract to Airbus despite offering a lower "
+        "per-unit price, due to delivery timeline concerns. The merger positions OneWeb-Eutelsat "
+        "as the third-largest LEO constellation operator behind Starlink and Amazon Kuiper, "
+        "with a combined enterprise value of $8 billion.",
+        "Financial Times", "acquisition",
     ),
 
-    # ── Cluster 3: IoT device management platform funding (6 articles) ────────
+    # ── Cluster 3: Space launch startup funding and partnerships (5 articles) ──
     (
-        "IoT Platform Startup Datoin Raises Rs 180 Crore Series B for Industrial Deployments",
-        "Datoin, a Pune-based industrial IoT platform company, has raised Rs 180 crore in "
-        "a Series B round led by Sequoia India, with participation from Qualcomm Ventures. "
-        "The company's platform manages over 2 million IoT device endpoints for clients "
-        "including Tata Steel, Mahindra and Larsen and Toubro. Datoin plans to use the "
-        "capital to expand its 5G-native device management capabilities and enter the "
-        "Southeast Asian market. The funding follows a period of rapid revenue growth — "
-        "Datoin's ARR tripled in 2025 to Rs 75 crore as enterprise IoT adoption accelerated. "
-        "Competitors Exotel and Mlytics are also raising capital to capture the same market.",
-        "YourStory", "funding",
+        "Stoke Space Raises $200M Series C for Fully Reusable Two-Stage Rocket",
+        "Seattle-based Stoke Space has raised $200 million in Series C funding to develop "
+        "the first fully reusable two-stage orbital rocket. The company's Nova vehicle uses "
+        "a novel differential throttling system that eliminates the need for grid fins during "
+        "upper stage re-entry. Breakthrough Energy Ventures led the round with participation "
+        "from Spark Capital and Industrious Ventures. Stoke aims for an initial orbital test "
+        "in late 2027 and operational launches by 2028. If successful, the Nova rocket would "
+        "be the first competitor to SpaceX's Starship to achieve full two-stage reusability. "
+        "Boeing Ventures and Lockheed Martin Ventures both passed on the round, preferring "
+        "to invest in their existing ULA partnership.",
+        "Bloomberg", "funding",
     ),
     (
-        "Sternum IoT Raises $45M to Secure Connected Devices on 5G Networks",
-        "Israeli-Indian cybersecurity startup Sternum IoT has raised $45 million in a "
-        "Series C round to expand its embedded security platform for industrial IoT devices. "
-        "The platform prevents firmware tampering and rogue device injection on 5G-connected "
-        "factory networks. Jio and Airtel have both integrated Sternum into their enterprise "
-        "IoT management offerings as a value-added security layer. Customers including "
-        "Honeywell India, Siemens India and Bosch India are deploying Sternum to meet "
-        "new CERT-In requirements for OT network security. The Series C was led by "
-        "Accel India with strategic investment from Qualcomm Ventures. The company plans "
-        "to double its engineering headcount in Bengaluru and expand into Southeast Asian "
-        "markets where 5G IoT deployments are similarly accelerating.",
-        "Inc42", "funding",
+        "Skyroot Aerospace Becomes India's First Private Orbital Launch Company",
+        "Hyderabad-based Skyroot Aerospace has achieved orbit with its Vikram-1 rocket, "
+        "becoming the first Indian private company to reach orbital velocity. The three-stage "
+        "solid-fuelled rocket delivered a 300 kg earth observation satellite for Planet Labs "
+        "to a 500 km sun-synchronous orbit. ISRO provided tracking and telemetry support "
+        "through its ground station network. Skyroot has raised a cumulative $150 million "
+        "in venture funding from GIC Singapore, Nexus Venture Partners, and LNT Technology "
+        "Services. The company plans to develop Vikram-2, a liquid-fuelled reusable variant "
+        "targeting the 1,000 kg to LEO segment. Tata Advanced Systems is supplying composite "
+        "structures for the Vikram-2 programme under a multi-year manufacturing agreement.",
+        "Economic Times", "product_launch",
     ),
     (
-        "Altizon Systems Secures Strategic Investment from Rockwell Automation",
-        "Pune-based industrial IoT platform company Altizon Systems has received a "
-        "strategic equity investment from Rockwell Automation, valuing the company at "
-        "approximately Rs 400 crore. Altizon's Datonis platform connects over 500,000 "
-        "industrial assets across 200 manufacturing clients in India, Germany and the US. "
-        "The Rockwell investment will deepen integration between Altizon's cloud IoT "
-        "layer and Rockwell's PLC and edge computing hardware. Mahindra and Mahindra "
-        "and Hindustan Unilever are among Altizon's Indian enterprise anchor clients. "
-        "The investment signals growing interest from global industrial automation majors "
-        "in Indian IoT platform companies as India's manufacturing sector modernises. "
-        "Siemens and ABB, which also have large industrial automation businesses, are "
-        "evaluating partnership arrangements with Indian IoT startups as a faster path "
-        "to 5G-native product offerings than internal development.",
-        "Economic Times", "funding",
+        "Isar Aerospace Secures ESA Contract for European Sovereign Launch Access",
+        "German launch startup Isar Aerospace has signed a contract with the European Space "
+        "Agency worth EUR 150 million to provide sovereign European access to orbit using "
+        "its Spectrum rocket. The contract guarantees 10 launches from the Andoya Space "
+        "Centre in Norway between 2028 and 2032. Isar's Spectrum is a two-stage liquid "
+        "rocket carrying 1,000 kg to LEO, positioned as a European alternative to Rocket Lab's "
+        "Electron. Airbus Defence and Space and OHB SE are the anchor satellite customers. "
+        "The ESA contract follows growing European concern about strategic dependence on "
+        "American launch providers, particularly SpaceX, for defence and institutional payloads.",
+        "Reuters", "contract",
     ),
     (
-        "TATA Elxsi and Bosch Partner on Next-Gen IoT Edge Computing Platform",
-        "Tata Elxsi and Bosch have announced a joint development programme to create an "
-        "edge computing platform specifically designed for 5G-connected industrial IoT "
-        "deployments. The platform will run AI inference workloads at the factory edge, "
-        "reducing latency compared to cloud-only architectures. Initial deployments are "
-        "targeted at automotive manufacturing plants, where real-time quality inspection "
-        "requires sub-10ms decision latency that cloud-based systems cannot guarantee. "
-        "Siemens India and ABB India are evaluating the joint platform as part of their "
-        "own 5G IoT roadmaps. TCS has filed a response noting its own edge AI platform "
-        "for manufacturing IoT, escalating competition in the segment. Airtel has expressed "
-        "interest in bundling the Tata Elxsi-Bosch platform into its private 5G managed "
-        "service for automotive clients, which would accelerate deployments at Maruti "
-        "Suzuki and Tata Motors.",
-        "Hindu BusinessLine", "technology",
+        "Firefly Aerospace Wins NASA CLPS Lunar Delivery Contract, Partners with Northrop Grumman",
+        "Firefly Aerospace has been awarded a $280 million NASA CLPS contract to deliver "
+        "science payloads to the lunar surface using its Blue Ghost lander, launched atop "
+        "a SpaceX Falcon 9 rocket. The contract covers three lunar delivery missions between "
+        "2027 and 2029. Firefly has also signed a strategic partnership with Northrop Grumman "
+        "to develop a medium-lift launch vehicle combining Firefly's engine technology with "
+        "Northrop's solid rocket motor expertise. The partnership positions both companies to "
+        "compete for the next round of U.S. Space Force launch contracts. Lockheed Martin's "
+        "space division views the Firefly-Northrop alliance as a direct competitive threat "
+        "to its cislunar transportation business.",
+        "SpaceNews", "contract",
     ),
     (
-        "Entrib Raises Rs 60 Crore to Build 5G-First IoT Management Platform",
-        "Bengaluru-based IoT startup Entrib has raised Rs 60 crore in a Pre-Series B round "
-        "led by 3one4 Capital to build a 5G-native device management platform for Indian "
-        "enterprises. Unlike legacy IoT platforms designed for 4G networks, Entrib's "
-        "architecture is optimised for the network slicing and ultra-low latency features "
-        "of 5G, enabling use cases like real-time robotic control and autonomous vehicle "
-        "coordination. The company counts Delhivery, Flipkart's logistics arm and "
-        "Mahindra Logistics as early customers. Jio has expressed interest in integrating "
-        "Entrib's platform into its enterprise 5G IoT suite. Airtel is evaluating a similar "
-        "white-label arrangement that would let Entrib power Airtel's managed IoT offering "
-        "for the automotive and logistics verticals.",
-        "Business Standard", "funding",
-    ),
-    (
-        "Connx IoT Raises $12M Seed to Standardise Multi-Vendor 5G IoT Deployments",
-        "Connx IoT, a Mumbai-based startup, has raised a $12 million seed round from "
-        "Lightspeed India and Qualcomm Ventures to build a vendor-neutral middleware layer "
-        "that connects IoT devices from different manufacturers into a unified 5G management "
-        "plane. The platform addresses a key pain point for enterprise customers who deploy "
-        "IoT sensors from Bosch, Siemens, Honeywell and others but lack a unified dashboard. "
-        "Airtel and Tata Communications are evaluating Connx as a platform to bundle into "
-        "their managed IoT service offerings. The company targets profitability within "
-        "18 months as it scales to 1 million connected endpoints. Jio, which competes "
-        "with Airtel for enterprise IoT market share, is also reported to be in early "
-        "conversations with Connx about potential technology licensing arrangements.",
-        "Mint", "funding",
+        "Japan's Space One Raises $180M to Commercialise Kairos Orbital Rocket",
+        "Japanese launch startup Space One has raised $180 million in a Series D round led by "
+        "Canon Electronics and IHI Aerospace to scale production of its Kairos small orbital "
+        "rocket. The Kairos is a four-stage solid-fuelled vehicle capable of delivering 250 kg "
+        "to LEO from Space One's dedicated launch site at Kii in Wakayama Prefecture. The "
+        "company targets 20 launches per year by 2029, primarily serving Japanese government "
+        "constellation programmes and Asian commercial earth observation operators. Toyota "
+        "Motor's Woven Planet subsidiary has invested in Space One to explore satellite-based "
+        "autonomous driving support systems. Mitsubishi Heavy Industries, which operates "
+        "Japan's H3 rocket, views Space One as complementary rather than competitive.",
+        "Nikkei Asia", "funding",
     ),
 ]

@@ -129,7 +129,7 @@ strategic business move."
 
 **Filter pass rate in practice:** 13-35% of articles pass (correct behavior — India RSS includes SEBI filings, political news, economic commentary; NLI only passes articles with a company explicitly doing a business action).
 
-**Confusion matrix fields** in `LearningSignalBus`: `filter_tp`, `filter_fp`, `filter_tn`, `filter_fn` — published via `bus.publish_confusion_matrix()`.
+**Confusion matrix logging:** TP/FP/TN/FN counts are logged per-run in `filter.py` console output, not stored on the signal bus.
 
 **Gap 4 rule:** if a target company (in COMPANY_FIRST mode) has 0 articles in the last N days → company dropped from scope.
 

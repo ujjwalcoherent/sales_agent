@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Edit2, Trash2, User } from "lucide-react";
 import { listProfiles, deleteProfile } from "@/lib/api";
 import type { UserProfile } from "@/lib/types";
@@ -43,11 +44,12 @@ function SkeletonCard() {
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function ProfilesPage() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // wizard: undefined = closed, null = new, UserProfile = edit
+  // wizard: undefined = closed, UserProfile = edit (create goes to /onboarding)
   const [wizardProfile, setWizardProfile] = useState<UserProfile | null | undefined>(undefined);
 
   // delete confirmation
@@ -182,7 +184,7 @@ export default function ProfilesPage() {
             )}
           </div>
           <button
-            onClick={() => setWizardProfile(null)}
+            onClick={() => router.push("/onboarding?from=profiles")}
             style={{
               display: "flex", alignItems: "center", gap: 6,
               background: "var(--accent)", color: "#fff",
@@ -261,7 +263,7 @@ export default function ProfilesPage() {
               and which contacts to reach. Create one to personalise the pipeline.
             </div>
             <button
-              onClick={() => setWizardProfile(null)}
+              onClick={() => router.push("/onboarding?from=profiles")}
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 background: "var(--accent)", color: "#fff",
@@ -280,8 +282,8 @@ export default function ProfilesPage() {
             {profiles.map((profile) => {
               const badge   = PATH_BADGE[profile.path_preference] ?? PATH_BADGE.auto;
               const initial = profile.user_name.charAt(0).toUpperCase();
-              const visibleIndustries = profile.target_industries.slice(0, 3);
-              const extraIndustries   = profile.target_industries.length - 3;
+              const visibleIndustries = (profile.target_industries ?? []).slice(0, 3);
+              const extraIndustries   = (profile.target_industries ?? []).length - 3;
 
               return (
                 <div
@@ -343,17 +345,17 @@ export default function ProfilesPage() {
                   <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>
                     <span>
                       <strong style={{ color: "var(--text-secondary)" }}>
-                        {profile.target_industries.length}
+                        {(profile.target_industries ?? []).length}
                       </strong>{" "}
-                      {profile.target_industries.length === 1 ? "industry" : "industries"}
+                      {(profile.target_industries ?? []).length === 1 ? "industry" : "industries"}
                     </span>
                     <span>
                       <strong style={{ color: "var(--text-secondary)" }}>
-                        {profile.own_products.length}
+                        {(profile.own_products ?? []).length}
                       </strong>{" "}
-                      {profile.own_products.length === 1 ? "product" : "products"}
+                      {(profile.own_products ?? []).length === 1 ? "product" : "products"}
                     </span>
-                    {profile.account_list.length > 0 && (
+                    {(profile.account_list ?? []).length > 0 && (
                       <span>
                         <strong style={{ color: "var(--text-secondary)" }}>
                           {profile.account_list.length}
@@ -392,32 +394,6 @@ export default function ProfilesPage() {
                       )}
                     </div>
                   )}
-
-                  {/* Pipeline stats */}
-                  <div
-                    style={{
-                      display: "flex", gap: 16,
-                      paddingTop: 10, borderTop: "1px solid var(--border)",
-                      fontSize: 11, color: "var(--text-muted)",
-                      marginBottom: 12,
-                    }}
-                  >
-                    <span>
-                      <strong className="num" style={{ color: "var(--text-secondary)", fontSize: 12 }}>
-                        {profile.total_runs}
-                      </strong>{" "}runs
-                    </span>
-                    <span>
-                      <strong className="num" style={{ color: "var(--text-secondary)", fontSize: 12 }}>
-                        {profile.total_emails_sent}
-                      </strong>{" "}emails
-                    </span>
-                    <span>
-                      <strong className="num" style={{ color: "var(--text-secondary)", fontSize: 12 }}>
-                        {profile.total_replies}
-                      </strong>{" "}replies
-                    </span>
-                  </div>
 
                   {/* Action buttons */}
                   <div

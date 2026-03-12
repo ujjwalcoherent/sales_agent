@@ -4,7 +4,7 @@ Supports Ollama (local), Gemini (cloud), and Groq (cloud) LLM providers.
 """
 
 from functools import lru_cache
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 
@@ -86,12 +86,6 @@ class Settings(BaseSettings):
     summary_max_chars: int = Field(default=1500, alias="SUMMARY_MAX_CHARS")
 
     # ── Council & Agent Thresholds ──
-    lead_relevance_threshold: float = Field(default=0.3, alias="LEAD_RELEVANCE_THRESHOLD")
-    max_search_queries_per_impact: int = Field(default=7, alias="MAX_SEARCH_QUERIES_PER_IMPACT")
-    enterprise_blocklist: str = Field(
-        default="tata,reliance,infosys,wipro,hcl,hdfc,icici,bajaj,mahindra,adani,vedanta",
-        alias="ENTERPRISE_BLOCKLIST",
-    )
     company_min_relevance: float = Field(
         default=0.20,
         alias="COMPANY_MIN_RELEVANCE",
@@ -108,9 +102,6 @@ class Settings(BaseSettings):
     min_synthesis_confidence: float = Field(default=0.40, alias="MIN_SYNTHESIS_CONFIDENCE")
     min_trend_confidence_for_agents: float = Field(default=0.40, alias="MIN_TREND_CONFIDENCE_FOR_AGENTS")
 
-    # ── Company Verification (V7) ──
-    company_min_verification_confidence: float = Field(default=0.0, alias="COMPANY_MIN_VERIFICATION_CONFIDENCE")
-
     # Search APIs (supports multiple keys for rotation — comma-separated in .env)
     # Single key: TAVILY_API_KEYS=tvly-abc123
     # Multiple:   TAVILY_API_KEYS=tvly-abc123,tvly-def456
@@ -118,10 +109,7 @@ class Settings(BaseSettings):
     tavily_enabled: bool = Field(default=True, alias="TAVILY_ENABLED")
     tavily_api_keys: str = Field(default="", alias="TAVILY_API_KEYS")
 
-    # Ollama dual-model: llama3.2:3b = tool calling, phi3.5-custom = generation
-    # llama3.2:3b is the ONLY local model with confirmed tool calling (MX550 GPU)
-    # phi3.5-custom is faster for pure generation but has NO tool calling support
-    ollama_gen_model: str = Field(default="phi3.5-custom:latest", alias="OLLAMA_GEN_MODEL")
+    # Ollama tool-calling model (llama3.2:3b — ONLY local model with confirmed tool calling on MX550 GPU)
     ollama_tool_model: str = Field(default="llama3.2:3b", alias="OLLAMA_TOOL_MODEL")
 
     # Email Finder APIs
@@ -132,8 +120,7 @@ class Settings(BaseSettings):
     country: str = Field(default="India", alias="COUNTRY")
     country_code: str = Field(default="IN", alias="COUNTRY_CODE")
     max_trends: int = Field(default=12, alias="MAX_TRENDS")
-    max_companies_per_trend: int = Field(default=15, alias="MAX_COMPANIES_PER_TREND")
-    max_contacts_per_company: int = Field(default=6, alias="MAX_CONTACTS_PER_COMPANY")  # 3 DMs + 3 influencers
+    max_contacts_per_company: int = Field(default=10, alias="MAX_CONTACTS_PER_COMPANY")  # 3 DMs + 3 influencers + 4 evaluators
     email_confidence_threshold: int = Field(default=70, alias="EMAIL_CONFIDENCE_THRESHOLD")
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
     
@@ -203,7 +190,7 @@ class Settings(BaseSettings):
         alias="DEFAULT_DM_ROLES",
     )
     default_influencer_roles: str = Field(
-        default="VP Engineering,VP Product,Head of Strategy,VP Marketing,VP Sales",
+        default="VP Engineering,VP Product,Head of Strategy,VP Marketing,VP Sales,Director of Engineering,Director of Operations,Engineering Manager,Product Manager,Senior Architect",
         alias="DEFAULT_INFLUENCER_ROLES",
     )
 
@@ -222,16 +209,8 @@ class Settings(BaseSettings):
     email_personalization_depth: str = Field(default="deep", alias="EMAIL_PERSONALIZATION_DEPTH")  # "basic" | "deep"
     email_max_length: int = Field(default=300, alias="EMAIL_MAX_LENGTH")  # approximate word limit
 
-    @property
-    def enterprise_blocklist_set(self) -> frozenset:
-        """Parse enterprise_blocklist CSV into a frozenset for O(1) lookup."""
-        return frozenset(t.strip().lower() for t in self.enterprise_blocklist.split(",") if t.strip())
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
-    
     def get_llm_config(self) -> dict:
         """Get LLM configuration based on settings.
 
@@ -270,77 +249,35 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def get_domestic_source_ids(country_code: str = "") -> set:
-    """Get source IDs configured for the target country.
 
-    Checks NEWS_SOURCES[*]["country"] against the given ISO 3166-1 alpha-2 code.
-    Dynamic — works for any country code (IN, BR, US, DE, etc.).
-    """
-    import logging as _logging
-    _log = _logging.getLogger(__name__)
-
-    if not country_code:
-        country_code = get_settings().country_code
-    code_upper = country_code.upper()
-    domestic = set()
-    missing_country = []
-    for src_id, cfg in NEWS_SOURCES.items():
-        src_country = cfg.get("country", "")
-        if not src_country:
-            missing_country.append(src_id)
-            continue
-        if src_country.upper() == code_upper:
-            domestic.add(src_id)
-    if missing_country:
-        _log.warning(f"Sources missing 'country' prop: {missing_country}")
-    return domestic
-
-
-# RSS Feed queries for DAILY Indian business news (specific events, not generic trends)
-RSS_QUERIES = [
-    # Breaking business news
-    "India business news today",
-    "Indian startup funding announced today",
-    "India company acquisition merger",
-    "RBI policy announcement",
-    "Indian government scheme launched",
-    "India regulatory change business",
-    "Indian unicorn news",
-    "India IPO listing news",
-    # Sector-specific breaking news
-    "India fintech regulation news",
-    "India EV policy announcement",
-    "India pharma approval news",
-    "India tech layoffs hiring",
-]
 
 # Trend type to target role mapping for consulting services
 TREND_ROLE_MAPPING = {
-    # Core trend categories
-    "regulation": ["CEO", "Chief Strategy Officer", "VP Strategy", "Director of Business Development"],
-    "policy": ["CEO", "COO", "Chief Strategy Officer", "Director Corporate Strategy"],
-    "trade": ["VP Supply Chain", "Procurement Director", "Chief Procurement Officer", "Director Sourcing"],
-    "market_shift": ["CMO", "VP Marketing", "Chief Strategy Officer", "Director Market Research"],
-    "competition": ["CEO", "Chief Strategy Officer", "VP Business Development", "Director Strategy"],
-    "technology": ["CTO", "VP Engineering", "Chief Digital Officer", "Director Innovation"],
-    "expansion": ["CEO", "VP Business Development", "Chief Strategy Officer", "Director International"],
-    "supply_chain": ["COO", "VP Operations", "Chief Procurement Officer", "Director Supply Chain"],
-    "funding": ["CEO", "CFO", "Chief Strategy Officer", "VP Corporate Development"],
-    "consumer": ["CMO", "VP Marketing", "Chief Customer Officer", "Director Consumer Insights"],
+    # Core trend categories — 6-8 roles each: DMs + Influencers + Evaluators
+    "regulation": ["CEO", "Chief Strategy Officer", "VP Strategy", "Director of Business Development", "Strategy Manager", "Business Analyst", "Regulatory Affairs Manager"],
+    "policy": ["CEO", "COO", "Chief Strategy Officer", "Director Corporate Strategy", "Government Relations Manager", "Policy Analyst", "Strategy Manager"],
+    "trade": ["VP Supply Chain", "Procurement Director", "Chief Procurement Officer", "Director Sourcing", "Supply Chain Manager", "Category Manager", "Procurement Analyst"],
+    "market_shift": ["CMO", "VP Marketing", "Chief Strategy Officer", "Director Market Research", "Marketing Manager", "Market Research Analyst", "Brand Manager", "Product Marketing Manager"],
+    "competition": ["CEO", "Chief Strategy Officer", "VP Business Development", "Director Strategy", "Business Development Manager", "Competitive Intelligence Analyst", "Product Manager"],
+    "technology": ["CTO", "VP Engineering", "Chief Digital Officer", "Director Innovation", "Engineering Manager", "Senior Architect", "Tech Lead", "Product Manager"],
+    "expansion": ["CEO", "VP Business Development", "Chief Strategy Officer", "Director International", "Business Development Manager", "Regional Manager", "Market Entry Analyst"],
+    "supply_chain": ["COO", "VP Operations", "Chief Procurement Officer", "Director Supply Chain", "Supply Chain Manager", "Logistics Manager", "Operations Manager"],
+    "funding": ["CEO", "CFO", "Chief Strategy Officer", "VP Corporate Development", "Director of Finance", "Financial Controller", "Investment Analyst"],
+    "consumer": ["CMO", "VP Marketing", "Chief Customer Officer", "Director Consumer Insights", "Customer Success Manager", "Product Manager", "UX Research Manager"],
 
     # Extended categories
-    "cybersecurity": ["CISO", "VP Security", "Head of Information Security", "Security Director"],
-    "compliance": ["Chief Compliance Officer", "VP Legal", "Head of Risk", "General Counsel"],
-    "data_privacy": ["DPO", "Chief Privacy Officer", "CISO", "VP Legal"],
-    "digital_transformation": ["CTO", "CDO", "VP Engineering", "Head of Digital"],
-    "ai_adoption": ["CTO", "Chief AI Officer", "VP Engineering", "Head of Data Science"],
-    "cloud_migration": ["CTO", "VP Infrastructure", "Head of Cloud", "IT Director"],
-    "cost_reduction": ["CFO", "COO", "VP Operations", "Head of Procurement"],
-    "market_expansion": ["CEO", "CSO", "VP Business Development", "Head of Strategy"],
-    "sustainability": ["Chief Sustainability Officer", "VP Sustainability", "Head of ESG", "Environmental Director"],
-    "talent": ["CHRO", "VP People", "Head of Talent", "HR Director"],
+    "cybersecurity": ["CISO", "VP Security", "Head of Information Security", "Security Director", "Security Architect", "SOC Manager", "InfoSec Manager"],
+    "compliance": ["Chief Compliance Officer", "VP Legal", "Head of Risk", "General Counsel", "Compliance Manager", "Risk Manager", "Internal Audit Manager"],
+    "data_privacy": ["DPO", "Chief Privacy Officer", "CISO", "VP Legal", "Data Governance Manager", "Privacy Manager", "Compliance Analyst"],
+    "digital_transformation": ["CTO", "CDO", "VP Engineering", "Head of Digital", "Director of Engineering", "Digital Transformation Manager", "Solutions Architect", "Engineering Manager"],
+    "ai_adoption": ["CTO", "Chief AI Officer", "VP Engineering", "Head of Data Science", "ML Engineering Manager", "Data Science Manager", "AI Architect", "Senior Data Scientist"],
+    "cloud_migration": ["CTO", "VP Infrastructure", "Head of Cloud", "IT Director", "Cloud Architect", "DevOps Manager", "Infrastructure Manager", "SRE Lead"],
+    "cost_reduction": ["CFO", "COO", "VP Operations", "Head of Procurement", "Director of Finance", "Operations Manager", "Financial Analyst", "Process Improvement Manager"],
+    "market_expansion": ["CEO", "CSO", "VP Business Development", "Head of Strategy", "Business Development Manager", "Regional Director", "Market Entry Analyst"],
+    "sustainability": ["Chief Sustainability Officer", "VP Sustainability", "Head of ESG", "Environmental Director", "Sustainability Manager", "ESG Analyst", "Environmental Manager"],
+    "talent": ["CHRO", "VP People", "Head of Talent", "HR Director", "Talent Acquisition Manager", "HR Business Partner", "People Operations Manager"],
 
-    "default": ["CEO", "CTO", "CFO", "VP Operations", "Head of Strategy"],
+    "default": ["CEO", "CTO", "CFO", "VP Operations", "Head of Strategy", "Director of Engineering", "Product Manager", "Engineering Manager"],
 }
 
 # Coherent Market Insights Service Catalog (Full)
@@ -470,13 +407,6 @@ CMI_SERVICES = {
     }
 }
 
-# Company size targeting for consulting
-TARGET_COMPANY_SIZE = {
-    "min_employees": 50,
-    "max_employees": 300,
-    "size_keywords": ["mid-size", "growing", "emerging", "scaling", "series B", "series C", "established"]
-}
-
 # Blacklisted domains (not company domains)
 BLACKLISTED_DOMAINS = {
     # Social / search / general
@@ -500,13 +430,6 @@ BLACKLISTED_DOMAINS = {
     "prweb.com", "einpresswire.com", "newswire.com",
     # Conference & event sites (not company domains)
     "eventbrite.com", "meetup.com",
-}
-
-# Company size keywords for classification
-COMPANY_SIZE_KEYWORDS = {
-    "startup": ["startup", "seed", "early-stage", "series a", "series b", "founded 202"],
-    "mid": ["mid-size", "growing", "series c", "series d", "scale-up"],
-    "enterprise": ["enterprise", "large", "multinational", "fortune", "listed", "ipo", "public"]
 }
 
 
@@ -579,32 +502,6 @@ NEWS_SOURCES = {
         "url": "https://www.livemint.com/companies",
         "rss_url": "https://www.livemint.com/rss/companies",
         "categories": ["companies", "corporate", "earnings"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
-    "business_standard": {
-        "id": "business_standard",
-        "name": "Business Standard",
-        "source_type": "rss",
-        "tier": "tier_1",
-        "credibility_score": 0.93,
-        "url": "https://www.business-standard.com",
-        "rss_url": "https://www.business-standard.com/rss/home_page_top_stories.rss",
-        "categories": ["business", "markets", "economy"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
-    "bs_companies": {
-        "id": "bs_companies",
-        "name": "BS Companies",
-        "source_type": "rss",
-        "tier": "tier_1",
-        "credibility_score": 0.93,
-        "url": "https://www.business-standard.com/companies",
-        "rss_url": "https://www.business-standard.com/rss/companies-101.rss",
-        "categories": ["companies", "corporate"],
         "language": "en",
         "country": "IN",
         "rate_limit_per_day": None
@@ -1006,19 +903,6 @@ NEWS_SOURCES = {
         "country": "IN",
         "rate_limit_per_day": None
     },
-    "zeebiz": {
-        "id": "zeebiz",
-        "name": "Zee Business",
-        "source_type": "rss",
-        "tier": "tier_2",
-        "credibility_score": 0.87,
-        "url": "https://www.zeebiz.com",
-        "rss_url": "https://www.zeebiz.com/india-economy.xml",
-        "categories": ["economy", "business", "industry"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
     "indiatoday_business": {
         "id": "indiatoday_business",
         "name": "India Today Business",
@@ -1110,20 +994,6 @@ NEWS_SOURCES = {
         "country": "IN",
         "rate_limit_per_day": None
     },
-    "bbc_india": {
-        "id": "bbc_india",
-        "name": "BBC News India",
-        "source_type": "rss",
-        "tier": "tier_1",
-        "credibility_score": 0.95,
-        "url": "https://www.bbc.com/news/world/asia/india",
-        "rss_url": "http://feeds.bbci.co.uk/news/world/asia/india/rss.xml",
-        "categories": ["business", "economy", "geopolitical"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
-
     # ─────────────────────────────────────────────────────────────────────────
     # Bing News RSS (Free, query-based - added 2026-02-19)
     # Format: https://www.bing.com/news/search?format=RSS&q=<query>
@@ -1924,50 +1794,6 @@ NEWS_SOURCES = {
     },
 
     # ─────────────────────────────────────────────────────────────────────────
-    # DEAD: Business Standard section feeds — ALL return 403 as of 2026-03-10
-    # Kept in NEWS_SOURCES for reference but removed from DEFAULT_ACTIVE_SOURCES
-    # ─────────────────────────────────────────────────────────────────────────
-    "bs_economy": {
-        "id": "bs_economy",
-        "name": "Business Standard Economy",
-        "source_type": "rss",
-        "tier": "tier_1",
-        "credibility_score": 0.93,
-        "url": "https://www.business-standard.com/economy",
-        "rss_url": "https://www.business-standard.com/rss/economy-policy-101.rss",
-        "categories": ["economy", "policy", "budget", "macro"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
-    "bs_finance": {
-        "id": "bs_finance",
-        "name": "Business Standard Finance",
-        "source_type": "rss",
-        "tier": "tier_1",
-        "credibility_score": 0.93,
-        "url": "https://www.business-standard.com/finance",
-        "rss_url": "https://www.business-standard.com/rss/finance-102.rss",
-        "categories": ["finance", "banking", "insurance", "RBI"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
-    "bs_tech": {
-        "id": "bs_tech",
-        "name": "Business Standard Technology",
-        "source_type": "rss",
-        "tier": "tier_1",
-        "credibility_score": 0.93,
-        "url": "https://www.business-standard.com/technology",
-        "rss_url": "https://www.business-standard.com/rss/technology-108.rss",
-        "categories": ["technology", "IT", "startups", "AI"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
-
-    # ─────────────────────────────────────────────────────────────────────────
     # NEW TIER 2: ET specialised feeds (B2B / CFO / BFSI / Infra)
     # ─────────────────────────────────────────────────────────────────────────
     "et_markets": {
@@ -2140,23 +1966,6 @@ NEWS_SOURCES = {
     },
 
     # ─────────────────────────────────────────────────────────────────────────
-    # NEW TIER 2: The Wire (India) — investigative business/policy
-    # ─────────────────────────────────────────────────────────────────────────
-    "thewire_economy": {
-        "id": "thewire_economy",
-        "name": "The Wire Economy",
-        "source_type": "rss",
-        "tier": "tier_2",
-        "credibility_score": 0.87,
-        "url": "https://thewire.in",
-        "rss_url": "https://thewire.in/economy/feed",
-        "categories": ["economy", "policy", "analysis", "corporate"],
-        "language": "en",
-        "country": "IN",
-        "rate_limit_per_day": None
-    },
-
-    # ─────────────────────────────────────────────────────────────────────────
     # NEW TIER 2: TechInAsia (Asia-Pacific startup coverage)
     # ─────────────────────────────────────────────────────────────────────────
     "techinasia": {
@@ -2217,12 +2026,6 @@ NEWS_SOURCES = {
     },
 }
 
-# Quick access lists
-RSS_SOURCES = [src for src in NEWS_SOURCES.values() if src["source_type"] == "rss"]
-API_SOURCES = [src for src in NEWS_SOURCES.values() if src["source_type"] == "api"]
-TIER_1_SOURCES = [src for src in NEWS_SOURCES.values() if src["tier"] == "tier_1"]
-TIER_2_SOURCES = [src for src in NEWS_SOURCES.values() if src["tier"] == "tier_2"]
-
 # Default sources to use (can be overridden via env)
 # ─────────────────────────────────────────────────────────────────────────────
 # BROKEN (never re-add — permanently dead feeds as of 2026-03-05):
@@ -2232,22 +2035,10 @@ TIER_2_SOURCES = [src for src in NEWS_SOURCES.values() if src["tier"] == "tier_2
 #   - entrackr               : 404 Not Found — no public RSS
 #   - sebi                   : 404 Not Found — old URL dead (replaced by sebi_v2)
 #   - vccircle               : 200 but malformed XML — feedparser parse error
-#   - bbc_india              : 403 Forbidden — BBC geo-blocks India RSS
-#   - zeebiz                 : 403 Forbidden — bot-blocked
 #   - theprint               : Intermittent silent failure (kept with low priority)
-#   - pib (original)         : 0 articles — empty response (replaced by pib_finance/pib_commerce)
-#   - business_standard      : 403 Forbidden (top-level feed) — replaced by section feeds
-#   - bs_companies           : 403 Forbidden — all BS feeds bot-blocked
-#   - reuters_business       : feeds.reuters.com dead since 2020 — replaced with Google News proxy (2026-03-10)
-#   - reuters_technology     : feeds.reuters.com dead since 2020 — replaced with Google News proxy (2026-03-10)
-#   - bs_economy             : 403 Forbidden — all business-standard.com/rss/ feeds bot-blocked (2026-03-10)
-#   - bs_finance             : 403 Forbidden — all business-standard.com/rss/ feeds bot-blocked (2026-03-10)
-#   - bs_tech                : 403 Forbidden — all business-standard.com/rss/ feeds bot-blocked (2026-03-10)
-#   - prnewswire_tech        : 404 — category feeds removed by PR Newswire (2026-03-10)
-#   - prnewswire_finance     : 404 — category feeds removed by PR Newswire (2026-03-10)
-#   - prnewswire_ma          : 404 — category feeds removed by PR Newswire (2026-03-10)
-#   - business_insider (old) : /sai/rss 404 — replaced with feedburner feed (2026-03-10)
-#   - thewire_economy        : 0 articles — feed returns empty (removed 2026-03-05)
+#   - reuters_business       : feeds.reuters.com dead since 2020 — replaced with Google News proxy
+#   - reuters_technology     : feeds.reuters.com dead since 2020 — replaced with Google News proxy
+#   - business_standard / bs_* / bbc_india / zeebiz / thewire_economy : 403/0-article bot-blocked (all deleted 2026-03-12)
 # ─────────────────────────────────────────────────────────────────────────────
 DEFAULT_ACTIVE_SOURCES = [
     # ── Tier 1: Major Indian Business Publications (RSS — Working) ────────────

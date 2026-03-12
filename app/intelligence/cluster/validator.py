@@ -20,22 +20,18 @@ Failure actions (specific, not generic — CRITIC pattern):
 NewsCatcher pattern: reject 60-80% of raw clusters → high-quality survivors.
 All thresholds from adaptive_thresholds.json (EMA-adapted by ThresholdAdapterAgent).
 
-Delegates to app.clustering.tools.validator until Phase 11 migration.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 import numpy as np
 
 from app.intelligence.config import ClusteringParams, DEFAULT_PARAMS
 from app.intelligence.models import (
-    AgentRequestType,
     ClusterResult,
-    OutlierRecord,
-    RequestPriority,
     ValidationCheck,
     ValidationFailureAction,
     ValidationResult,
@@ -135,37 +131,6 @@ def validate_all_clusters(
     return results
 
 
-def build_recluster_signal(
-    failed_result: ValidationResult,
-    cluster: ClusterResult,
-) -> Dict[str, Any]:
-    """Build the Signal Bus message for ClusterAgent retry.
-
-    Returns specific critique, not generic "retry".
-    This implements the CRITIC pattern (Gou et al. 2023).
-    """
-    failed_checks = [c for c in failed_result.checks if not c.passed]
-    critique_parts = [f"{c.name}: {c.critique}" for c in failed_checks]
-
-    # Determine the primary action
-    primary_action = ValidationFailureAction.RECLUSTER
-    for check in failed_checks:
-        if check.action in (ValidationFailureAction.DROP, ValidationFailureAction.FLAG_SYNDICATION):
-            primary_action = check.action
-            break
-        if check.action == ValidationFailureAction.MERGE_NEAREST:
-            primary_action = ValidationFailureAction.MERGE_NEAREST
-
-    return {
-        "cluster_id": cluster.cluster_id,
-        "cluster_entity": cluster.primary_entity,
-        "critique": "; ".join(critique_parts),
-        "action": primary_action.value,
-        "failed_checks": [c.name for c in failed_checks],
-        "composite_score": failed_result.composite_score,
-    }
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # INTERNAL HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -185,52 +150,6 @@ def _adapt_params(params: ClusteringParams):
         return old
     except ImportError:
         return None
-
-
-def _adapt_validation_result(
-    old_result: Any,
-    cluster_id: str,
-    params: ClusteringParams,
-) -> ValidationResult:
-    """Convert clustering ValidationResult → intelligence ValidationResult."""
-    checks_dict = getattr(old_result, "checks", {})
-    check_scores = getattr(old_result, "check_scores", {})
-    old_outliers = getattr(old_result, "outliers", [])
-
-    checks = []
-    for name, passed in checks_dict.items():
-        score = check_scores.get(name, 1.0 if passed else 0.0)
-        critique = _build_critique(name, score, params) if not passed else ""
-        action = _check_action(name)
-
-        checks.append(ValidationCheck(
-            name=name,
-            passed=passed,
-            score=score,
-            critique=critique,
-            action=action,
-        ))
-
-    outliers = []
-    for o in old_outliers:
-        outliers.append(OutlierRecord(
-            item_type=getattr(o, "item_type", "article"),
-            item_id=getattr(o, "item_id", ""),
-            reason=getattr(o, "reason", ""),
-            evidence=getattr(o, "evidence", ""),
-            confidence=getattr(o, "confidence", 0.0),
-            silhouette_score=getattr(o, "silhouette_score", None),
-        ))
-
-    return ValidationResult(
-        cluster_id=cluster_id,
-        passed=getattr(old_result, "passed", False),
-        composite_score=getattr(old_result, "composite_score", 0.0),
-        checks=checks,
-        rejection_reasons=getattr(old_result, "rejection_reasons", []),
-        outliers=outliers,
-        ejected_article_indices=getattr(old_result, "ejected_article_indices", []),
-    )
 
 
 def _fallback_validate(
@@ -272,29 +191,3 @@ def _fallback_validate(
     )
 
 
-def _build_critique(check_name: str, score: float, params: ClusteringParams) -> str:
-    """Build specific critique for a failed check (CRITIC pattern)."""
-    critiques = {
-        "coherence": f"Coherence {score:.3f} < {params.val_coherence_min} required. Re-cluster with tighter threshold.",
-        "min_articles": f"Only {int(score)} articles. Merge with nearest cluster or drop.",
-        "multi_source": f"Only {int(score)} sources. Need {params.val_min_sources}. Fetch more diverse sources.",
-        "entity_consistency": f"Entity coverage {score:.0%} < {params.val_entity_consistency_min:.0%}. Cluster may mix unrelated events.",
-        "temporal_proximity": f"Articles span > {params.val_temporal_window_hours/24:.0f} days. May be artificial aggregation.",
-        "not_duplicate": f"Centroid similarity {score:.3f} >= {params.val_duplicate_threshold} to existing cluster.",
-        "syndication": f"All articles share identical first sentences. Syndicated copies — DedupAgent should catch this.",
-    }
-    return critiques.get(check_name, f"Check '{check_name}' failed with score {score:.3f}")
-
-
-def _check_action(check_name: str) -> ValidationFailureAction:
-    """Map check name to failure action for Signal Bus."""
-    actions = {
-        "coherence": ValidationFailureAction.RECLUSTER,
-        "min_articles": ValidationFailureAction.MERGE_NEAREST,
-        "multi_source": ValidationFailureAction.RECLUSTER,
-        "entity_consistency": ValidationFailureAction.RECLUSTER,
-        "temporal_proximity": ValidationFailureAction.DROP,
-        "not_duplicate": ValidationFailureAction.DROP,
-        "syndication": ValidationFailureAction.FLAG_SYNDICATION,
-    }
-    return actions.get(check_name, ValidationFailureAction.RECLUSTER)

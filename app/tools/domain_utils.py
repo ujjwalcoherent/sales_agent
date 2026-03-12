@@ -13,6 +13,10 @@ from ..config import BLACKLISTED_DOMAINS
 
 logger = logging.getLogger(__name__)
 
+_RE_DOMAIN_PATTERN = re.compile(r'([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}')
+_RE_NON_ALNUM_SPACE = re.compile(r'[^a-z0-9\s]')
+_RE_SPACES = re.compile(r'\s+')
+
 
 def extract_clean_domain(url_or_text: str) -> Optional[str]:
     """
@@ -65,8 +69,7 @@ def extract_clean_domain(url_or_text: str) -> Optional[str]:
         pass
     
     # Try to find domain pattern in text
-    domain_pattern = r'([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,}'
-    match = re.search(domain_pattern, text)
+    match = _RE_DOMAIN_PATTERN.search(text)
     if match:
         domain = match.group(0).lower()
         # Remove www if present
@@ -166,8 +169,8 @@ def extract_domain_from_company_name(company_name: str) -> Optional[str]:
             name = name[:-len(suffix)]
     
     # Remove special characters and extra spaces
-    name = re.sub(r'[^a-z0-9\s]', '', name)
-    name = re.sub(r'\s+', '', name)  # Remove all spaces for domain
+    name = _RE_NON_ALNUM_SPACE.sub('', name)
+    name = _RE_SPACES.sub('', name)  # Remove all spaces for domain
     
     if len(name) < 2:
         return None

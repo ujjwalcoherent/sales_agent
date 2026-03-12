@@ -328,7 +328,7 @@ def test_same_url_different_title() -> None:
 
 # ---- Test 5: Protected invariants (math assertions) --------------------------
 
-def test_math_invariants(raw: List[RawArticle], result: DedupResult, label: str = "synthetic") -> None:
+def check_math_invariants(raw: List[RawArticle], result: DedupResult, label: str = "synthetic") -> None:
     section(f"Test 5: Protected Math Invariants ({label} data)")
 
     # I1: output count <= input count
@@ -574,14 +574,14 @@ async def main() -> None:
     # Synthetic invariant test (200 articles)
     synthetic_raw = _generate_synthetic_dataset(200)
     synthetic_result = dedup_articles(synthetic_raw, DEFAULT_PARAMS)
-    test_math_invariants(synthetic_raw, synthetic_result, label="synthetic-200")
+    check_math_invariants(synthetic_raw, synthetic_result, label="synthetic-200")
 
     # Real data test (network I/O -- fetches from RSS/Tavily)
     real_raw, real_result = await test_real_data_stats()
 
     # Protected invariants on real data
     section("Test 8: Protected Invariants on Real Data Output")
-    test_math_invariants(real_raw, real_result, label="real-72h")
+    check_math_invariants(real_raw, real_result, label="real-72h")
 
     print_summary()
 

@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Zap, ChevronRight, Sun, Moon, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Zap, ChevronRight, Sun, Moon, Settings, User, ChevronsUpDown } from "lucide-react";
 import { NAV_ITEMS, APP_NAME, APP_TAGLINE } from "@/lib/config";
+import { useProfile } from "@/contexts/profile-context";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { activeProfile, profiles } = useProfile();
   const [dark, setDark] = useState(false);
 
   // Restore dark mode from localStorage (inline script already applied the class)
@@ -107,8 +110,47 @@ export function Sidebar() {
         })}
       </div>
 
-      {/* Bottom section: dark mode + settings */}
+      {/* Bottom section: profile + dark mode + settings */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 2px" }}>
+        {/* Active profile widget */}
+        <button
+          onClick={() => router.push(profiles.length > 1 ? "/profiles" : "/onboarding?from=profiles")}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "7px 8px",
+            borderRadius: 7,
+            border: "1px solid var(--border)",
+            background: "var(--surface-raised)",
+            cursor: "pointer",
+            textAlign: "left",
+            transition: "background 150ms",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-raised)"; }}
+          title={activeProfile ? "Switch or edit profile" : "Create a profile"}
+        >
+          <div style={{
+            width: 26, height: 26, borderRadius: 6,
+            background: activeProfile ? "var(--accent)" : "var(--border)",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <User size={13} color={activeProfile ? "#fff" : "var(--text-muted)"} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: "var(--text)", fontWeight: 500, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {activeProfile?.user_name ?? "No profile"}
+            </div>
+            {activeProfile?.own_company && (
+              <div style={{ fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {activeProfile.own_company}
+              </div>
+            )}
+          </div>
+          <ChevronsUpDown size={12} style={{ color: "var(--text-xmuted)", flexShrink: 0 }} />
+        </button>
         <button
           onClick={() => setDark((v) => !v)}
           style={{

@@ -22,7 +22,6 @@ import json
 import logging
 import math
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -51,15 +50,12 @@ class LearningSignalBus:
     # {"birth": 0.3, "growth": 0.2, "peak": 0.4, "decline": 0.1}
     avg_novelty: float = 0.5
     lifecycle_counts: Dict[str, int] = field(default_factory=dict)
-    stale_pruned_count: int = 0
 
     # ── Company Bandit publishes ────────────────────────────────
-    company_arm_means: Dict[str, float] = field(default_factory=dict)
     winning_company_types: List[str] = field(default_factory=list)
     company_exploration_rate: float = 0.0
 
     # ── Adaptive Thresholds publishes ───────────────────────────
-    threshold_values: Dict[str, float] = field(default_factory=dict)
     anomaly_flags: List[str] = field(default_factory=list)
     drift_alerts: List[str] = field(default_factory=list)
 
@@ -73,7 +69,6 @@ class LearningSignalBus:
     nli_mean_entailment: float = 0.0       # Mean entailment of kept articles [0,1]
     nli_rejection_rate: float = 0.0        # Fraction of articles NLI auto-rejected
     nli_hypothesis_version: str = "v0"     # Hypothesis version used this run
-    nli_hypothesis_updated: bool = False   # Whether hypothesis was updated by SetFit
     nli_scores_by_source: Dict[str, float] = field(default_factory=dict)
     # {source_name: mean_entailment} — used by source bandit reward calculation
 
@@ -83,8 +78,6 @@ class LearningSignalBus:
     cluster_coherence_by_source: Dict[str, float] = field(default_factory=dict)
     # {source_name: mean_coherence_of_clusters_using_articles_from_source}
     # Used by source bandit: secondary reward signal (NLI is primary).
-    cluster_noise_rate: float = 0.0
-    # If high → filter hypothesis too loose (passes articles that end up as noise).
     lead_quality_per_cluster: Dict[str, float] = field(default_factory=dict)
     # {cluster_id: mean_lead_score} → company bandit backward reward.
 
@@ -136,21 +129,18 @@ class LearningSignalBus:
         self,
         lifecycle_counts: Dict[str, int],
         avg_novelty: float,
-        stale_pruned: int = 0,
     ) -> None:
         """Trend Memory publishes lifecycle distribution after update."""
         self.lifecycle_counts = lifecycle_counts
         total = sum(lifecycle_counts.values()) or 1
         self.novelty_distribution = {k: round(v / total, 3) for k, v in lifecycle_counts.items()}
         self.avg_novelty = avg_novelty
-        self.stale_pruned_count = stale_pruned
 
     def publish_company_bandit(
         self,
         arm_means: Dict[str, float],
     ) -> None:
         """Company Bandit publishes arm posterior means."""
-        self.company_arm_means = arm_means
         self.winning_company_types = sorted(arm_means, key=arm_means.get, reverse=True)[:3]
 
         uncertain = sum(1 for v in arm_means.values() if 0.35 <= v <= 0.65)
@@ -158,12 +148,10 @@ class LearningSignalBus:
 
     def publish_adaptive_thresholds(
         self,
-        thresholds: Dict[str, float],
         anomalies: List[str],
         drift: List[str],
     ) -> None:
-        """Adaptive Thresholds publishes current values and anomalies."""
-        self.threshold_values = thresholds
+        """Adaptive Thresholds publishes anomalies and drift alerts."""
         self.anomaly_flags = anomalies
         self.drift_alerts = drift
 
@@ -181,7 +169,6 @@ class LearningSignalBus:
         mean_entailment: float,
         rejection_rate: float,
         hypothesis_version: str,
-        hypothesis_updated: bool = False,
         scores_by_source: Optional[Dict[str, float]] = None,
     ) -> None:
         """NLI Filter publishes quality diagnostics after filtering.
@@ -189,19 +176,17 @@ class LearningSignalBus:
         Called after filter_articles() completes. Provides signals for:
         - Source Bandit: which sources produce high-entailment articles
         - Adaptive Thresholds: should nli_auto_accept be tightened/loosened?
-        - Distribution shift detection: if mean drops >10% → trigger SetFit retraining
+        - Distribution shift detection: if mean drops >10% → log warning.
           (arXiv:2502.12965 — distribution shift survey recommends monitoring input dist.)
         """
         self.nli_mean_entailment = round(mean_entailment, 4)
         self.nli_rejection_rate = round(rejection_rate, 4)
         self.nli_hypothesis_version = hypothesis_version
-        self.nli_hypothesis_updated = hypothesis_updated
         self.nli_scores_by_source = scores_by_source or {}
 
     def publish_backward_signals(
         self,
         cluster_coherence_by_source: Optional[Dict[str, float]] = None,
-        cluster_noise_rate: float = 0.0,
         lead_quality_per_cluster: Optional[Dict[str, float]] = None,
     ) -> None:
         """Publish cascade backward signals (Phase D).
@@ -209,12 +194,10 @@ class LearningSignalBus:
         Called after clustering + lead scoring complete. Propagates downstream
         quality back to upstream loops:
         - cluster_coherence_by_source → source bandit secondary reward
-        - cluster_noise_rate → filter hypothesis quality check
         - lead_quality_per_cluster → company bandit backward reward
         """
         if cluster_coherence_by_source:
             self.cluster_coherence_by_source = cluster_coherence_by_source
-        self.cluster_noise_rate = cluster_noise_rate
         if lead_quality_per_cluster:
             self.lead_quality_per_cluster = lead_quality_per_cluster
 
@@ -234,8 +217,18 @@ class LearningSignalBus:
         # Source stability: low exploration rate = high confidence in sources
         signals.append(1.0 - self.source_exploration_rate)
 
-        # No anomalies = stable system
-        signals.append(1.0 if not self.anomaly_flags else 0.5)
+        # Company bandit stability: low exploration = converged company preferences
+        signals.append(1.0 - self.company_exploration_rate)
+
+        # No anomalies or drift = stable system
+        anomaly_count = len(self.anomaly_flags) + len(self.drift_alerts)
+        signals.append(1.0 if anomaly_count == 0 else max(0.3, 1.0 - anomaly_count * 0.2))
+
+        # Source diversity: Shannon entropy collapse → over-concentration risk
+        # Normalise to [0,1]: log(n) is max entropy for n sources.
+        if self.source_diversity_index > 0 and self.source_posterior_means:
+            max_entropy = math.log(max(len(self.source_posterior_means), 2))
+            signals.append(min(1.0, self.source_diversity_index / max_entropy))
 
         # Quality above baseline (0.35 is "okay", 0.5+ is "good")
         if self.composite_quality_mean > 0:
@@ -284,8 +277,6 @@ class LearningSignalBus:
             "novelty_bonus_active": birth_ratio < 0.30,
             # If most trends are stale, sources producing novel ones get a bonus
             "exploration_budget": self.exploration_budget,
-            "winning_company_types": self.winning_company_types,
-            "system_confidence": self.system_confidence,
         }
 
     def get_company_bandit_modulation(self) -> Dict[str, Any]:
@@ -298,7 +289,6 @@ class LearningSignalBus:
         return {
             "exploration_budget": self.exploration_budget,
             "birth_trend_ratio": self.novelty_distribution.get("birth", 0.0),
-            "top_sources": self.top_sources,
         }
 
     # ──────────────────────────────────────────────────────────────

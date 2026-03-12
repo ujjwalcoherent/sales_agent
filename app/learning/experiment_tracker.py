@@ -58,7 +58,6 @@ class ExperimentRecord(BaseModel):
 # ══════════════════════════════════════════════════════════════════════════════
 
 _SNAPSHOT_FILES = [
-    "data/learned_weights.json",
     "data/adaptive_thresholds.json",
     "data/filter_hypothesis.json",   # hypothesis drift must roll back with other learning state
     "data/nli_baseline.json",        # stale baseline would trigger false retraining after rollback
@@ -147,13 +146,6 @@ class ExperimentTracker:
         except Exception as e:
             logger.warning(f"Failed to load experiments: {e}")
         return records[-n:]
-
-    def best_run(self) -> Optional[ExperimentRecord]:
-        """Get the best "keep" run by mean_oss."""
-        runs = [r for r in self.recent_runs(50) if r.status == "keep"]
-        if not runs:
-            return None
-        return max(runs, key=lambda r: r.mean_oss)
 
     def rolling_baseline(self, window: int = 5) -> Optional[Dict[str, float]]:
         """Compute rolling average of last N 'keep' runs as baseline."""

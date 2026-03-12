@@ -1,0 +1,170 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "DoT's simplified private 5G licensing framework and dedicated mmWave spectrum allocation for manufacturing zones is catalyzing enterprise 5G adoption. Reliance Jio's JioThings platform has connected 200 factories. 50,000 enterprise private 5G networks are expected by FY2028. The primary use cases are predictive maintenance, robotic automation, quality inspection, and real-time production monitoring — all requiring ultra-low-latency connectivity that only private 5G can provide in factory environments.",
+      "event_type": "infrastructure",
+      "reasoning": "Enterprise private 5G is a procurement event — manufacturers must buy radios, edge compute, and IoT integration middleware. The DoT licensing simplification removes the regulatory barrier that was previously the primary adoption friction. First-order buyers are large manufacturers who can fund the ₹5-50 crore initial deployment cost. Second-order beneficiaries are technology vendors who sell the IoT applications, analytics platforms, and integration services that run on top of the 5G network. Third-order beneficiaries are the equipment suppliers and MRO vendors who benefit from improved manufacturing efficiency.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Large Indian manufacturers in automotive, steel, pharma, and electronics with brownfield factory operations requiring low-latency connectivity for automation and quality systems",
+          "lead_type": "opportunity",
+          "mechanism": "DoT private 5G licensing simplification removes regulatory barrier; manufacturers now need to procure 5G radio infrastructure, edge computing nodes, and IoT integration middleware to deploy private networks",
+          "companies_found": [
+            "Tata Motors (automotive manufacturing, Pune)",
+            "JSW Steel (heavy industry, multiple plants)",
+            "Sun Pharma (pharma manufacturing, Gujarat)",
+            "Dixon Technologies (electronics, Noida)"
+          ],
+          "confidence": 0.91,
+          "urgency_weeks": 8
+        },
+        {
+          "hop": 2,
+          "segment": "Industrial IoT application vendors and edge computing companies serving Indian manufacturing clients",
+          "lead_type": "opportunity",
+          "mechanism": "5G private network deployments create demand for application-layer IoT platforms — SCADA integration, machine telemetry analytics, AI quality inspection, and digital twin software that leverages the high-bandwidth, low-latency 5G connectivity",
+          "companies_found": [
+            "Addverb Technologies (warehouse robotics)",
+            "Honeywell India (industrial automation)",
+            "Aspentech India (industrial AI)",
+            "Prescinto (renewable energy IoT)"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Manufacturing equipment OEMs in India adding IoT connectivity modules to product lines for 5G integration",
+          "lead_type": "opportunity",
+          "mechanism": "Private 5G adoption by factory operators creates pressure on equipment manufacturers to embed IoT connectivity modules — CNCs, presses, conveyors, and HVAC systems must be 5G-connectable to be competitive in the smart factory era",
+          "companies_found": [
+            "Jyoti CNC Automation",
+            "Kennametal India",
+            "Lakshmi Machine Works"
+          ],
+          "confidence": 0.76,
+          "urgency_weeks": 12
+        }
+      ]
+    },
+    {
+      "event_summary": "FSSAI has mandated real-time IoT temperature logging for all pharmaceutical export shipments by June 2026, requiring GPS-tracked, tamper-evident cold chain containers with 30-day data retention. India's cold chain IoT sensor market is projected to reach ₹8,000 crore by 2028, growing at 38% CAGR. Pharma companies face a hard compliance deadline — non-compliant shipments will be rejected at customs.",
+      "event_type": "regulation",
+      "reasoning": "FSSAI's cold chain IoT mandate is a hard regulatory deadline — pharmaceutical companies cannot export after June 2026 without compliant temperature logging. This creates an urgent procurement event for cold chain IoT hardware, data logging software, and compliance documentation systems. The ₹8,000 crore market projection reflects that this is not a one-time purchase — recurring sensor maintenance, data storage, and compliance reporting are ongoing revenue streams.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Indian pharmaceutical companies with export operations who currently lack compliant IoT temperature logging for cold chain shipments",
+          "lead_type": "pain",
+          "mechanism": "FSSAI mandates IoT temperature logging for all pharma exports by June 2026 — companies without compliant systems face export suspension after the deadline, directly threatening export revenue",
+          "companies_found": [
+            "Cipla (pharma exports, Mumbai)",
+            "Lupin Pharmaceuticals",
+            "Glenmark Pharmaceuticals",
+            "Alkem Laboratories"
+          ],
+          "confidence": 0.93,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 2,
+          "segment": "Cold chain logistics providers and 3PLs serving pharmaceutical export supply chains",
+          "lead_type": "opportunity",
+          "mechanism": "Pharma exporters who cannot build in-house cold chain IoT capability will outsource to 3PL providers who offer FSSAI-compliant temperature monitoring as a managed service — creating new differentiation opportunity for logistics companies",
+          "companies_found": [
+            "ColdEX Logistics",
+            "Snowman Logistics",
+            "GATI-KWE Logistics"
+          ],
+          "confidence": 0.87,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Cold chain IoT hardware and monitoring software vendors targeting Indian pharmaceutical sector",
+          "lead_type": "opportunity",
+          "mechanism": "FSSAI mandate creates a defined-deadline procurement event for cold chain IoT sensors, GPS tracking hardware, data loggers, and compliance reporting software — vendors with pre-certified FSSAI-compliant solutions have a significant procurement advantage",
+          "companies_found": [
+            "Berlinger India (pharma temperature loggers)",
+            "Samsara (IoT fleet tracking)",
+            "Reefer Logic"
+          ],
+          "confidence": 0.81,
+          "urgency_weeks": 3
+        }
+      ]
+    },
+    {
+      "event_summary": "JSW Steel, Dalmia Bharat, and Ultratech Cement have reported 40% reduction in unplanned equipment downtime after deploying IoT-based predictive maintenance platforms. AI models detect bearing failures and motor degradation 3-4 weeks before failure. Heavy industry companies are facing pressure from competitors who have deployed these systems — the downtime cost at a cement plant can exceed ₹1 crore per day of unplanned shutdown.",
+      "event_type": "technology",
+      "reasoning": "Predictive maintenance in heavy industry is a competitive necessity — once three major players in a sector publish 40% downtime reduction results, the remaining players face board-level pressure to adopt or explain why they haven't. The financial case is overwhelmingly clear: a single avoided kiln stoppage at a cement plant pays for a multi-year predictive maintenance platform contract. This creates urgency that is board-driven, not just operations-driven.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Large Indian cement, steel, and paper manufacturing companies that have not yet deployed predictive maintenance IoT systems",
+          "lead_type": "pain",
+          "mechanism": "Competitor deployments (JSW, Dalmia, Ultratech) create board-level pressure; unplanned downtime at ₹1 crore+/day creates urgent ROI justification for immediate deployment; PLI scheme performance incentives penalize downtime",
+          "companies_found": [
+            "ACC Limited (cement)",
+            "Ambuja Cements",
+            "Tata Steel (plant operations)",
+            "Vedanta Limited (mining & metals)"
+          ],
+          "confidence": 0.89,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 2,
+          "segment": "Predictive maintenance IoT platform vendors and industrial AI companies serving heavy industry in India",
+          "lead_type": "opportunity",
+          "mechanism": "Proven 40% downtime reduction results at marquee names create a reference-selling opportunity — the winning vendors can now sell to the remaining 65% of heavy industry that hasn't deployed predictive maintenance yet",
+          "companies_found": [
+            "UptimeAI (predictive maintenance)",
+            "Aspentech India",
+            "SKF India (bearing monitoring)",
+            "Intangles Lab"
+          ],
+          "confidence": 0.84,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "AI-powered last-mile delivery optimization using 5G real-time data has demonstrated 22% efficiency improvement and 18% fuel cost reduction at Delhivery and Ecom Express. Blue Dart and DTDC have deployed 5G-enabled IoT tracking at 500+ logistics hubs, reducing customer escalations by 34%. These results are creating competitive pressure across the logistics sector to adopt similar 5G-AI optimization capabilities.",
+      "event_type": "technology",
+      "reasoning": "Last-mile delivery is the highest-cost segment of the logistics value chain, typically representing 40-50% of total delivery costs. A 22% efficiency improvement is transformative in a sector operating on 3-5% margins. Logistics companies that have not deployed 5G-AI optimization face structural cost disadvantage against those that have — and in a sector where delivery speed and cost determine e-commerce platform selection, this gap compounds quarterly.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian logistics and delivery companies with 1,000-10,000 delivery agents not yet using AI-powered route optimization",
+          "lead_type": "pain",
+          "mechanism": "Competitors' 22% efficiency gains and 18% fuel cost reduction create immediate margin pressure; e-commerce platform clients are beginning to prefer logistics partners with demonstrable delivery SLA performance data",
+          "companies_found": [
+            "Shadowfax Technologies",
+            "XpressBees",
+            "Rivigo Logistics",
+            "Shiprocket"
+          ],
+          "confidence": 0.87,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 2,
+          "segment": "E-commerce platforms and D2C brands with high delivery volume requiring logistics partner performance guarantees",
+          "lead_type": "opportunity",
+          "mechanism": "E-commerce platforms seeking logistics partners with 5G-AI optimization can now negotiate delivery SLA guarantees — platforms that standardize on optimized logistics partners gain customer retention via better delivery experience",
+          "companies_found": [
+            "Meesho",
+            "Nykaa",
+            "Mamaearth",
+            "Lenskart"
+          ],
+          "confidence": 0.78,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "log_messages": []
+}

@@ -73,7 +73,7 @@ export default function LandingPage() {
           {[{ label: "How it works", href: "#how" }, { label: "Features", href: "#features" }].map(({ label, href }) => (
             <a key={label} href={href} className="nav-link-landing" style={{ fontSize: 13, color: "var(--text-secondary)", textDecoration: "none" }}>{label}</a>
           ))}
-          <Link href="/dashboard" className="landing-btn-primary"
+          <Link href="/onboarding" className="landing-btn-primary"
             style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 16px", borderRadius: 8, background: "var(--text)", color: "var(--bg)", fontSize: 12, fontWeight: 600, textDecoration: "none", letterSpacing: "0.02em" }}>
             Open App <ArrowRight size={12} />
           </Link>
@@ -111,7 +111,7 @@ export default function LandingPage() {
             </p>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <Link href="/dashboard" className="landing-btn-primary"
+              <Link href="/onboarding" className="landing-btn-primary"
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 10, background: "var(--accent)", color: "var(--surface)", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 Open Dashboard <ArrowRight size={14} />
               </Link>
@@ -217,7 +217,7 @@ export default function LandingPage() {
             </p>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <Link href="/dashboard" className="landing-btn-primary"
+              <Link href="/onboarding" className="landing-btn-primary"
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 10, background: "var(--accent)", color: "var(--term-bg)", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 <Zap size={13} /> Open Dashboard
               </Link>

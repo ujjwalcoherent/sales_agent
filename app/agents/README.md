@@ -11,12 +11,10 @@ agents/
 ├── quality.py            # Node 4: deterministic quality gate (no LLM)
 └── workers/
     ├── schemas.py         # Pydantic output models for all workers
-    ├── company_agent.py   # Company enrichment (called from lead_gen_node)
     ├── contact_agent.py   # ContactFinder: TREND_ROLE_MAPPING + Apollo + Hunter
     ├── email_agent.py     # EmailGenerator: structured LLM email drafting
     ├── impact_agent.py    # ImpactAnalyzer: per-trend impact analysis
-    ├── impact_council.py  # Single structured LLM call → ImpactCouncilResult
-    └── lead_validator.py  # LLM quality gate for company-trend pairing
+    └── impact_council.py  # Single structured LLM call → ImpactCouncilResult
 ```
 
 ---
@@ -60,7 +58,6 @@ class GraphState(TypedDict):
     current_step: str
     retry_counts: Dict[str, int]
     agent_reasoning: Dict[str, str]
-    stage_advisories: Annotated[List[Dict], operator.add]  # inter-stage communication
 ```
 
 `Annotated[list, operator.add]` — LangGraph merges list fields by concatenation across parallel branches.
@@ -90,7 +87,6 @@ class AgentDeps:
     article_cache    # ArticleCache — ChromaDB article store
     source_bandit    # SourceBandit — Thompson Sampling source ranking
     company_bandit   # CompanyRelevanceBandit — company-trend arm scoring
-    meta_reasoner    # MetaReasoner — GUTTED, always returns empty stubs
     search_manager   # SearchManager — BM25 + DDG fallback
     recorder         # RunRecorder (None in mock mode)
 
@@ -338,4 +334,3 @@ Workers are standard async functions, not LangGraph nodes.
 - Provider calls: always through `deps.llm_service` or `deps.llm_lite_service`
 - Learning signals → `signal_bus.py` only — no direct cross-loop imports
 - `from __future__ import annotations` is BANNED with local classes + `get_type_hints()`
-- `MetaReasoner` is present for type compat only — never make LLM calls through it

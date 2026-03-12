@@ -212,6 +212,12 @@ function RunRow({ run }: { run: PipelineRunSummary }) {
 
 /* ── Page ──────────────────────────────────────────────────── */
 
+const PIPELINE_MODES = [
+  { id: "industry_first", label: "Industry", icon: "⟳" },
+  { id: "company_first", label: "Company", icon: "⬛" },
+  { id: "report_driven", label: "Report", icon: "⊞" },
+] as const;
+
 export default function DashboardPage() {
   const router = useRouter();
   const { status, leads: contextLeads, trends, lastRunTime, initialLoading } = usePipelineContext();
@@ -223,6 +229,7 @@ export default function DashboardPage() {
   const [runCount, setRunCount] = useState(0);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [startingPipeline, setStartingPipeline] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<string>("industry_first");
 
   /* ── Load on mount ── */
 
@@ -263,7 +270,8 @@ export default function DashboardPage() {
     setPipelineError(null);
     setStartingPipeline(true);
     try {
-      await api.runPipeline(false);
+      const mockStatus = await api.getMockMode().catch(() => ({ enabled: false }));
+      await api.runPipeline(mockStatus.enabled, undefined, undefined, { mode: selectedMode });
       // Pipeline context will pick up running status via its own polling/stream
     } catch (err) {
       setPipelineError(err instanceof Error ? err.message : "Failed to start pipeline");
@@ -322,6 +330,28 @@ export default function DashboardPage() {
             <RefreshCw size={11} style={{ animation: leadsLoading ? "spin 1s linear infinite" : "none" }} />
             Refresh
           </button>
+          {/* Mode selector — determines which pipeline mode to run */}
+          {!isRunning && (
+            <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
+              {PIPELINE_MODES.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMode(m.id)}
+                  title={m.id.replace(/_/g, " ")}
+                  style={{
+                    padding: "5px 10px", fontSize: 11, fontWeight: 600,
+                    border: "none", borderRight: "1px solid var(--border)", cursor: "pointer",
+                    background: selectedMode === m.id ? "var(--accent)" : "var(--surface)",
+                    color: selectedMode === m.id ? "#fff" : "var(--text-secondary)",
+                    transition: "all 120ms",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
           <RunPipelineButton status={isRunning ? "running" : status} onClick={handleRunPipeline} />
         </div>
       </div>

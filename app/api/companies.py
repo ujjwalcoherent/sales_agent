@@ -796,31 +796,34 @@ async def _detect_search_type(query: str) -> tuple[str, Optional[Any]]:
         logger.info(f"Intent (LLM): '{query}' → industry")
         return "industry", None
 
+    # Layer 3: Entity validation — confirm the company exists
+    from app.tools.company_enricher import validate_entity, enrich
+
+    async def _try_validate(label: str):
+        result = await validate_entity(query)
+        if result.is_valid_company:
+            enriched = await enrich(query, skip_validation=True)
+            logger.info(f"Intent ({label}+validate): '{query}' → company (source={result.validation_source})")
+            return "company", enriched
+        return None
+
     if intent == "company":
-        # Layer 3: Entity validation — confirm the company exists
-        from app.tools.company_enricher import validate_entity, enrich
         try:
-            result = await validate_entity(query)
-            if result.is_valid_company:
-                enriched = await enrich(query, skip_validation=True)
-                logger.info(f"Intent (LLM+validate): '{query}' → company (source={result.validation_source})")
-                return "company", enriched
-            else:
-                # LLM said company but validation failed → fall back to industry
-                logger.info(f"Intent: '{query}' → LLM said company but validation failed, trying industry")
-                return "industry", None
+            validated = await _try_validate("LLM")
+            if validated:
+                return validated
+            # LLM said company but validation failed → fall back to industry
+            logger.info(f"Intent: '{query}' → LLM said company but validation failed, trying industry")
+            return "industry", None
         except Exception as e:
             logger.warning(f"Entity validation failed for '{query}': {e}")
             return "company", None  # Attempt company search without enrichment
 
-    # Layer 3 fallback: "unknown" intent — try entity validation
-    from app.tools.company_enricher import validate_entity, enrich
+    # "unknown" intent — try entity validation
     try:
-        result = await validate_entity(query)
-        if result.is_valid_company:
-            enriched = await enrich(query, skip_validation=True)
-            logger.info(f"Intent (fallback+validate): '{query}' → company")
-            return "company", enriched
+        validated = await _try_validate("fallback")
+        if validated:
+            return validated
     except Exception:
         pass
 
@@ -982,20 +985,30 @@ async def _infer_target_roles(
             '[\"CEO\", \"VP Engineering\", \"Head of Data Science\"]'
         )
 
-        result = await asyncio.wait_for(
-            llm.generate_json(prompt=prompt, system_prompt="Return valid JSON only."),
-            timeout=8.0,
-        )
-
-        # Parse — might be a list or a dict with a list value
-        roles: list[str] = []
-        if isinstance(result, list):
-            roles = [str(r).strip() for r in result if r and str(r).strip()]
-        elif isinstance(result, dict):
-            for v in result.values():
-                if isinstance(v, list):
-                    roles = [str(r).strip() for r in v if r and str(r).strip()]
-                    break
+        from app.schemas.llm_outputs import ContactRolesLLM
+        try:
+            llm_result = await asyncio.wait_for(
+                llm.run_structured(
+                    prompt=prompt,
+                    system_prompt="Return valid JSON only.",
+                    output_type=ContactRolesLLM,
+                ),
+                timeout=8.0,
+            )
+            roles = llm_result.roles
+        except Exception:
+            raw = await asyncio.wait_for(
+                llm.generate_json(prompt=prompt, system_prompt="Return valid JSON only."),
+                timeout=8.0,
+            )
+            roles = []
+            if isinstance(raw, list):
+                roles = [str(r).strip() for r in raw if r and str(r).strip()]
+            elif isinstance(raw, dict):
+                for v in raw.values():
+                    if isinstance(v, list):
+                        roles = [str(r).strip() for r in v if r and str(r).strip()]
+                        break
 
         if len(roles) >= 3:
             logger.info(f"LLM inferred {len(roles)} target roles for {company_name}")

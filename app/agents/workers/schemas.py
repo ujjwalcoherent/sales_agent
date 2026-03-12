@@ -5,7 +5,7 @@ Every council decision carries structured reasoning so the pipeline
 can explain WHY each value exists.
 """
 
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel, Field
 
 
@@ -55,15 +55,3 @@ class ImpactCouncilResult(BaseModel):
     target_roles: List[str] = Field(default_factory=list)
 
 
-# ── Stage C: Lead Quality Validation ───────────────────────────────────
-
-class LeadValidation(BaseModel):
-    """AI-validated company-trend fit."""
-    company_name: str
-    trend_title: str
-    relevance_score: float = Field(ge=0.0, le=1.0)
-    is_relevant: bool = True
-    reasoning: str = ""
-    improved_pitch: str = ""
-    recommended_service: str = ""
-    recommended_offering: str = ""

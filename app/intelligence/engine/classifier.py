@@ -41,12 +41,11 @@ Standalone test:
 
 import hashlib
 import logging
-import os
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +68,6 @@ B2B_PASS_LABELS = {
     "investment_fund",
     "venture_capital_firm",
     "enterprise_software",
-}
-
-# Labels that are blocked from clustering (not B2B entities)
-B2B_BLOCK_LABELS = {
-    "government_body", "technology_concept", "geographic_location",
-    "commodity", "media_outlet", "political_entity",
-    "stock_exchange", "entertainer", "financial_instrument",
-    "entertainment_media",
 }
 
 # All labels we ask GLiNER to classify into
@@ -165,12 +156,6 @@ class _ClassificationCache:
 
 # Module-level singleton cache (persists across calls within same process)
 _classification_cache = _ClassificationCache()
-
-
-def clear_classification_cache() -> None:
-    """Clear the GLiNER classification cache between runs."""
-    _classification_cache.clear()
-    logger.info("GLiNER classification cache cleared")
 
 
 @dataclass
@@ -465,8 +450,18 @@ class EntityClassifier:
         return passed, rejected
 
 
+_gliner_model_cache: dict = {}  # {model_dir: model} — avoids 9s reload on re-instantiation
+
+
 def _load_gliner(model_dir: str):
-    """Load GLiNER model from local directory, downloading if needed."""
+    """Load GLiNER model from local directory, downloading if needed.
+
+    Caches the loaded model so re-instantiating EntityClassifier
+    (e.g. across pipeline runs in the same process) skips the ~9s load.
+    """
+    if model_dir in _gliner_model_cache:
+        return _gliner_model_cache[model_dir]
+
     try:
         from gliner import GLiNER
     except ImportError:
@@ -489,6 +484,7 @@ def _load_gliner(model_dir: str):
             raise
 
     model = GLiNER.from_pretrained(str(model_path))
+    _gliner_model_cache[model_dir] = model
     logger.info("GLiNER model loaded from %s", model_path)
     return model
 

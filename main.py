@@ -23,11 +23,10 @@ Pipeline stages (full multi-agent LangGraph):
    5. clustering    — HAC / HDBSCAN / Leiden cascade, 7-check validation
    6. analysis      — trend synthesis + impact council (LLM with Reflexion retry)
    7. lead_gen      — opportunity scoring + lead crystallization
-   8. company_agent — entity enrichment via Tavily + Apollo
-   9. contact_agent — Hunter.io email find + role matching
-  10. email_agent   — hyper-personalized email generation (GPT-4.1-mini structured output)
-  11. learning      — 6 self-learning loops update (source bandit, NLI hypothesis, etc.)
-  12. DB save       — leads, trends, contacts saved to leads.db
+   8. contact_agent — Hunter.io email find + role matching
+   9. email_agent   — hyper-personalized email generation (GPT-4.1-mini structured output)
+  10. learning      — 6 self-learning loops update (source bandit, NLI hypothesis, etc.)
+  11. DB save       — leads, trends, contacts saved to leads.db
 
 Results: view via frontend (http://localhost:3000) or API (GET /api/v1/leads)
 Real run times: 14-30 min for India runs. First run +2 min for NLI model download.
@@ -263,8 +262,8 @@ async def run_pipeline(args: argparse.Namespace) -> int:
     """Build DiscoveryScope from CLI args and run the FULL multi-agent pipeline.
 
     Calls app.agents.orchestrator.run_pipeline() — the complete LangGraph pipeline:
-      source_intel → analysis → impact → quality → lead_gen → company_agent →
-      contact_agent → email_agent → learning updates → DB save
+      source_intel → analysis → impact → quality → causal_council →
+      lead_crystallize → lead_gen → learning updates → DB save
     All results (leads, trends, emails) are saved to leads.db.
     """
     from app.intelligence.models import DiscoveryScope, DiscoveryMode

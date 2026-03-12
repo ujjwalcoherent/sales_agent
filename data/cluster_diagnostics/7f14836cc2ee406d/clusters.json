@@ -1,0 +1,283 @@
+[
+  {
+    "cluster_id": "220d0c632273",
+    "label": "Amazon event 1",
+    "article_count": 5,
+    "article_indices": [
+      200,
+      290,
+      417,
+      418,
+      419
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9224,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7333,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8908,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.33,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.791,
+      "silhouette_score": -0.0909,
+      "cut_threshold": 0.63,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "3c2ea2fa43e2",
+    "label": "Google event 1",
+    "article_count": 7,
+    "article_indices": [
+      96,
+      105,
+      226,
+      300,
+      303,
+      400,
+      424
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.8033,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.673,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.727,
+      "not_duplicate": 0.2664,
+      "outlier_ejection": 0.8571
+    },
+    "coherence_score": 0.3028,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7034,
+      "silhouette_score": -0.0796,
+      "cut_threshold": 0.63,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "bf20d59ff907",
+    "label": "Microsoft event 1",
+    "article_count": 2,
+    "article_indices": [
+      105,
+      417
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.8881,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7406,
+      "not_duplicate": 0.1405,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5719,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7992,
+      "silhouette_score": -0.1034,
+      "cut_threshold": 0.54,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "bf5a73a34970",
+    "label": "Microsoft event 2",
+    "article_count": 2,
+    "article_indices": [
+      90,
+      352
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8892,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9195,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7501,
+      "not_duplicate": 0.3435,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4138,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7992,
+      "silhouette_score": -0.1034,
+      "cut_threshold": 0.54,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ce1132a76160",
+    "label": "Palantir (all)",
+    "article_count": 2,
+    "article_indices": [
+      13,
+      182
+    ],
+    "primary_entity": "Palantir",
+    "entity_names": [
+      "Palantir"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8451,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8272,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.566,
+      "not_duplicate": 0.3168,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3722,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "b93bf74bbfb7",
+    "label": "discovery_4",
+    "article_count": 16,
+    "article_indices": [
+      6,
+      8,
+      9,
+      34,
+      35,
+      103,
+      139,
+      156,
+      163,
+      182,
+      196,
+      204,
+      257,
+      305,
+      351,
+      352
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8441,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3621,
+      "not_duplicate": 0.141,
+      "outlier_ejection": 0.9375
+    },
+    "coherence_score": 0.5213,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "0eb3f725a3e0",
+    "label": "discovery_7",
+    "article_count": 12,
+    "article_indices": [
+      59,
+      63,
+      66,
+      101,
+      107,
+      109,
+      115,
+      116,
+      129,
+      235,
+      272,
+      358
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9077,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7242,
+      "not_duplicate": 0.3529,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4642,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

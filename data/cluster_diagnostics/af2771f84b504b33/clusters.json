@@ -1,0 +1,213 @@
+[
+  {
+    "cluster_id": "d9bffe1c46f8",
+    "label": "ANI Pharmaceuticals (all)",
+    "article_count": 2,
+    "article_indices": [
+      494,
+      519
+    ],
+    "primary_entity": "ANI Pharmaceuticals",
+    "entity_names": [
+      "ANI Pharmaceuticals"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 1.0,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7848,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "b44541451051",
+    "label": "Roche (all)",
+    "article_count": 2,
+    "article_indices": [
+      503,
+      514
+    ],
+    "primary_entity": "Roche",
+    "entity_names": [
+      "Roche"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.9666,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.666,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5061,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals & Diagnostics",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "e692772f9c53",
+    "label": "Fierce Biotech (all)",
+    "article_count": 2,
+    "article_indices": [
+      497,
+      533
+    ],
+    "primary_entity": "Fierce Biotech",
+    "entity_names": [
+      "Fierce Biotech"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.7901,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.6728,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4687,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3028,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Biotech & Research",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d6dcb4d5b990",
+    "label": "BioSpace (all)",
+    "article_count": 2,
+    "article_indices": [
+      515,
+      529
+    ],
+    "primary_entity": "BioSpace",
+    "entity_names": [
+      "BioSpace"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7724,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.6003,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4731,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2701,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Biotech & Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a158b898520d",
+    "label": "discovery_5",
+    "article_count": 17,
+    "article_indices": [
+      7,
+      11,
+      12,
+      39,
+      40,
+      114,
+      120,
+      205,
+      232,
+      251,
+      258,
+      335,
+      355,
+      386,
+      400,
+      451,
+      456
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.884,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3559,
+      "not_duplicate": 0.5426,
+      "outlier_ejection": 0.9412
+    },
+    "coherence_score": 0.5422,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "862e5570e47d",
+    "label": "discovery_11",
+    "article_count": 14,
+    "article_indices": [
+      87,
+      111,
+      119,
+      121,
+      124,
+      133,
+      134,
+      143,
+      306,
+      358,
+      379,
+      425,
+      426,
+      455
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9139,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7384,
+      "not_duplicate": 0.4007,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4926,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

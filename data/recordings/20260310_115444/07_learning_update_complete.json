@@ -1,0 +1,172 @@
+{
+  "signal_count": 8,
+  "avg_oss": 0.0,
+  "avg_kb_hit": 0.896,
+  "signals": [
+    {
+      "trend_title": "Anthropic Faces Federal Ban and Expands AI Offerings",
+      "event_type": "technology",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Anthropic Claude Code Review and Microsoft Partnership",
+      "event_type": "technology",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.6666666666666666,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Nscale Raises $2B at $14.6B Valuation",
+      "event_type": "m_and_a",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "OpenAI Acquires AI Security Startup Promptfoo",
+      "event_type": "technology",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Microsoft Launches Copilot Cowork with Anthropic",
+      "event_type": "technology",
+      "oss_score": 0.0,
+      "hops_generated": 6,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.8333333333333334,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "OpenAI Acquires AI Security Startup Promptfoo",
+      "event_type": "technology",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Huawei MWC Barcelona 2026 Transport Forum",
+      "event_type": "supply_chain",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 0.6666666666666666,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    },
+    {
+      "trend_title": "Indian Women-Led Tech Startup Funding Trends 2025",
+      "event_type": "m_and_a",
+      "oss_score": 0.0,
+      "hops_generated": 3,
+      "causal_tool_calls": 0,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 0,
+      "leads_with_companies": 0,
+      "avg_lead_confidence": 0.0
+    }
+  ],
+  "signal_bus": {
+    "system_confidence": 0.632,
+    "exploration_budget": 0.368,
+    "learning_path": "outcome",
+    "total_drift": 0.0,
+    "source_degraded": [],
+    "feedback_distribution": {
+      "good_trend": 0,
+      "already_knew": 8,
+      "bad_trend": 0
+    },
+    "reasoning_grade": "C",
+    "reasoning_quality": 0.517,
+    "strategy_adjustments": {
+      "source_intel": {
+        "real_time_relevance": "Develop adaptive algorithms for dynamic source ranking.",
+        "noise_filtering": "Incorporate noise detection to improve data purity.",
+        "quality_metrics": "Refine quality scoring to better differentiate source contributions."
+      },
+      "analysis": {
+        "drop_trends": [
+          "Repeated or redundant trends (e.g., 'Promptfoo' acquisition listed twice)",
+          "Trends with very low specificity and vague implications"
+        ],
+        "boost_trends": [
+          "Focus on trends with higher coherence and specificity scores",
+          "Include emerging niche trends within targeted industries for more tailored outreach"
+        ]
+      },
+      "lead_gen": {
+        "personalization_tips": [
+          "Include role-specific pain points in outreach.",
+          "Use personalized email content referencing company details."
+        ],
+        "targeting_improvements": [
+          "Prioritize leads with verified contacts and emails.",
+          "Refine criteria to include company size and contact availability.",
+          "Increase data enrichment efforts to improve contact info."
+        ]
+      }
+    }
+  },
+  "retrospective": {
+    "grade": "C",
+    "summary": "This run demonstrated moderate progress with some improvements in trend generation and source relevance, but persistent issues with trend specificity and lead actionability limited overall effectiveness. The system maintained a decent hit rate and confidence level, yet the core problems identified previously remain largely unaddressed, resulting in only incremental gains. The lack of differentiation in source relevance and broad trends continue to hinder targeted outreach efforts.",
+    "successes": [
+      "Maintained a high KB hit rate of 89.6%, indicating effective source retrieval.",
+      "Detected 21 trends, showing active trend identification despite low specificity.",
+      "System confidence remained reasonably stable at 0.655, reflecting consistent analysis quality."
+    ],
+    "failures": [
+      "Trend specificity (OSS) remained at 0.000, indicating broad, non-actionable trends due to inadequate filtering and clustering refinement.",
+      "Leads generated (51) included many with zero contacts/emails, reducing outreach effectiveness and indicating weak lead targeting.",
+      "Source relevance scoring did not adapt dynamically, leading to potential inclusion of less relevant sources and stale data."
+    ],
+    "improvement_plan": [
+      {
+        "target": "source_bandit",
+        "action": "increase",
+        "expected_impact": "Enhance source relevance scoring, leading to fresher, more pertinent sources and higher quality trends.",
+        "priority": "high"
+      },
+      {
+        "target": "clustering_params",
+        "action": "focus",
+        "expected_impact": "Produce more coherent and industry-specific trend clusters, improving actionability.",
+        "priority": "high"
+      },
+      {
+        "target": "filter",
+        "action": "restrict",
+        "expected_impact": "Apply stricter filtering based on coherence and industry relevance to reduce vagueness.",
+        "priority": "high"
+      }
+    ]
+  },
+  "log_messages": []
+}

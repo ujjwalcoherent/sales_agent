@@ -1,0 +1,166 @@
+[
+  {
+    "cluster_id": "f9271ad332e2",
+    "label": "NVIDIA event 1",
+    "article_count": 14,
+    "article_indices": [
+      64,
+      121,
+      128,
+      152,
+      208,
+      363,
+      368,
+      446,
+      484,
+      485,
+      486,
+      487,
+      488,
+      489
+    ],
+    "primary_entity": "NVIDIA",
+    "entity_names": [
+      "NVIDIA"
+    ],
+    "event_type": "",
+    "event_granularity": "major",
+    "confidence": 0.9429,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9193,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7018,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 0.9286
+    },
+    "coherence_score": 0.4137,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9313,
+      "silhouette_score": 0.1393,
+      "cut_threshold": 0.7,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "871ebe3fb760",
+    "label": "Pfizer event 1",
+    "article_count": 2,
+    "article_indices": [
+      491,
+      492
+    ],
+    "primary_entity": "Pfizer",
+    "entity_names": [
+      "Pfizer"
+    ],
+    "event_type": "",
+    "event_granularity": "major",
+    "confidence": 0.9608,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.6083,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5792,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7178,
+      "silhouette_score": -0.0213,
+      "cut_threshold": 0.57,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "e7ab87945595",
+    "label": "Pfizer event 2",
+    "article_count": 2,
+    "article_indices": [
+      493,
+      495
+    ],
+    "primary_entity": "Pfizer",
+    "entity_names": [
+      "Pfizer"
+    ],
+    "event_type": "",
+    "event_granularity": "major",
+    "confidence": 0.941,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4099,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4567,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7178,
+      "silhouette_score": -0.0213,
+      "cut_threshold": 0.57,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "24a41e681762",
+    "label": "discovery_14",
+    "article_count": 20,
+    "article_indices": [
+      7,
+      11,
+      12,
+      36,
+      37,
+      107,
+      113,
+      183,
+      193,
+      211,
+      220,
+      239,
+      246,
+      318,
+      340,
+      370,
+      374,
+      385,
+      435,
+      441
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "",
+    "event_granularity": "major",
+    "confidence": 0.8651,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3559,
+      "not_duplicate": 0.3452,
+      "outlier_ejection": 0.95
+    },
+    "coherence_score": 0.5506,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

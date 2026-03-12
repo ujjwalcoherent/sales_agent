@@ -1,0 +1,449 @@
+[
+  {
+    "cluster_id": "5e733fe95db2",
+    "label": "Artificial Intelligence event 1",
+    "article_count": 4,
+    "article_indices": [
+      1,
+      9,
+      12,
+      13
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "security",
+    "event_granularity": "major",
+    "confidence": 0.925,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4554,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8292,
+      "silhouette_score": 0.0496,
+      "cut_threshold": 0.69,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "beefef95b63d",
+    "label": "Artificial Intelligence event 2",
+    "article_count": 2,
+    "article_indices": [
+      18,
+      20
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "nano",
+    "confidence": 0.8574,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9676,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4055,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4354,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8292,
+      "silhouette_score": 0.0496,
+      "cut_threshold": 0.69,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "b087e4adbee7",
+    "label": "Artificial Intelligence event 3",
+    "article_count": 6,
+    "article_indices": [
+      0,
+      2,
+      3,
+      7,
+      19,
+      22
+    ],
+    "primary_entity": "Artificial Intelligence",
+    "entity_names": [
+      "Artificial Intelligence"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8423,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.9733,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9999,
+      "not_duplicate": 0.24,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.438,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8292,
+      "silhouette_score": 0.0496,
+      "cut_threshold": 0.69,
+      "n_subclusters": 4,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "b6d2a10e1f70",
+    "label": "OpenAI (all)",
+    "article_count": 3,
+    "article_indices": [
+      1,
+      12,
+      18
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "security",
+    "event_granularity": "major",
+    "confidence": 0.7951,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.8803,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9999,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3961,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "dd7dc6773365",
+    "label": "Mexican (all)",
+    "article_count": 2,
+    "article_indices": [
+      9,
+      12
+    ],
+    "primary_entity": "Mexican",
+    "entity_names": [
+      "Mexican"
+    ],
+    "event_type": "security",
+    "event_granularity": "major",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.465,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "4d70701719ed",
+    "label": "Pentagon (all)",
+    "article_count": 2,
+    "article_indices": [
+      17,
+      18
+    ],
+    "primary_entity": "Pentagon",
+    "entity_names": [
+      "Pentagon"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8314,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0636,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.502,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "ef0536d1d523",
+    "label": "Meta (all)",
+    "article_count": 2,
+    "article_indices": [
+      20,
+      21
+    ],
+    "primary_entity": "Meta",
+    "entity_names": [
+      "Meta"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.8278,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0277,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5474,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "54f86d874853",
+    "label": "AI event 1",
+    "article_count": 2,
+    "article_indices": [
+      20,
+      21
+    ],
+    "primary_entity": "AI",
+    "entity_names": [
+      "AI"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "nano",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5474,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8333,
+      "silhouette_score": 0.0311,
+      "cut_threshold": 0.65,
+      "n_subclusters": 15,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "2c1216d9cf1b",
+    "label": "AI event 3",
+    "article_count": 3,
+    "article_indices": [
+      2,
+      3,
+      7
+    ],
+    "primary_entity": "AI",
+    "entity_names": [
+      "AI"
+    ],
+    "event_type": "technology",
+    "event_granularity": "sub",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5071,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8333,
+      "silhouette_score": 0.0311,
+      "cut_threshold": 0.65,
+      "n_subclusters": 15,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "2f8d990c0ca0",
+    "label": "AI event 4",
+    "article_count": 2,
+    "article_indices": [
+      6,
+      22
+    ],
+    "primary_entity": "AI",
+    "entity_names": [
+      "AI"
+    ],
+    "event_type": "technology",
+    "event_granularity": "nano",
+    "confidence": 0.7985,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.9999,
+      "not_duplicate": 0.0685,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5751,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8333,
+      "silhouette_score": 0.0311,
+      "cut_threshold": 0.65,
+      "n_subclusters": 15,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "85bb648dbd09",
+    "label": "AI event 10",
+    "article_count": 3,
+    "article_indices": [
+      1,
+      9,
+      12
+    ],
+    "primary_entity": "AI",
+    "entity_names": [
+      "AI"
+    ],
+    "event_type": "security",
+    "event_granularity": "sub",
+    "confidence": 0.825,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4751,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8333,
+      "silhouette_score": 0.0311,
+      "cut_threshold": 0.65,
+      "n_subclusters": 15,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "4838311a34e9",
+    "label": "cybersecurity event 1",
+    "article_count": 2,
+    "article_indices": [
+      10,
+      12
+    ],
+    "primary_entity": "cybersecurity",
+    "entity_names": [
+      "cybersecurity"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7426,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.761,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.1065,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3425,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7475,
+      "silhouette_score": 0.0345,
+      "cut_threshold": 0.75,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "750e80bda549",
+    "label": "cybersecurity event 2",
+    "article_count": 4,
+    "article_indices": [
+      11,
+      13,
+      15,
+      16
+    ],
+    "primary_entity": "cybersecurity",
+    "entity_names": [
+      "cybersecurity"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.6755,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.8074,
+      "entity_consistency": 0.4167,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.1535,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3633,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7475,
+      "silhouette_score": 0.0345,
+      "cut_threshold": 0.75,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  }
+]

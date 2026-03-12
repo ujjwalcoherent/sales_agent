@@ -3,12 +3,11 @@ Impact Mapping Agent - Consultant Edition.
 Thinks like a consultant to identify which companies need Coherent Market Insights services.
 
 V7: Parallel impact analysis with asyncio.gather + Semaphore.
-I1: Cross-trend impact synthesis — compound opportunity detection.
 """
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import List
 
 from ...schemas import TrendData, ImpactAnalysis, AgentState
 from app.tools.llm.llm_service import LLMService
@@ -29,7 +28,6 @@ class ImpactAnalyzer:
     - Who are the decision makers to pitch
 
     NOTE: This is a deterministic pipeline stage, not an autonomous agent.
-    Renamed from ImpactAgent for honest naming (see ICML 2024 research).
     """
 
     def __init__(self, mock_mode: bool = False, deps=None, log_callback=None):
@@ -58,7 +56,6 @@ class ImpactAnalyzer:
         Analyze impact of all detected trends.
 
         V7: Uses asyncio.gather + Semaphore for parallel analysis.
-        I1: Runs cross-trend synthesis after individual analyses.
 
         Args:
             state: Current agent state with trends
@@ -383,12 +380,8 @@ Always respond with valid JSON only."""
                 system_prompt=system_prompt,
             )
             if isinstance(raw, dict) and "error" not in raw:
-                raw = self._validate_impact_response(raw)
                 from app.schemas.llm_outputs import ImpactAnalysisLLM
-                result = ImpactAnalysisLLM(**{
-                    k: v for k, v in raw.items()
-                    if k in ImpactAnalysisLLM.model_fields
-                })
+                result = ImpactAnalysisLLM.model_validate(raw)
                 logger.info(f"generate_json fallback succeeded with {len(result.direct_impact)} direct impacts")
                 return self._build_impact_from_llm(result, trend)
             else:
@@ -398,68 +391,6 @@ Always respond with valid JSON only."""
 
         return self._create_basic_impact(trend)
     
-    @staticmethod
-    def _validate_impact_response(result: dict) -> dict:
-        """
-        V5: Validate and coerce all LLM impact response fields.
-
-        Ensures every field has the correct type before ImpactAnalysis
-        creation. Logs every coercion for observability.
-
-        Coercions:
-        - List fields: None→[], str→[str], non-list→[str(val)]
-        - String fields: None→"", non-str→str(val)
-        - pitch_angle: truncate to 150 chars
-        """
-        coercions = 0
-
-        # List fields that must be List[str]
-        list_fields = [
-            "direct_impact", "indirect_impact", "additional_verticals",
-            "midsize_pain_points", "consulting_projects", "positive_sectors",
-            "negative_sectors", "business_opportunities", "relevant_services",
-            "target_roles",
-        ]
-        for field in list_fields:
-            val = result.get(field)
-            if val is None:
-                result[field] = []
-                coercions += 1
-            elif isinstance(val, str):
-                result[field] = [val.strip()] if val.strip() else []
-                coercions += 1
-            elif not isinstance(val, list):
-                result[field] = [str(val)] if val else []
-                coercions += 1
-            else:
-                # Filter None/empty items from existing lists
-                result[field] = [str(item).strip() for item in val if item and str(item).strip()]
-
-        # String fields that must be str
-        str_fields = [
-            "direct_impact_reasoning", "indirect_impact_reasoning",
-            "additional_verticals_reasoning", "pitch_angle",
-        ]
-        for field in str_fields:
-            val = result.get(field)
-            if val is None:
-                result[field] = ""
-                coercions += 1
-            elif not isinstance(val, str):
-                result[field] = str(val)
-                coercions += 1
-
-        # Truncate pitch_angle
-        pitch = result.get("pitch_angle", "")
-        if len(pitch) > 150:
-            result["pitch_angle"] = pitch[:147] + "..."
-            coercions += 1
-
-        if coercions > 0:
-            logger.info(f"V5: Coerced {coercions} impact response field(s)")
-
-        return result
-
     def _build_impact_from_llm(self, result, trend: TrendData) -> ImpactAnalysis:
         """Build ImpactAnalysis from ImpactAnalysisLLM result (shared by structured + json paths).
 
@@ -555,11 +486,3 @@ Always respond with valid JSON only."""
         return list(roles)[:5]
 
 
-# Backward compatibility alias
-ImpactAgent = ImpactAnalyzer
-
-
-async def run_impact_agent(state: AgentState, deps=None) -> AgentState:
-    """Wrapper function for LangGraph."""
-    analyzer = ImpactAnalyzer(deps=deps) if deps else ImpactAnalyzer()
-    return await analyzer.analyze_impacts(state)

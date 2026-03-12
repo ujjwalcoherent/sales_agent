@@ -1,6 +1,7 @@
 // Types mirroring backend Pydantic schemas (app/api/schemas.py)
 
 export type Severity = "high" | "medium" | "low" | "negligible";
+export type TrendLevel = "major" | "sub" | "minor";
 export type LeadType = "pain" | "opportunity" | "risk" | "intelligence";
 export type PipelineStatus = "idle" | "running" | "complete" | "error";
 
@@ -17,6 +18,7 @@ export interface TrendData {
   trend_score: number;
   actionability_score: number;
   oss_score: number;
+  trend_level: TrendLevel;
   article_count: number;
   event_5w1h: Record<string, string>;
   causal_chain: string[];
@@ -45,6 +47,8 @@ export interface CompanyNewsArticle {
   url: string;
   source_name: string;
   published_at: string;
+  sentiment_score?: number;
+  source_type?: string;  // "cached" | "live"
 }
 
 // ── Person at a company (from people extraction pipeline) ──
@@ -212,11 +216,6 @@ export interface LearningStatus {
     top_sources?: { source: string; mean: number; pulls: number; alpha?: number; beta?: number }[];
     arms?: Record<string, { mean?: number; alpha?: number; beta?: number; pulls?: number }>;
   };
-  weight_learner: {
-    weights?: Record<string, number | Record<string, number>>;
-    data_count?: number;
-    last_updated?: string;
-  };
   company_bandit: {
     total_arms?: number;
     top_arms?: { arm: string; mean: number; alpha?: number; beta?: number }[];
@@ -244,12 +243,6 @@ export interface LearningStatus {
     phase?: string;
     signal_count?: number;
     last_updated?: string;
-  };
-  meta_reasoner?: {
-    trace_count?: number;
-    hypothesis_count?: number;
-    latest_hypotheses?: any[];
-    last_run?: string;
   };
 }
 
@@ -341,16 +334,6 @@ export interface SavedCompany {
 
 // ── Company News (on-demand from ChromaDB) ──────
 
-export interface CompanyNewsArticle {
-  title: string;
-  summary: string;
-  source_name: string;
-  published_at: string;
-  url: string;
-  sentiment_score: number;
-  source_type: string;  // "cached" | "live"
-}
-
 export interface CompanyNewsResponse {
   articles: CompanyNewsArticle[];
   total: number;
@@ -362,57 +345,6 @@ export interface CompanyNewsResponse {
 export interface SavedCompanyListResponse {
   companies: SavedCompany[];
   total: number;
-}
-
-// ── News Feed ───────────────────────────────────
-
-export interface NewsArticle {
-  id: string;
-  title: string;
-  summary: string;
-  url: string;
-  source_name: string;
-  source_type: string;
-  source_credibility: number;
-  published_at: string;
-  sentiment_score: number;
-  entity_names: string[];
-  keywords: string[];
-  content_preview: string;
-}
-
-export interface NewsListResponse {
-  articles: NewsArticle[];
-  total: number;
-  page: number;
-  per_page: number;
-  sources: string[];
-}
-
-// ── Feedback History ────────────────────────────
-
-export interface FeedbackRecord {
-  timestamp: string;
-  feedback_type: string;
-  item_id: string;
-  rating: string;
-  metadata: Record<string, unknown>;
-}
-
-export interface FeedbackHistoryResponse {
-  items: FeedbackRecord[];
-  total: number;
-  page: number;
-  per_page: number;
-}
-
-// ── Dashboard State ──────────────────────────────
-
-export interface DashboardStats {
-  leadsGenerated: number;
-  trendsDetected: number;
-  companiesFound: number;
-  pipelineRuns: number;
 }
 
 // ── Campaigns ────────────────────────────────────
@@ -434,6 +366,11 @@ export interface CampaignConfig {
   target_roles: string[];
   country: string;
   background_deep: boolean;
+  seniority_filter: "decision_maker" | "influencer" | "both";
+  company_size_filter: "smb" | "mid_market" | "enterprise" | "all";
+  trigger_signals: string[];
+  product_context: string;
+  narrow_keyword: string;
 }
 
 export interface CampaignContact {
@@ -471,7 +408,6 @@ export interface Campaign {
   campaign_type: CampaignType;
   status: CampaignStatus;
   companies: CampaignCompanyStatus[];
-  config?: Partial<CampaignConfig>;
   total_companies: number;
   completed_companies: number;
   total_contacts: number;
@@ -554,9 +490,6 @@ export interface UserProfile {
   min_lead_score: number
   email_config: EmailConfig
   path_preference: "auto" | "industry_first" | "company_first" | "report_driven"
-  total_runs: number
-  total_emails_sent: number
-  total_replies: number
 }
 
 export interface ProfileListResponse {
@@ -564,40 +497,6 @@ export interface ProfileListResponse {
   total: number
 }
 
-export type CreateProfileRequest = Omit<UserProfile, "profile_id" | "total_runs" | "total_emails_sent" | "total_replies">
+export type CreateProfileRequest = Omit<UserProfile, "profile_id">
 
-// ─── Impact Council ──────────────────────────────────────────────────────────
-
-export interface ServiceRecommendation {
-  service_name: string
-  offering: string
-  justification: string
-  urgency: string
-}
-
-export interface CouncilPerspective {
-  agent_role: string
-  analysis: string
-  key_findings: string[]
-  affected_company_types: string[]
-  recommended_services: string[]
-  confidence: number
-  evidence_citations: string[]
-}
-
-export interface ImpactCouncilResult {
-  perspectives: CouncilPerspective[]
-  consensus_reasoning: string
-  debate_summary: string
-  detailed_reasoning: string
-  pitch_angle: string
-  service_recommendations: ServiceRecommendation[]
-  evidence_citations: string[]
-  overall_confidence: number
-  affected_sectors: string[]
-  affected_company_types: string[]
-  pain_points: string[]
-  business_opportunities: string[]
-  target_roles: string[]
-}
 

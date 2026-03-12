@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { X, Plus, Trash2, Check, ChevronRight, ChevronLeft, Zap, Building2, BarChart3, Cpu } from "lucide-react";
+import { X, Plus, Trash2, Check, ChevronRight, ChevronLeft, ChevronDown, Zap, Building2, BarChart3, Cpu } from "lucide-react";
 import { createProfile, updateProfile } from "@/lib/api";
+import { REGION_OPTIONS, regionLabel } from "@/lib/countries";
 import type {
   UserProfile,
   CreateProfileRequest,
@@ -38,8 +39,8 @@ function emptyProduct(): ProductEntry {
 const STEPS = [
   { id: 1, title: "About You", desc: "Identity & region" },
   { id: 2, title: "Pipeline Mode", desc: "How you target" },
-  { id: 3, title: "What You Sell", desc: "Products & value props" },
-  { id: 4, title: "Email & Scoring", desc: "Outreach config" },
+  { id: 3, title: "Products", desc: "What you sell" },
+  { id: 4, title: "Outreach", desc: "Email sender config" },
   { id: 5, title: "Review", desc: "Confirm & save" },
 ] as const;
 
@@ -146,7 +147,7 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
   // ── Step 1: About You ──
   const [userName, setUserName] = useState(profile?.user_name ?? "");
   const [ownCompany, setOwnCompany] = useState(profile?.own_company ?? "");
-  const [region, setRegion] = useState(profile?.region ?? "IN");
+  const [region, setRegion] = useState(profile?.region ?? "global");
 
   // ── Step 2: Pipeline Mode ──
   const [pathPreference, setPathPreference] = useState<UserProfile["path_preference"]>(
@@ -175,10 +176,12 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
     (profile?.own_products ?? []).map((p) => p.relevant_event_types.join(", "))
   );
 
-  // ── Step 4: Email & Scoring ──
+  // ── Step 3 accordion ──
+  const [expandedProductIdx, setExpandedProductIdx] = useState<number | null>(null);
+
+  // ── Step 4: Outreach ──
   const [fromName, setFromName] = useState(profile?.email_config?.from_name ?? "");
   const [fromEmail, setFromEmail] = useState(profile?.email_config?.from_email ?? "");
-  const [minLeadScore, setMinLeadScore] = useState(profile?.min_lead_score ?? 0.5);
 
   // ── Navigation helpers ──────────────────────────────────────────────────
 
@@ -262,7 +265,7 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
       own_company: ownCompany.trim(),
       region,
       path_preference: pathPreference,
-      min_lead_score: minLeadScore,
+      min_lead_score: 0.5,
       target_industries: industries,
       own_products: mergedProducts,
       account_list: accountText.split("\n").map((s) => s.trim()).filter(Boolean),
@@ -324,17 +327,15 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
         </div>
 
         <div style={fieldGroupStyle}>
-          <label style={labelStyle}>Region</label>
+          <label style={labelStyle}>Region / Country</label>
           <select
             style={{ ...inputStyle, cursor: "pointer" }}
             value={region}
             onChange={(e) => setRegion(e.target.value)}
           >
-            <option value="IN">India</option>
-            <option value="US">United States</option>
-            <option value="EU">Europe</option>
-            <option value="SEA">Southeast Asia</option>
-            <option value="global">Global</option>
+            {REGION_OPTIONS.map((r) => (
+              <option key={r.code} value={r.code}>{r.name}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -598,10 +599,10 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
       <div>
         <div style={{ marginBottom: 28 }}>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginBottom: 6, letterSpacing: "-0.02em" }}>
-            What do you sell?
+            Your products
           </h2>
           <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Harbinger uses your products to match signals and personalise outreach.
+            The pipeline matches market signals to your products and uses them to personalise outreach emails.
           </p>
         </div>
 
@@ -609,109 +610,39 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
           <div
             style={{
               textAlign: "center",
-              color: "var(--text-muted)",
-              fontSize: 12,
-              padding: "28px 0",
+              padding: "36px 24px",
               border: "1px dashed var(--border)",
               borderRadius: 10,
               marginBottom: 14,
+              background: "var(--surface-raised)",
             }}
           >
-            No products added yet. Add at least one.
+            <div style={{ fontSize: 22, marginBottom: 8 }}>+</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+              No products yet
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              Add a product so Harbinger can connect signals to what you sell.
+            </div>
           </div>
         )}
 
         {products.map((p, idx) => (
-          <div
+          <ProductCard
             key={idx}
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 10,
-              padding: "16px",
-              marginBottom: 12,
-              background: "var(--surface-raised)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Product {idx + 1}
-              </span>
-              <button
-                onClick={() => removeProduct(idx)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", padding: 4, borderRadius: 4, display: "flex" }}
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ ...labelStyle, marginBottom: 4 }}>Product name</label>
-              <input
-                style={inputStyle}
-                type="text"
-                value={p.name}
-                onChange={(e) => updateProduct(idx, { name: e.target.value })}
-                placeholder="e.g. Risk Assessment Suite"
-              />
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ ...labelStyle, marginBottom: 4 }}>Value proposition</label>
-              <textarea
-                style={{ ...textareaStyle, minHeight: 64 }}
-                rows={3}
-                value={p.value_prop}
-                onChange={(e) => updateProduct(idx, { value_prop: e.target.value })}
-                placeholder="What problem does this solve and for whom?"
-              />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-              <div>
-                <label style={{ ...labelStyle, marginBottom: 4 }}>Target roles (comma-sep)</label>
-                <input
-                  style={inputStyle}
-                  type="text"
-                  value={productRolesText[idx] ?? ""}
-                  onChange={(e) => {
-                    const arr = [...productRolesText];
-                    arr[idx] = e.target.value;
-                    setProductRolesText(arr);
-                  }}
-                  placeholder="CTO, CISO, VP Eng"
-                />
-              </div>
-              <div>
-                <label style={{ ...labelStyle, marginBottom: 4 }}>Event triggers (comma-sep)</label>
-                <input
-                  style={inputStyle}
-                  type="text"
-                  value={productEventsText[idx] ?? ""}
-                  onChange={(e) => {
-                    const arr = [...productEventsText];
-                    arr[idx] = e.target.value;
-                    setProductEventsText(arr);
-                  }}
-                  placeholder="funding, acquisition"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ ...labelStyle, marginBottom: 4 }}>Case studies (comma-sep)</label>
-              <input
-                style={inputStyle}
-                type="text"
-                value={productCasesText[idx] ?? ""}
-                onChange={(e) => {
-                  const arr = [...productCasesText];
-                  arr[idx] = e.target.value;
-                  setProductCasesText(arr);
-                }}
-                placeholder="Acme Bank 2025, Sun Pharma rollout"
-              />
-            </div>
-          </div>
+            idx={idx}
+            product={p}
+            rolesText={productRolesText[idx] ?? ""}
+            eventsText={productEventsText[idx] ?? ""}
+            casesText={productCasesText[idx] ?? ""}
+            isExpanded={expandedProductIdx === idx}
+            onToggle={() => setExpandedProductIdx(expandedProductIdx === idx ? null : idx)}
+            onUpdate={(patch) => updateProduct(idx, patch)}
+            onUpdateRoles={(v) => { const a = [...productRolesText]; a[idx] = v; setProductRolesText(a); }}
+            onUpdateEvents={(v) => { const a = [...productEventsText]; a[idx] = v; setProductEventsText(a); }}
+            onUpdateCases={(v) => { const a = [...productCasesText]; a[idx] = v; setProductCasesText(a); }}
+            onRemove={() => removeProduct(idx)}
+          />
         ))}
 
         <AddRowButton onClick={addProduct} label="Add product" />
@@ -724,10 +655,10 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
       <div>
         <div style={{ marginBottom: 28 }}>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginBottom: 6, letterSpacing: "-0.02em" }}>
-            Email & lead scoring
+            Outreach
           </h2>
           <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Outreach emails are sent via Brevo from your sender identity.
+            Configure your sender identity for outreach emails via Brevo.
           </p>
         </div>
 
@@ -768,51 +699,6 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
           </div>
         </div>
 
-        <div
-          style={{
-            padding: "14px 16px",
-            background: "var(--surface-raised)",
-            borderRadius: 10,
-            border: "1px solid var(--border)",
-          }}
-        >
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
-            Lead quality threshold
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Min lead score</span>
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: "var(--accent)",
-                fontFamily: "var(--font-mono, monospace)",
-                background: "var(--accent-light)",
-                padding: "2px 10px",
-                borderRadius: 6,
-              }}
-            >
-              {minLeadScore.toFixed(1)}
-            </span>
-          </div>
-
-          <input
-            type="range"
-            min={0.1}
-            max={0.9}
-            step={0.1}
-            value={minLeadScore}
-            onChange={(e) => setMinLeadScore(Number(e.target.value))}
-            style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer", height: 4 }}
-          />
-
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>
-            <span>0.1 — Cast wide</span>
-            <span>0.5 — Balanced</span>
-            <span>0.9 — High confidence</span>
-          </div>
-        </div>
       </div>
     );
   }
@@ -839,8 +725,8 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
             onEdit={() => jumpTo(1)}
             rows={[
               { label: "Name", value: userName || "—" },
-              { label: "Company", value: ownCompany || "—" },
-              { label: "Region", value: region },
+              { label: "Company", value: ownCompany || "Not set" },
+              { label: "Region", value: regionLabel(region) },
             ]}
           />
 
@@ -888,36 +774,34 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
             onEdit={() => jumpTo(3)}
           >
             {products.length === 0 ? (
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>No products added</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>No products added — optional but improves signal matching</span>
             ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {products.map((p, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      padding: "2px 9px",
-                      borderRadius: 999,
-                      fontSize: 11,
-                      fontWeight: 500,
-                      background: "var(--accent-light)",
-                      color: "var(--accent)",
-                      border: "1px solid rgba(176,112,48,0.2)",
-                    }}
-                  >
-                    {p.name || `Product ${i + 1}`}
-                  </span>
+                  <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                    <span style={{
+                      padding: "2px 9px", borderRadius: 999, fontSize: 11, fontWeight: 600,
+                      background: "var(--accent-light)", color: "var(--accent)", border: "1px solid rgba(176,112,48,0.2)", flexShrink: 0,
+                    }}>
+                      {p.name || `Product ${i + 1}`}
+                    </span>
+                    {p.value_prop && (
+                      <span style={{ fontSize: 11, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.value_prop}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
           </ReviewCard>
 
-          {/* Email */}
+          {/* Outreach */}
           <ReviewCard
-            title="Email & Scoring"
+            title="Outreach"
             onEdit={() => jumpTo(4)}
             rows={[
-              { label: "Sender", value: fromName ? `${fromName} <${fromEmail}>` : fromEmail || "—" },
-              { label: "Min score", value: minLeadScore.toFixed(1) },
+              { label: "Sender", value: fromName ? `${fromName} <${fromEmail}>` : fromEmail || "Not configured" },
             ]}
           />
         </div>
@@ -1009,101 +893,86 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
               </button>
             </div>
 
-            {/* Step indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 20 }}>
-              {STEPS.map((s, idx) => {
-                const done = step > s.id;
-                const active = step === s.id;
-                return (
-                  <div key={s.id} style={{ display: "flex", alignItems: "center", flex: idx < STEPS.length - 1 ? 1 : "none" }}>
-                    {/* Circle */}
-                    <button
-                      onClick={() => done ? jumpTo(s.id) : undefined}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        border: `2px solid ${done ? "var(--accent)" : active ? "var(--accent)" : "var(--border)"}`,
-                        background: done ? "var(--accent)" : active ? "var(--accent-light)" : "var(--surface)",
-                        color: done ? "#fff" : active ? "var(--accent)" : "var(--text-muted)",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: done ? "pointer" : "default",
-                        flexShrink: 0,
-                        transition: "all 200ms",
-                      }}
-                    >
-                      {done ? <Check size={12} strokeWidth={3} /> : s.id}
-                    </button>
-
-                    {/* Connector line */}
-                    {idx < STEPS.length - 1 && (
-                      <div
-                        style={{
-                          flex: 1,
-                          height: 2,
-                          background: done ? "var(--accent)" : "var(--border)",
-                          transition: "background 300ms",
-                          margin: "0 4px",
-                        }}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Progress bar */}
-            <div
-              style={{
+            {/* Step indicator — unified grid so circles and labels stay aligned */}
+            <div style={{ position: "relative", marginBottom: 16 }}>
+              {/* Connector track behind circles */}
+              <div style={{
+                position: "absolute",
+                top: 14,
+                left: "calc(10% + 2px)",
+                right: "calc(10% + 2px)",
                 height: 2,
                 background: "var(--border)",
-                borderRadius: 1,
-                overflow: "hidden",
-                marginBottom: 0,
-              }}
-            >
-              <div
-                style={{
-                  height: "100%",
-                  width: `${progressPct}%`,
-                  background: "var(--accent)",
-                  borderRadius: 1,
-                  transition: "width 250ms ease",
-                }}
-              />
+                zIndex: 0,
+              }} />
+              {/* Filled portion of connector */}
+              <div style={{
+                position: "absolute",
+                top: 14,
+                left: "calc(10% + 2px)",
+                width: `calc(${progressPct * 0.8}% - 4px)`,
+                height: 2,
+                background: "var(--accent)",
+                transition: "width 300ms ease",
+                zIndex: 0,
+              }} />
+
+              {/* Columns: circle + label */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
+                {STEPS.map((s) => {
+                  const done = step > s.id;
+                  const active = step === s.id;
+                  return (
+                    <div
+                      key={s.id}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 8,
+                        position: "relative",
+                        zIndex: 1,
+                      }}
+                    >
+                      <button
+                        onClick={() => done ? jumpTo(s.id) : undefined}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          border: `2px solid ${done || active ? "var(--accent)" : "var(--border)"}`,
+                          background: done ? "var(--accent)" : active ? "var(--accent-light)" : "var(--surface)",
+                          color: done ? "#fff" : active ? "var(--accent)" : "var(--text-muted)",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: done ? "pointer" : "default",
+                          flexShrink: 0,
+                          transition: "all 200ms",
+                        }}
+                      >
+                        {done ? <Check size={12} strokeWidth={3} /> : s.id}
+                      </button>
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: active ? 600 : 400,
+                        color: active ? "var(--accent)" : "var(--text-muted)",
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                        transition: "color 200ms",
+                        whiteSpace: "nowrap",
+                      }}>
+                        {s.title}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Step label row */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginTop: 8,
-                marginBottom: 4,
-              }}
-            >
-              {STEPS.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    fontSize: 10,
-                    color: step === s.id ? "var(--accent)" : "var(--text-muted)",
-                    fontWeight: step === s.id ? 600 : 400,
-                    transition: "color 200ms",
-                    textAlign: "center",
-                    flex: 1,
-                  }}
-                >
-                  {s.title}
-                </div>
-              ))}
-            </div>
-
-            <div style={{ borderBottom: "1px solid var(--border)", marginTop: 12 }} />
+            <div style={{ borderBottom: "1px solid var(--border)", marginBottom: 4 }} />
           </div>
 
           {/* ── Body ── */}
@@ -1253,6 +1122,216 @@ export default function ProfileWizard({ profile, onClose, onSaved }: Props) {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────
+
+// ── Product card with collapsible targeting ──────────────────────────────────
+
+function ProductCard({
+  idx, product, rolesText, eventsText, casesText,
+  isExpanded, onToggle,
+  onUpdate, onUpdateRoles, onUpdateEvents, onUpdateCases, onRemove,
+}: {
+  idx: number;
+  product: ProductEntry;
+  rolesText: string;
+  eventsText: string;
+  casesText: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onUpdate: (patch: Partial<ProductEntry>) => void;
+  onUpdateRoles: (v: string) => void;
+  onUpdateEvents: (v: string) => void;
+  onUpdateCases: (v: string) => void;
+  onRemove: () => void;
+}) {
+  const hasTargeting = !!(rolesText || eventsText || casesText);
+  const hasValue = !!product.value_prop;
+  const fieldCount = [rolesText, eventsText, casesText].filter(Boolean).length;
+
+  // ── Collapsed: single compact row ──
+  if (!isExpanded) {
+    return (
+      <div
+        onClick={onToggle}
+        style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 14px",
+          border: "1px solid var(--border)", borderRadius: 8,
+          background: "var(--surface-raised)", cursor: "pointer",
+          marginBottom: 6, transition: "border-color 150ms",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+      >
+        <div style={{
+          width: 22, height: 22, borderRadius: 5,
+          background: "var(--accent-light)", color: "var(--accent)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 10, fontWeight: 700, flexShrink: 0,
+        }}>
+          {idx + 1}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 13, fontWeight: 600, color: "var(--text)",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {product.name || "Untitled product"}
+          </div>
+          {hasValue && (
+            <div style={{
+              fontSize: 11, color: "var(--text-muted)", marginTop: 1,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {product.value_prop}
+            </div>
+          )}
+        </div>
+        {/* Status pills */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {hasTargeting && (
+            <span style={{
+              fontSize: 9, fontWeight: 600, color: "var(--green)",
+              background: "var(--green-light)", padding: "2px 7px",
+              borderRadius: 999, letterSpacing: "0.02em",
+            }}>
+              {fieldCount}/3
+            </span>
+          )}
+          <ChevronDown size={14} style={{ color: "var(--text-muted)" }} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Expanded: full edit form ──
+  return (
+    <div style={{
+      border: "1.5px solid var(--accent)",
+      borderRadius: 10,
+      padding: "14px 16px",
+      marginBottom: 6,
+      background: "var(--surface-raised)",
+    }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <div style={{
+          width: 22, height: 22, borderRadius: 5,
+          background: "var(--accent)", color: "#fff",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 10, fontWeight: 700, flexShrink: 0,
+        }}>
+          {idx + 1}
+        </div>
+        <input
+          style={{
+            flex: 1, padding: "5px 8px", borderRadius: 6,
+            border: "1px solid var(--border)", background: "var(--bg)",
+            fontWeight: 600, fontSize: 13, color: "var(--text)",
+            fontFamily: "inherit", outline: "none",
+          }}
+          type="text"
+          value={product.name}
+          onChange={(e) => onUpdate({ name: e.target.value })}
+          placeholder="Product name"
+        />
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          title="Remove"
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            color: "var(--text-muted)", padding: 4, display: "flex",
+            opacity: 0.5, transition: "opacity 150ms, color 150ms",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "var(--red)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; e.currentTarget.style.color = "var(--text-muted)"; }}
+        >
+          <Trash2 size={13} />
+        </button>
+        <button
+          onClick={onToggle}
+          title="Collapse"
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            color: "var(--text-muted)", padding: 4, display: "flex",
+          }}
+        >
+          <ChevronDown size={14} style={{ transform: "rotate(180deg)" }} />
+        </button>
+      </div>
+
+      {/* Fields — compact 2-column grid for targeting */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>
+            Value proposition
+          </label>
+          <textarea
+            style={{
+              width: "100%", padding: "6px 10px", borderRadius: 7,
+              border: "1px solid var(--border)", background: "var(--bg)",
+              fontSize: 12, color: "var(--text)", fontFamily: "inherit",
+              lineHeight: 1.5, resize: "vertical", minHeight: 36, outline: "none",
+            }}
+            rows={2}
+            value={product.value_prop}
+            onChange={(e) => onUpdate({ value_prop: e.target.value })}
+            placeholder="e.g. Cuts compliance audit prep from 3 weeks to 2 days"
+          />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>
+              Who buys this?
+            </label>
+            <input
+              style={{
+                width: "100%", padding: "6px 10px", borderRadius: 7,
+                border: "1px solid var(--border)", background: "var(--bg)",
+                fontSize: 11, color: "var(--text)", fontFamily: "inherit", outline: "none",
+              }}
+              type="text"
+              value={rolesText}
+              onChange={(e) => onUpdateRoles(e.target.value)}
+              placeholder="CTO, VP Engineering"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>
+              Buying signals
+            </label>
+            <input
+              style={{
+                width: "100%", padding: "6px 10px", borderRadius: 7,
+                border: "1px solid var(--border)", background: "var(--bg)",
+                fontSize: 11, color: "var(--text)", fontFamily: "inherit", outline: "none",
+              }}
+              type="text"
+              value={eventsText}
+              onChange={(e) => onUpdateEvents(e.target.value)}
+              placeholder="funding, expansion"
+            />
+          </div>
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>
+            Past wins
+          </label>
+          <input
+            style={{
+              width: "100%", padding: "6px 10px", borderRadius: 7,
+              border: "1px solid var(--border)", background: "var(--bg)",
+              fontSize: 11, color: "var(--text)", fontFamily: "inherit", outline: "none",
+            }}
+            type="text"
+            value={casesText}
+            onChange={(e) => onUpdateCases(e.target.value)}
+            placeholder="Acme Bank Q4 2025, Sun Pharma rollout"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AddRowButton({ onClick, label }: { onClick: () => void; label: string }) {
   const [hovered, setHovered] = useState(false);

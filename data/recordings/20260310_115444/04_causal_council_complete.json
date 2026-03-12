@@ -1,0 +1,379 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Anthropic, an AI technology provider, loses a $200 million federal contract due to the Pentagon's designation of it as a supply-chain risk, leading to a regulatory ban on its Claude AI for federal use. This causes direct revenue loss and market access challenges for Anthropic. The ban disrupts AI technology supply for mid-size Indian AI system integrators and software firms that embed Claude AI, forcing them to urgently seek alternative AI suppliers, likely increasing costs and causing project delays. Downstream, companies that rely on AI-enhanced productivity tools face uncertainties in their technology roadmaps and competitive positioning, complicating strategic planning and investments.",
+      "event_type": "technology",
+      "reasoning": "The news clearly indicates Anthropic as the directly impacted entity losing a major federal contract and facing market access challenges (Hop 1). In India, there are mid-size AI system integrators and software firms with 50-500 employees that embed AI technologies like Claude AI in their products and services. These integrators and software firms, such as SISL Infotech, Ksolves India Limited, and Radixweb, constitute Hop 2 as they must find alternative AI providers due to the ban, leading to pro",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size AI technology provider grappling with regulatory ban and contract loss, 100-500 employees, India",
+          "lead_type": "pain",
+          "mechanism": "Loss of federal contracts causes direct revenue loss and restricts market access for Anthropic's Claude AI in India.",
+          "companies_found": [
+            "Anthropic"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size AI system integrators and AI software firms embedding Claude AI in their solutions, 50-500 employees, India",
+          "lead_type": "pain",
+          "mechanism": "Ban on Claude AI forces system integrators and software firms in India to seek alternative AI providers, causing project delays, increased costs, and supply chain risk reassessment.",
+          "companies_found": [
+            "SISL Infotech",
+            "Ksolves India Limited",
+            "Radixweb"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Companies using AI-enhanced productivity tools dependent on integrators' software, SMEs in sectors like finance, healthcare, and retail, 50-500 employees, India",
+          "lead_type": "risk",
+          "mechanism": "Delays and technology disruption in AI product development impact end-users of AI-enhanced productivity tools by increasing operational risks and reducing competitive edge.",
+          "companies_found": [
+            "Mid-size SMEs in finance and healthcare sectors (specific names not found)"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Anthropic launched Claude Code Review, which automates code pull request reviews to detect bugs, impacting software development workflows. Microsoft partnered with Anthropic to integrate Claude AI into Microsoft 365 apps, enhancing automation and productivity. Mid-size software companies in India face challenges integrating these AI tools without disrupting workflows, risking slower development cycles and higher bug rates. IT consulting firms must rapidly develop expertise in Anthropic's AI tools to advise and support these mid-size companies, or risk losing clients to competitors.",
+      "event_type": "technology",
+      "reasoning": "The Anthropic Claude Code Review launch and Microsoft partnership represent a technology shift automating code reviews. Mid-size software companies in Bangalore working on software development face direct impact integrating these AI tools—which may disrupt existing coding workflows and increase bugs if not done carefully (Hop 1). IT consulting firms in Bangalore that specialize in AI adoption services see an opportunity to capture demand by helping these mid-size companies integrate AI and optim",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size software development companies in Bangalore, India with 100-500 employees integrating Anthropic Claude Code Review AI",
+          "lead_type": "pain",
+          "mechanism": "These companies face challenges in integrating AI-powered code review tools, risking disruption in development workflows and increased bug rates.",
+          "companies_found": [
+            "ThoughtWhiz",
+            "Krazimo"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "IT consulting firms in Bangalore, India with 100-500 employees developing Anthropic AI tool expertise and supporting AI integration for mid-size software companies",
+          "lead_type": "opportunity",
+          "mechanism": "These consulting firms will see increased demand to develop and deploy AI code review tool integration services and workflow optimizations for mid-size software companies.",
+          "companies_found": [
+            "DigiPrima Technologies",
+            "Neogencode Technologies"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Clients of mid-size software companies in sectors like fintech and e-commerce in India affected by changes in software development quality and delivery timelines",
+          "lead_type": "pain",
+          "mechanism": "End clients dependent on software solutions from mid-size firms will experience delays or quality issues if AI integration is poorly managed upstream, impacting their operations and user experience.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Nscale, a London-based AI infrastructure startup, raised $2 billion at a $14.6 billion valuation, significantly boosting its capital to develop AI infrastructure. This increases demand for AI hardware like that from Nvidia, who is a backer and tech partner. The expansion pressures supply chains for hardware integrators and creates competitive and innovation pressure on other AI infrastructure players and AI software developers relying on cutting-edge infrastructure.",
+      "event_type": "m_and_a",
+      "reasoning": "Step 1: Identify Hop 1 - directly mentioned companies are Nscale, which raised $2B at a $14.6B valuation, and Nvidia, as a technology partner and backer. Both benefit directly - Nscale by capital infusion and Nvidia by likely increased demand for its AI hardware integrated in Nscale's infrastructure.\n\nStep 2: Trace Hop 2 - AI hardware integrators and system integrators in India supplying AI hardware components to Nvidia and infrastructure startups like Nscale will face increased demand and suppl",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Nscale (London-based AI infrastructure startup) and Nvidia (AI hardware supplier, India operations, mid-size)",
+          "lead_type": "opportunity",
+          "mechanism": "Nscale's large funding improves its capability to develop AI infrastructure, increasing demand for Nvidia's AI hardware integrated in its solutions, benefiting Nvidia and Nscale directly.",
+          "companies_found": [
+            "Nscale",
+            "Nvidia India"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "AI hardware integrators in India with 100-1000 employees supplying AI hardware components and solutions to companies like Nvidia and AI infrastructure startups",
+          "lead_type": "opportunity",
+          "mechanism": "Due to boosted demand from Nscale's expansion and Nvidia's sales increase, integrators face higher orders and supply chain scaling challenges but gain revenue opportunities.",
+          "companies_found": [
+            "Ensun (system integrator)"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "AI software development companies in India with 100-500 employees that rely on AI infrastructure for innovation and product delivery",
+          "lead_type": "intelligence",
+          "mechanism": "Improved AI infrastructure via Nscale and integrators allows faster development and deployment of AI software solutions; competition intensifies putting pressure on smaller developers to access resources promptly.",
+          "companies_found": [
+            "Aalpha Information Systems",
+            "DesignRush AI Software Development firms"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "OpenAI's acquisition of Promptfoo integrates advanced AI security technologies directly into OpenAI's platform, raising industry standards for AI model security.",
+      "event_type": "technology",
+      "reasoning": "Stepwise reasoning:\n- First-order impact: OpenAI's acquisition of Promptfoo (directly in news) enhances AI security technology embedded in OpenAI's platform, with immediate relevance to AI security startups in India and teams working with OpenAI tech. WideField Security is one identified India AI security startup in Bengaluru with similar focus.\n- Second-order impact: The raised AI security standard compels mid-size AI model development companies in India (100-500 employees) like ScalaCode, Viit",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "AI security startup Promptfoo and OpenAI's India-focused AI security teams",
+          "lead_type": "opportunity",
+          "mechanism": "OpenAI acquires Promptfoo to integrate its AI security tools into its development stack, directly increasing demand for advanced AI security capabilities and expertise in India, especially among AI development teams working with OpenAI’s technology.",
+          "companies_found": [
+            "Promptfoo (startup acquired by OpenAI)",
+            "WideField Security (AI security startup, Bengaluru)"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size AI model development companies in India (100-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "These companies must upgrade their AI security standards and integrate more sophisticated security tools and practices to meet the raised industry standards set by OpenAI's integration; this causes operational cost increases and technical challenges under time pressure due to customer and regulatory demands.",
+          "companies_found": [
+            "ScalaCode",
+            "ViitorCloud Technologies",
+            "GeekyAnts"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME-level enterprise AI solution users and AI deployment service providers in India (50-300 employees)",
+          "lead_type": "pain",
+          "mechanism": "These companies depend on AI model developers (hop 2) for safer AI applications; cost and delivery delays from hop 2 due to security upgrades impact their own AI adoption timelines and project costs, risking competitive positioning and compliance.",
+          "companies_found": [
+            "Tata Elxsi AI Solutions (mid-size project teams)",
+            "Tech Mahindra AI service units (excluding large parent company)"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Microsoft's launch of Copilot Cowork with Anthropic integrates advanced AI capabilities into Microsoft 365 apps, boosting demand for AI software development and AI governance security products in India. This creates direct opportunities for AI software developers and security software providers specializing in AI risk management. Consequently, professional services firms and marketing agencies must adapt their workflows and train teams to leverage AI tools effectively, while IT service providers need to expand their expertise in managing AI-integrated productivity and security solutions. Ignoring these shifts risks losing competitiveness, productivity, and client trust across these sectors.",
+      "event_type": "technology",
+      "reasoning": "The direct event is Microsoft's launch of Copilot Cowork, integrating Anthropic's Claude AI into Microsoft 365, which drives immediate increased demand for AI software developers specialized in new AI integration (Hop 1). The $99/month AI governance-focused security products highlight a direct opportunity for security software providers focused on AI governance risk in India. These companies form the first order impacted (H1). These companies selling their AI integration software and security so",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "AI software development SMEs in India (50-500 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "Microsoft's Copilot Cowork launch directly increases demand for AI software development integrating new AI capabilities within enterprise productivity tools.",
+          "companies_found": [
+            "True Value Infosoft Pvt Ltd",
+            "DB Tech (Developer Bazaar Technologies)",
+            "CSIPL"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 1,
+          "segment": "Security software providers specializing in AI governance for Indian SMEs (50-500 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "Launch of $99/month AI governance security products by Microsoft creates immediate market demand for specialized security providers addressing AI risk and compliance.",
+          "companies_found": [
+            "Endor Labs",
+            "K7 Computing",
+            "Andy InfoSec"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Professional services firms in India (100-500 employees) adapting workflows and retraining staff on AI",
+          "lead_type": "pain",
+          "mechanism": "Professional services firms must rapidly adapt to AI-driven workflow changes and compliance demands due to AI integration in Microsoft 365, or risk productivity loss and competitive disadvantage.",
+          "companies_found": [
+            "TTBS (Tata Tele Business Services)"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Marketing agencies in India (50-200 employees) updating IT policies and AI training",
+          "lead_type": "pain",
+          "mechanism": "Marketing agencies face urgent need to train teams and update IT and security policies to handle new AI features integrated in productivity tools, failing which security vulnerabilities and inefficiencies may arise.",
+          "companies_found": [
+            "ZeroAdo",
+            "Bharat Mavens",
+            "ROI Minds"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "IT service providers in India (100-500 employees) expanding AI and security product expertise",
+          "lead_type": "pain",
+          "mechanism": "IT service providers must enhance capabilities to manage AI-based productivity tools and AI governance security solutions to retain clients and stay competitive.",
+          "companies_found": [
+            "Andy InfoSec",
+            "BM Infotrade"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME businesses in India (50-500 employees) using Microsoft 365 impacted by workflow and security changes",
+          "lead_type": "risk",
+          "mechanism": "SMEs that rely on professional services and IT providers for AI integration and security must adapt quickly to prevent productivity losses, security breaches, and competitive threats caused by new AI workflows and governance requirements.",
+          "companies_found": [],
+          "confidence": 0.75,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "OpenAI's acquisition of AI security startup Promptfoo integrates advanced AI model security testing technology into OpenAI Frontier platform. This raises AI security and compliance standards, compelling mid-size AI vendors in India to upgrade their products to meet new requirements, facing increased integration costs and competitive risks. Companies using AI agents must revise risk management strategies to avoid data breaches and operational disruptions.",
+      "event_type": "technology",
+      "reasoning": "Step 1: Identify Hop 1 companies directly impacted. Promptfoo, an AI security startup in Bangalore, is directly acquired by OpenAI, integrating its technology into OpenAI Frontier, expanding Promptfoo's operational scope and creating an immediate opportunity.\nStep 2: Identify Hop 2 companies affected by Hop 1 outputs. Indian mid-size AI vendors embedding OpenAI models must upgrade product security compliance, incurring integration costs and operational challenges. Companies like Flutura (AI solu",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Promptfoo AI security startup (50-200 employees, Bangalore) and its direct integration into OpenAI",
+          "lead_type": "opportunity",
+          "mechanism": "OpenAI's acquisition integrates Promptfoo's AI security technology into a major AI platform, expanding Promptfoo's operations and tech scope in India.",
+          "companies_found": [
+            "Promptfoo"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 0
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size AI vendors in India embedding OpenAI models (50-500 employees) needing to upgrade product security compliance",
+          "lead_type": "pain",
+          "mechanism": "AI vendors must update their products to incorporate new AI security features from OpenAI's integration, incurring costs and risking loss of competitiveness if delayed.",
+          "companies_found": [
+            "Flutura",
+            "SigTuple",
+            "MadStreetDen"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "AI risk management SaaS companies in India (50-500 employees) advising companies using AI agents to align with new security risk standards",
+          "lead_type": "opportunity",
+          "mechanism": "As AI users reassess risk strategies to address gaps exposed by new security standards, demand for risk management advisories and software increases.",
+          "companies_found": [
+            "Resilience AI",
+            "AuthBridge"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Huawei announced five new digital transportation solutions at MWC Barcelona 2026, aiming to digitalize India's mobility and logistics sectors. Mid-size transport operators in India face pressure to evaluate and integrate these new digital solutions to avoid competitive disadvantage. Technology integrators must quickly adapt to Huawei's offerings to capture market opportunities. Meanwhile, traditional technology suppliers in transport risk losing market share if they fail to innovate.",
+      "event_type": "supply_chain",
+      "reasoning": "Step-by-step reasoning:\n- First, Huawei's launch of 5 new digital transport solutions at MWC Barcelona 2026 puts direct pressure on mid-size transport operators in India (especially in transport hubs like Pune and Bangalore) to adopt these technologies or risk losing competitive advantage. These mid-size fleet management and transport operators (~100-500 employees, e.g. Everest Fleet) represent the first order impacted group, facing immediate evaluation and integration challenges (4 week urgency",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size fleet management and transport operators in India, 100-500 employees, focusing on adopting digital transportation solutions",
+          "lead_type": "pain",
+          "mechanism": "These operators need to rapidly evaluate and integrate Huawei's digital transportation solutions to remain competitive, facing risk of falling behind peers",
+          "companies_found": [
+            "Everest Fleet (fleet management company, India-wide)"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Technology integrator companies in Bangalore, India, 50-500 employees, specializing in digital transport/logistics systems integration",
+          "lead_type": "opportunity",
+          "mechanism": "Increased demand from mid-size transport operators adopting Huawei's digital solutions drives more integration projects and sales for these integrators",
+          "companies_found": [
+            "Orient Technologies (IT solutions and systems integration)"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Traditional transport technology hardware and software suppliers in India, 50-500 employees, serving transport sector with legacy tech",
+          "lead_type": "pain",
+          "mechanism": "Shift in demand towards digital intelligent transport solutions reduces business for traditional suppliers who risk revenue decline without innovation",
+          "companies_found": [],
+          "confidence": 0.75,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "In 2025, Indian women-led tech startups face a severe funding gap with only ₹4 allocated per startup, causing financial constraints. This leads to reduced operational budgets, lower demand for technology services and marketing/PR agencies, and a shift in legal and financial advisory demand from funding support to M&A services due to acquisition increases.",
+      "event_type": "m_and_a",
+      "reasoning": "Step 1 (Hop 1): The news highlights women-led tech startups in India face a funding gap, with severely reduced capital for growth and operations. These startups typically have 50-500 employees and include entities like Myelin Foundry, SheLeads Tech, and Vidoop Labs identified through searches in startup databases and news articles referencing women-led tech firms in India.\n\nStep 2 (Hop 2): These startups purchase technology services to support their operations, including SaaS platforms, cloud co",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Women-led tech startups in India, 50-500 employees, typically early to growth stage",
+          "lead_type": "pain",
+          "mechanism": "Direct funding decline reduces capital availability, constraining startup growth and operations.",
+          "companies_found": [
+            "Myelin Foundry",
+            "SheLeads Tech",
+            "Vidoop Labs"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Technology service providers to startups in India, 50-500 employees, focused on SaaS, cloud, and AI services",
+          "lead_type": "pain",
+          "mechanism": "Reduced budgets of women-led startups lower demand for technology services and software subscriptions, leading to revenue loss.",
+          "companies_found": [
+            "Grassroots Tech Solutions",
+            "BlueBolt IT Services",
+            "TechVista"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Marketing and PR agencies serving startups in India, 50-200 employees, offering digital marketing, brand strategy, and PR",
+          "lead_type": "pain",
+          "mechanism": "Startups cutting discretionary spending reduce marketing and PR engagements, causing client and revenue decline for agencies.",
+          "companies_found": [
+            "ZeroAdo Digital",
+            "Innoble PR",
+            "The Glitch"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        }
+      ]
+    }
+  ],
+  "total_hops": 27,
+  "log_messages": []
+}

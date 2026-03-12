@@ -16,7 +16,7 @@ Not circular: we measure post-pipeline outcomes, not the algorithm itself.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 import numpy as np
 
@@ -84,19 +84,17 @@ class CompanyRelevanceBandit:
             p["alpha"] = max(1.0, 1.0 + (p["alpha"] - 1.0) * gamma)
             p["beta"] = max(1.0, 1.0 + (p["beta"] - 1.0) * gamma)
 
-    def update(self, company_id: str, reward: float) -> None:
-        """Update posterior with observed reward (0.0–1.0)."""
+    def update(self, company_id: str, reward: float, save: bool = True) -> None:
+        """Update posterior with observed reward (0.0–1.0).
+
+        save=False: skip disk write — useful in tight loops; call _save() once after.
+        """
         self._ensure(company_id)
         p = self._posteriors[company_id]
         p["alpha"] += reward
         p["beta"] += 1.0 - reward
-        self._save()
-
-    def rank(self, company_ids: List[str]) -> List[str]:
-        """Return company_ids sorted by Thompson sample score (best first)."""
-        scored = [(cid, self.score(cid)) for cid in company_ids]
-        scored.sort(key=lambda x: x[1], reverse=True)
-        return [cid for cid, _ in scored]
+        if save:
+            self._save()
 
     def compute_relevance(
         self,

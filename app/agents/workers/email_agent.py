@@ -6,8 +6,9 @@ Finds verified emails and generates personalized consulting pitch emails.
 import asyncio
 import logging
 import hashlib
-from datetime import datetime
-from typing import List, Dict, Optional
+import re
+from datetime import datetime, timezone
+from typing import Dict, Optional
 
 from ...schemas import ContactData, TrendData, CompanyData, ImpactAnalysis, OutreachEmail, AgentState
 from app.tools.crm.apollo_tool import ApolloTool
@@ -17,6 +18,13 @@ from app.tools.domain_utils import extract_clean_domain
 from ...config import get_settings, CMI_SERVICES
 
 logger = logging.getLogger(__name__)
+
+# Pre-compiled patterns for LLM placeholder cleanup in email body generation.
+_RE_YOUR_NAME = re.compile(r'\[Your Name\]', re.IGNORECASE)
+_RE_YOUR_TITLE = re.compile(r'\[Your (?:Title|Position|Role)\]', re.IGNORECASE)
+_RE_YOUR_CONTACT = re.compile(r'\[Your (?:Contact Information|Phone|Email|Company)\]', re.IGNORECASE)
+_RE_COMPANY_NAME = re.compile(r'\[(?:Company Name|Your Company|Our Company)\]', re.IGNORECASE)
+_RE_EXCESS_NEWLINES = re.compile(r'\n{3,}')
 
 
 class EmailGenerator:
@@ -40,6 +48,7 @@ class EmailGenerator:
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.mock_mode
         self.campaign_mode = campaign_mode
+        self._deps = deps  # stored so _build_product_context_block can access own_products
         if deps:
             self.apollo_tool = deps.apollo_tool
             self.hunter_tool = deps.hunter_tool
@@ -66,7 +75,9 @@ class EmailGenerator:
             return state
         
         # Build maps for quick lookup
+        # company.trend_id stores trend_title (not trend.id) — build both lookups
         trend_map = {t.id: t for t in state.trends}
+        trend_by_title = {t.trend_title: t for t in state.trends}
         company_map = {c.id: c for c in state.companies}
         impact_map = {i.trend_id: i for i in state.impacts}
         
@@ -81,8 +92,10 @@ class EmailGenerator:
                     if not company:
                         return None
 
-                    trend = trend_map.get(company.trend_id)
+                    trend = trend_map.get(company.trend_id) or trend_by_title.get(company.trend_id)
                     impact = impact_map.get(company.trend_id)
+                    if not impact and trend:
+                        impact = impact_map.get(trend.id)
 
                     # Find email if not already present
                     if not contact.email and company.domain:
@@ -338,6 +351,67 @@ class EmailGenerator:
             lines.append(f"  - {s}")
         return "\n".join(lines)
 
+    def _build_product_context_block(
+        self,
+        contact_role: str,
+        trend_type: str,
+        company_industry: str,
+    ) -> str:
+        """Build a product-specific context block from UserProfile.own_products.
+
+        Selects the best-matching product by:
+          1. Checking target_roles overlap with the contact's role.
+          2. Checking relevant_event_types overlap with the trend type.
+        Falls back to the first product if no role match, or returns "" if no
+        products are configured (keeps emails generic for non-profile runs).
+
+        Returns a non-empty string block that is injected into the email prompt.
+        """
+        own_products = getattr(self._deps, "own_products", []) if self._deps else []
+        if not own_products:
+            return ""
+
+        role_lower = contact_role.lower()
+        trend_lower = trend_type.lower()
+
+        # Score each product: +2 for role match, +1 for event_type match
+        best_product = None
+        best_score = -1
+        for prod in own_products:
+            score = 0
+            prod_roles = [r.lower() for r in getattr(prod, "target_roles", [])]
+            prod_events = [e.lower() for e in getattr(prod, "relevant_event_types", [])]
+            if any(r in role_lower or role_lower in r for r in prod_roles):
+                score += 2
+            if any(e in trend_lower or trend_lower in e for e in prod_events):
+                score += 1
+            if score > best_score:
+                best_score = score
+                best_product = prod
+
+        if best_product is None:
+            best_product = own_products[0]
+
+        name = getattr(best_product, "name", "") or ""
+        value_prop = getattr(best_product, "value_prop", "") or ""
+        if not name and not value_prop:
+            return ""
+
+        lines = ["\nOUR PRODUCT/SERVICE TO PITCH:"]
+        if name:
+            lines.append(f"- Product: {name}")
+        if value_prop:
+            lines.append(f"- Value proposition: {value_prop}")
+        target_roles = getattr(best_product, "target_roles", [])
+        if target_roles:
+            lines.append(f"- Target buyer: {', '.join(target_roles[:3])}")
+        lines.append(
+            "- IMPORTANT: The email must specifically reference this product/service "
+            "and how it addresses the market trend described above."
+        )
+        lines.append("")  # trailing newline
+        return "\n".join(lines)
+
     async def _generate_outreach(
         self,
         contact: ContactData,
@@ -368,7 +442,16 @@ class EmailGenerator:
         # ── Gather person intelligence (never crashes) ────────
         from app.tools.person_intel import gather_person_context, PersonContext
 
-        if self.campaign_mode:
+        if self.mock_mode:
+            # Mock mode: no web searches — build synthetic person context
+            person_ctx = PersonContext(
+                person_name=contact.person_name,
+                company_name=company.company_name,
+                role=contact.role,
+                background_summary=f"{contact.person_name} leads {contact.role or 'technology'} at {company.company_name}.",
+                talking_points=[pitch_angle] if pitch_angle else [],
+            )
+        elif self.campaign_mode:
             # Campaign mode: fast person intel (8s timeout, no deep scraping)
             try:
                 person_ctx = await asyncio.wait_for(
@@ -417,13 +500,22 @@ class EmailGenerator:
         # ── Build person context block for the prompt ─────────
         person_block = self._build_person_context_block(person_ctx)
 
+        # ── Build product context from UserProfile.own_products ───────────
+        # Picks the best-matching product by checking target_roles overlap with
+        # the contact's role, and relevant_event_types overlap with the trend.
+        product_block = self._build_product_context_block(
+            contact_role=contact.role,
+            trend_type=getattr(trend, "trend_type", "") if trend else "",
+            company_industry=company.industry,
+        )
+
         prompt = f"""Write a personalized outreach email from Coherent Market Insights.
 
 SENDER (Coherent Market Insights):
 - Global market research and consulting firm
 - Expertise: market intelligence, competitive analysis, strategic advisory
 - Services: {', '.join(service_offerings[:3])}
-
+{product_block}
 RECIPIENT PROFILE:
 - Name: {contact.person_name}
 - Role: {contact.role}
@@ -510,16 +602,14 @@ Best regards,
 Coherent Market Insights Team"""
 
         # Strip any LLM placeholder artifacts
-        import re as _re
-        _org = "Coherent Market Insights"
-        body = _re.sub(r'\[Your Name\]', "Coherent Market Insights Team", body, flags=_re.IGNORECASE)
-        body = _re.sub(r'\[Your (?:Title|Position|Role)\]', "", body, flags=_re.IGNORECASE)
-        body = _re.sub(r'\[Your (?:Contact Information|Phone|Email|Company)\]', "", body, flags=_re.IGNORECASE)
-        body = _re.sub(r'\[(?:Company Name|Your Company|Our Company)\]', _org, body, flags=_re.IGNORECASE)
-        body = _re.sub(r'\n{3,}', '\n\n', body).strip()
+        body = _RE_YOUR_NAME.sub("Coherent Market Insights Team", body)
+        body = _RE_YOUR_TITLE.sub("", body)
+        body = _RE_YOUR_CONTACT.sub("", body)
+        body = _RE_COMPANY_NAME.sub("Coherent Market Insights", body)
+        body = _RE_EXCESS_NEWLINES.sub('\n\n', body).strip()
 
         email_id = hashlib.md5(
-            f"{contact.id}_{datetime.utcnow().isoformat()}".encode()
+            f"{contact.id}_{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:12]
         
         return OutreachEmail(
@@ -533,9 +623,5 @@ Coherent Market Insights Team"""
             subject=subject,
             body=body,
             email_confidence=contact.email_confidence,
-            generated_at=datetime.utcnow()
+            generated_at=datetime.now(timezone.utc)
         )
-
-
-# Backward compatibility alias
-EmailAgent = EmailGenerator

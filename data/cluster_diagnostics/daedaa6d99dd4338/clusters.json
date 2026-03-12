@@ -1,0 +1,1549 @@
+[
+  {
+    "cluster_id": "4c605dd735d7",
+    "label": "Amazon event 1",
+    "article_count": 18,
+    "article_indices": [
+      13,
+      26,
+      167,
+      243,
+      244,
+      321,
+      340,
+      350,
+      372,
+      424,
+      432,
+      533,
+      534,
+      535,
+      536,
+      537,
+      538,
+      539
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8753,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7282,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4329,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3277,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9293,
+      "silhouette_score": 0.1232,
+      "cut_threshold": 0.65,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "a15307ab791d",
+    "label": "Amazon event 2",
+    "article_count": 2,
+    "article_indices": [
+      45,
+      160
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8392,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.8479,
+      "not_duplicate": 0.627,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9293,
+      "silhouette_score": 0.1232,
+      "cut_threshold": 0.65,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "d1f590672311",
+    "label": "Google event 1",
+    "article_count": 18,
+    "article_indices": [
+      13,
+      45,
+      100,
+      112,
+      204,
+      213,
+      244,
+      283,
+      344,
+      385,
+      430,
+      535,
+      541,
+      32,
+      90,
+      93,
+      549,
+      554
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.7857,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6826,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4317,
+      "not_duplicate": 0.2189,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3117,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8555,
+      "silhouette_score": 0.0713,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "d9ef93dba564",
+    "label": "Meta event 1",
+    "article_count": 12,
+    "article_indices": [
+      189,
+      251,
+      381,
+      406,
+      540,
+      541,
+      542,
+      543,
+      544,
+      545,
+      546,
+      547
+    ],
+    "primary_entity": "Meta",
+    "entity_names": [
+      "Meta"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8782,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8896,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8477,
+      "not_duplicate": 0.21,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4003,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8651,
+      "silhouette_score": 0.0579,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "da72e8efc11a",
+    "label": "Trump event 1",
+    "article_count": 8,
+    "article_indices": [
+      112,
+      126,
+      146,
+      290,
+      311,
+      379,
+      42,
+      395
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8533,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7596,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7423,
+      "not_duplicate": 0.392,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3666,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7889,
+      "silhouette_score": 0.0265,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "db57dceae23c",
+    "label": "Trump event 2",
+    "article_count": 2,
+    "article_indices": [
+      461,
+      504
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.9431,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9895,
+      "not_duplicate": 0.4419,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7889,
+      "silhouette_score": 0.0265,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "e6c760ff0aec",
+    "label": "Apple (all)",
+    "article_count": 2,
+    "article_indices": [
+      527,
+      547
+    ],
+    "primary_entity": "Apple",
+    "entity_names": [
+      "Apple"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8555,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.686,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.3398,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3087,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "ebc4d5c5af20",
+    "label": "Tesla event 1",
+    "article_count": 8,
+    "article_indices": [
+      525,
+      526,
+      528,
+      529,
+      530,
+      531,
+      532,
+      141
+    ],
+    "primary_entity": "Tesla",
+    "entity_names": [
+      "Tesla"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9036,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9207,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8085,
+      "not_duplicate": 0.4263,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4247,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9009,
+      "silhouette_score": 0.0442,
+      "cut_threshold": 0.6,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "6263169e4c2d",
+    "label": "Microsoft event 3",
+    "article_count": 4,
+    "article_indices": [
+      13,
+      535,
+      536,
+      254
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "sub",
+    "confidence": 0.8225,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.875,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4329,
+      "not_duplicate": 0.1046,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4261,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.878,
+      "silhouette_score": -0.0428,
+      "cut_threshold": 0.57,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "be9456c1c64c",
+    "label": "Microsoft event 4",
+    "article_count": 5,
+    "article_indices": [
+      83,
+      112,
+      375,
+      438,
+      455
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8921,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7199,
+      "not_duplicate": 0.2016,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4748,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.878,
+      "silhouette_score": -0.0428,
+      "cut_threshold": 0.57,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "2697dac4917b",
+    "label": "Microsoft event 5",
+    "article_count": 2,
+    "article_indices": [
+      366,
+      215
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "nano",
+    "confidence": 0.9161,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.9448,
+      "not_duplicate": 0.55,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.878,
+      "silhouette_score": -0.0428,
+      "cut_threshold": 0.57,
+      "n_subclusters": 5,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "e88c2af6c2ed",
+    "label": "Broadcom event 1",
+    "article_count": 6,
+    "article_indices": [
+      116,
+      120,
+      127,
+      128,
+      346,
+      416
+    ],
+    "primary_entity": "Broadcom",
+    "entity_names": [
+      "Broadcom"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.913,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7882,
+      "not_duplicate": 0.3422,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.772,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9399,
+      "silhouette_score": 0.2619,
+      "cut_threshold": 0.39,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "5207f7f5b407",
+    "label": "OpenAI event 1",
+    "article_count": 8,
+    "article_indices": [
+      12,
+      103,
+      112,
+      115,
+      281,
+      283,
+      320,
+      333
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.853,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4622,
+      "not_duplicate": 0.0676,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4699,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.87,
+      "silhouette_score": -0.0551,
+      "cut_threshold": 0.57,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "3b2534b854a7",
+    "label": "Nvidia event 1",
+    "article_count": 6,
+    "article_indices": [
+      103,
+      120,
+      368,
+      373,
+      536,
+      140
+    ],
+    "primary_entity": "Nvidia",
+    "entity_names": [
+      "Nvidia"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8797,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7134,
+      "not_duplicate": 0.0833,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4855,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.7249,
+      "silhouette_score": -0.0005,
+      "cut_threshold": 0.57,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    }
+  },
+  {
+    "cluster_id": "4a31162ee03d",
+    "label": "You (all)",
+    "article_count": 4,
+    "article_indices": [
+      157,
+      180,
+      270,
+      301
+    ],
+    "primary_entity": "You",
+    "entity_names": [
+      "You"
+    ],
+    "event_type": "general",
+    "event_granularity": "major",
+    "confidence": 0.7995,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 0.7808,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9344,
+      "not_duplicate": 0.3583,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3459,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "fff0ce4622f3",
+    "label": "Netflix (all)",
+    "article_count": 5,
+    "article_indices": [
+      26,
+      234,
+      437,
+      331,
+      417
+    ],
+    "primary_entity": "Netflix",
+    "entity_names": [
+      "Netflix"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.9002,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6693,
+      "not_duplicate": 0.3325,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5239,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "edb33a667966",
+    "label": "Claude (all)",
+    "article_count": 4,
+    "article_indices": [
+      35,
+      283,
+      430,
+      437
+    ],
+    "primary_entity": "Claude",
+    "entity_names": [
+      "Claude"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8399,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8399,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7043,
+      "not_duplicate": 0.0953,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3779,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "9e1b562430d2",
+    "label": "Elon Musk (all)",
+    "article_count": 2,
+    "article_indices": [
+      22,
+      329
+    ],
+    "primary_entity": "Elon Musk",
+    "entity_names": [
+      "Elon Musk"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.8255,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7406,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6363,
+      "not_duplicate": 0.267,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3333,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "ee545f32c76a",
+    "label": "Revolut (all)",
+    "article_count": 4,
+    "article_indices": [
+      161,
+      230,
+      271,
+      434
+    ],
+    "primary_entity": "Revolut",
+    "entity_names": [
+      "Revolut"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9494,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8815,
+      "not_duplicate": 0.6126,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7994,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "edf7e98fef37",
+    "label": "Morgan Stanley (all)",
+    "article_count": 2,
+    "article_indices": [
+      402,
+      403
+    ],
+    "primary_entity": "Morgan Stanley",
+    "entity_names": [
+      "Morgan Stanley"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.9211,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9016,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.4565,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4057,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "4220b26a6a18",
+    "label": "Palantir (all)",
+    "article_count": 3,
+    "article_indices": [
+      13,
+      222,
+      548
+    ],
+    "primary_entity": "Palantir",
+    "entity_names": [
+      "Palantir"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.7761,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6643,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4329,
+      "not_duplicate": 0.1673,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2989,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "2ec7d8611f7f",
+    "label": "consumers (all)",
+    "article_count": 2,
+    "article_indices": [
+      344,
+      533
+    ],
+    "primary_entity": "consumers",
+    "entity_names": [
+      "consumers"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.7834,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.458,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9111,
+      "not_duplicate": 0.2783,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2061,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "d7abd977e9be",
+    "label": "BYD (all)",
+    "article_count": 4,
+    "article_indices": [
+      143,
+      324,
+      337,
+      21
+    ],
+    "primary_entity": "BYD",
+    "entity_names": [
+      "BYD"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8898,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6256,
+      "not_duplicate": 0.272,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5914,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "c67c04112d7c",
+    "label": "Pete Hegseth (all)",
+    "article_count": 5,
+    "article_indices": [
+      196,
+      240,
+      320,
+      214,
+      343
+    ],
+    "primary_entity": "Pete Hegseth",
+    "entity_names": [
+      "Pete Hegseth"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9165,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.943,
+      "not_duplicate": 0.2219,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5952,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "86d0a3eaa24a",
+    "label": "Ben Affleck (all)",
+    "article_count": 2,
+    "article_indices": [
+      234,
+      437
+    ],
+    "primary_entity": "Ben Affleck",
+    "entity_names": [
+      "Ben Affleck"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.8925,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.919,
+      "not_duplicate": 0.0062,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7153,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "309b79f457b2",
+    "label": "Science (all)",
+    "article_count": 2,
+    "article_indices": [
+      359,
+      454
+    ],
+    "primary_entity": "Science",
+    "entity_names": [
+      "Science"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8422,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6414,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9337,
+      "not_duplicate": 0.3848,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2886,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "ae5ee453fc86",
+    "label": "Instagram (all)",
+    "article_count": 3,
+    "article_indices": [
+      381,
+      543,
+      545
+    ],
+    "primary_entity": "Instagram",
+    "entity_names": [
+      "Instagram"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8623,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8629,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9241,
+      "not_duplicate": 0.0417,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3883,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "e29d8a15c199",
+    "label": "Citi (all)",
+    "article_count": 2,
+    "article_indices": [
+      29,
+      412
+    ],
+    "primary_entity": "Citi",
+    "entity_names": [
+      "Citi"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.9168,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6999,
+      "not_duplicate": 0.468,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5115,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "78a533607aef",
+    "label": "Okta (all)",
+    "article_count": 2,
+    "article_indices": [
+      105,
+      114
+    ],
+    "primary_entity": "Okta",
+    "entity_names": [
+      "Okta"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9404,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.992,
+      "not_duplicate": 0.4123,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6969,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "3477de2f4654",
+    "label": "Mark Zuckerberg (all)",
+    "article_count": 2,
+    "article_indices": [
+      381,
+      542
+    ],
+    "primary_entity": "Mark Zuckerberg",
+    "entity_names": [
+      "Mark Zuckerberg"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8552,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8286,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9241,
+      "not_duplicate": 0.0567,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3729,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "5716d777da03",
+    "label": "SoftBank (all)",
+    "article_count": 2,
+    "article_indices": [
+      9,
+      507
+    ],
+    "primary_entity": "SoftBank",
+    "entity_names": [
+      "SoftBank"
+    ],
+    "event_type": "ipo",
+    "event_granularity": "major",
+    "confidence": 0.8498,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9063,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3336,
+      "not_duplicate": 0.3987,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4079,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "3e41c11b3330",
+    "label": "Coinbase (all)",
+    "article_count": 2,
+    "article_indices": [
+      134,
+      205
+    ],
+    "primary_entity": "Coinbase",
+    "entity_names": [
+      "Coinbase"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8517,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6491,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.919,
+      "not_duplicate": 0.4755,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2921,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "e02f608f58f9",
+    "label": "customers (all)",
+    "article_count": 3,
+    "article_indices": [
+      251,
+      398,
+      424
+    ],
+    "primary_entity": "customers",
+    "entity_names": [
+      "customers"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.7668,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.4326,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9332,
+      "not_duplicate": 0.1533,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1947,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "d21117b12f2e",
+    "label": "Telecom (all)",
+    "article_count": 2,
+    "article_indices": [
+      263,
+      508
+    ],
+    "primary_entity": "Telecom",
+    "entity_names": [
+      "Telecom"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.9193,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8848,
+      "not_duplicate": 0.3082,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6289,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "01ebbb214dbb",
+    "label": "UWM (all)",
+    "article_count": 2,
+    "article_indices": [
+      298,
+      338
+    ],
+    "primary_entity": "UWM",
+    "entity_names": [
+      "UWM"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9488,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9836,
+      "not_duplicate": 0.5041,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4603,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "b6c89f060802",
+    "label": "Target (all)",
+    "article_count": 2,
+    "article_indices": [
+      321,
+      389
+    ],
+    "primary_entity": "Target",
+    "entity_names": [
+      "Target"
+    ],
+    "event_type": "expansion",
+    "event_granularity": "major",
+    "confidence": 0.9429,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9757,
+      "not_duplicate": 0.4538,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5998,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "a16a58715a08",
+    "label": "humanoid robots (all)",
+    "article_count": 2,
+    "article_indices": [
+      31,
+      204
+    ],
+    "primary_entity": "humanoid robots",
+    "entity_names": [
+      "humanoid robots"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8306,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 0.5,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7838,
+      "not_duplicate": 0.272,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4752,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "6ae16be6f0e2",
+    "label": "Dario Amodei (all)",
+    "article_count": 2,
+    "article_indices": [
+      115,
+      443
+    ],
+    "primary_entity": "Dario Amodei",
+    "entity_names": [
+      "Dario Amodei"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "major",
+    "confidence": 0.887,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7674,
+      "not_duplicate": 0.1023,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6228,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "daed4456a38a",
+    "label": "banks (all)",
+    "article_count": 2,
+    "article_indices": [
+      134,
+      208
+    ],
+    "primary_entity": "banks",
+    "entity_names": [
+      "banks"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.7565,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.3862,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9181,
+      "not_duplicate": 0.181,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.1738,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "f0007a011607",
+    "label": "AI agent (all)",
+    "article_count": 2,
+    "article_indices": [
+      190,
+      372
+    ],
+    "primary_entity": "AI agent",
+    "entity_names": [
+      "AI agent"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.9038,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9121,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9281,
+      "not_duplicate": 0.3298,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4104,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "370dce6d106c",
+    "label": "Genies (all)",
+    "article_count": 2,
+    "article_indices": [
+      233,
+      334
+    ],
+    "primary_entity": "Genies",
+    "entity_names": [
+      "Genies"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.7618,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.3977,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.9625,
+      "not_duplicate": 0.4945,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.179,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "143b60e06308",
+    "label": "workers (all)",
+    "article_count": 2,
+    "article_indices": [
+      251,
+      406
+    ],
+    "primary_entity": "workers",
+    "entity_names": [
+      "workers"
+    ],
+    "event_type": "lawsuit",
+    "event_granularity": "major",
+    "confidence": 0.9057,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9436,
+      "not_duplicate": 0.1129,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7109,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "9f7834d96a90",
+    "label": "Cursor (all)",
+    "article_count": 2,
+    "article_indices": [
+      257,
+      305
+    ],
+    "primary_entity": "Cursor",
+    "entity_names": [
+      "Cursor"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9394,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9823,
+      "not_duplicate": 0.4118,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6307,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "b95e242a7eee",
+    "label": "Creators (all)",
+    "article_count": 3,
+    "article_indices": [
+      273,
+      325,
+      471
+    ],
+    "primary_entity": "Creators",
+    "entity_names": [
+      "Creators"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.9238,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9368,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8978,
+      "not_duplicate": 0.4985,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3798,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "525bc8a0b116",
+    "label": "Smart Glasses (all)",
+    "article_count": 2,
+    "article_indices": [
+      437,
+      546
+    ],
+    "primary_entity": "Smart Glasses",
+    "entity_names": [
+      "Smart Glasses"
+    ],
+    "event_type": "acquisition",
+    "event_granularity": "major",
+    "confidence": 0.8691,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.9514,
+      "not_duplicate": 0.073,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5014,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "381c449fff20",
+    "label": "REalloys (all)",
+    "article_count": 2,
+    "article_indices": [
+      479,
+      490
+    ],
+    "primary_entity": "REalloys",
+    "entity_names": [
+      "REalloys"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.9587,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9964,
+      "not_duplicate": 0.5908,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7105,
+    "algorithm": "single",
+    "is_entity_seeded": true
+  },
+  {
+    "cluster_id": "b9165bf73d1b",
+    "label": "discovery_9",
+    "article_count": 10,
+    "article_indices": [
+      7,
+      34,
+      108,
+      156,
+      186,
+      246,
+      390,
+      11,
+      420,
+      481
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8338,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3253,
+      "not_duplicate": 0.0131,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5901,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  },
+  {
+    "cluster_id": "7befd2b995af",
+    "label": "discovery_12",
+    "article_count": 6,
+    "article_indices": [
+      50,
+      89,
+      110,
+      281,
+      285,
+      299
+    ],
+    "primary_entity": null,
+    "entity_names": [],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8567,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.7944,
+      "not_duplicate": 0.106,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.431,
+    "algorithm": "leiden",
+    "is_entity_seeded": false
+  }
+]

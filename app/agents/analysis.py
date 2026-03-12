@@ -6,13 +6,13 @@ Math gates 1-9 run before any LLM call. First LLM call is at synthesis (step 8).
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
 from app.agents.deps import AgentDeps
-from app.config import get_settings, get_domestic_source_ids
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,15 @@ async def run_trend_pipeline(
     params.dedup_title_threshold = max(0.80, semantic_dedup_threshold)
     params.filter_auto_accept = coherence_min * 0.9  # tighter filter = more precise
 
-    result = await intelligence_execute(scope, params)
+    # In mock mode, pass pre-fetched articles so the pipeline skips the live fetch step.
+    # deps._articles is already populated by source_intel_node with mode-specific mock data.
+    pre_fetched = None
+    if getattr(ctx.deps, "mock_mode", False):
+        pre_fetched = getattr(ctx.deps, "_articles", None) or None
+        if pre_fetched:
+            logger.info(f"[analysis] Mock mode: passing {len(pre_fetched)} pre-fetched articles to pipeline")
+
+    result = await intelligence_execute(scope, params, pre_fetched_articles=pre_fetched)
     ctx.deps._intelligence_result = result
     ctx.deps._trend_tree = None  # Clear old tree — intelligence result takes precedence
 
@@ -197,7 +205,11 @@ async def run_analysis(deps: AgentDeps) -> Any:
                 region=settings.country_code or "IN",
                 hours=getattr(settings, "rss_hours_ago", 120),
             )
-        intel = await intelligence_execute(scope, load_adaptive_params())
+        # Pass mock articles if available (same logic as run_trend_pipeline tool)
+        pre_fetched = None
+        if getattr(deps, "mock_mode", False):
+            pre_fetched = getattr(deps, "_articles", None) or None
+        intel = await intelligence_execute(scope, load_adaptive_params(), pre_fetched_articles=pre_fetched)
         deps._intelligence_result = intel
 
     return intel, agent_result or AnalysisResult(reasoning="Intelligence pipeline")

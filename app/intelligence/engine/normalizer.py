@@ -17,15 +17,34 @@ Ticker alias lookup (18 US tickers):
   PLTR → Palantir, MSFT → Microsoft, NVDA → NVIDIA, etc.
   Prevents "NVDA" and "NVIDIA" from creating two separate entity groups.
 
-Delegates to app.news.entity_normalizer until Phase 11 migration.
+Self-contained implementation using rapidfuzz.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+import re
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
+
+# Pre-compiled regex patterns for normalize_entity_name().
+# normalize_entity_name() is called once per entity across hundreds of entities
+# per pipeline run — compiling once at module load avoids repeated re.compile() overhead.
+_RE_POSSESSIVE = re.compile(r"'s?$")
+_RE_LEADING_NOISE = re.compile(
+    r"^(?:mogul|billionaire|tech\s+giant|startup|company)\s+",
+    re.IGNORECASE,
+)
+_RE_TRAILING_VERB = re.compile(
+    r"\s+(?:says|said|warns|launches|announces|reports|partners|acquires|joins|CEO)\s*$",
+    re.IGNORECASE,
+)
+_RE_TRAILING_YEAR = re.compile(r"\s+\d{4}$")
+_RE_HYPHEN_MODIFIER = re.compile(
+    r"-(?:backed|powered|led|driven|focused)\s*$",
+    re.IGNORECASE,
+)
 
 # Ticker → canonical name lookup
 # Prevents ticker symbols from creating separate entity groups
@@ -66,24 +85,16 @@ def normalize_entity_name(name: str) -> str:
       3. Resolve ticker aliases
       4. Clean camelCase artifacts
     """
-    import re
-
     # Strip possessives
-    name = re.sub(r"'s?$", "", name).strip()
+    name = _RE_POSSESSIVE.sub("", name).strip()
 
     # Strip leading noise (mogul, billionaire, etc.)
-    name = re.sub(
-        r"^(?:mogul|billionaire|tech\s+giant|startup|company)\s+",
-        "", name, flags=re.IGNORECASE
-    ).strip()
+    name = _RE_LEADING_NOISE.sub("", name).strip()
 
     # Strip trailing noise (action verbs, years, hyphenated modifiers)
-    name = re.sub(
-        r"\s+(?:says|said|warns|launches|announces|reports|partners|acquires|joins|CEO)\s*$",
-        "", name, flags=re.IGNORECASE
-    ).strip()
-    name = re.sub(r"\s+\d{4}$", "", name).strip()  # trailing years
-    name = re.sub(r"-(?:backed|powered|led|driven|focused)\s*$", "", name, flags=re.IGNORECASE).strip()
+    name = _RE_TRAILING_VERB.sub("", name).strip()
+    name = _RE_TRAILING_YEAR.sub("", name).strip()  # trailing years
+    name = _RE_HYPHEN_MODIFIER.sub("", name).strip()
 
     # Resolve tickers
     name = resolve_ticker(name)
@@ -95,38 +106,51 @@ def fuzzy_group(
     names: List[str],
     threshold: float = 85.0,
 ) -> Dict[str, List[str]]:
-    """Group entity names by fuzzy similarity.
+    """Group similar entity names using rapidfuzz token_sort_ratio.
 
-    Args:
-        names: list of entity name strings
-        threshold: rapidfuzz token_sort_ratio threshold (85 = empirically validated)
+    Algorithm (from module docstring):
+      1. Normalize each name (strip possessives, trailing noise, resolve tickers)
+      2. Compare against existing group canonicals via token_sort_ratio
+      3. If score >= threshold → merge into best-matching group
+      4. Else → create new group with this name as canonical
 
     Returns:
-        Dict mapping canonical_name → list of variant names
+        {canonical: [variants]} — canonical is the first (longest-normalized) name
+        in each group.
     """
     try:
-        from rapidfuzz import fuzz
+        from rapidfuzz import fuzz as _fuzz
     except ImportError:
-        logger.warning("[normalizer] rapidfuzz not available — no fuzzy grouping")
-        return {n: [] for n in names}
+        # Without rapidfuzz, each name is its own group
+        return {n: [] for n in set(names)}
 
-    groups: Dict[str, List[str]] = {}   # canonical → variants
-    normalized = {n: normalize_entity_name(n) for n in names}
+    groups: Dict[str, List[str]] = {}       # canonical -> [variants]
+    canonical_list: List[str] = []          # ordered for iteration
 
     for name in names:
-        norm = normalized[name]
-        matched_canonical: Optional[str] = None
+        normalized = normalize_entity_name(name)
+        if not normalized:
+            continue
 
-        for canonical in groups:
-            score = fuzz.token_sort_ratio(norm.lower(), normalized[canonical].lower())
-            if score >= threshold:
-                matched_canonical = canonical
-                break
+        # Find best matching existing group
+        best_canonical = None
+        best_score = 0.0
+        for canonical in canonical_list:
+            score = _fuzz.token_sort_ratio(normalized.lower(), canonical.lower())
+            if score >= threshold and score > best_score:
+                best_canonical = canonical
+                best_score = score
 
-        if matched_canonical:
-            groups[matched_canonical].append(name)
+        if best_canonical is not None:
+            if name != best_canonical:
+                groups[best_canonical].append(name)
         else:
-            groups[name] = []
+            groups[normalized] = []
+            canonical_list.append(normalized)
+            # Track original name as variant when normalization changed it
+            # (e.g., ticker "TCS" → canonical "Tata Consultancy Services")
+            if name != normalized:
+                groups[normalized].append(name)
 
     return groups
 
@@ -135,16 +159,15 @@ def fuzzy_group_entities(
     names: List[str],
     threshold: float = 85.0,
 ) -> Dict[str, str]:
-    """Compatibility wrapper: returns {variant: canonical} map (old news.entity_normalizer API).
+    """Return {variant: canonical} map — inverted view of fuzzy_group().
 
-    fuzzy_group() returns {canonical: [variants]}.
-    This wrapper inverts it to {variant: canonical} for drop-in compatibility
-    with clustering/tools/entity_extractor.py.
+    Used by extractor.py for drop-in compatibility with the entity grouping API.
+    Every input name maps to its canonical form (canonical maps to itself).
     """
     groups = fuzzy_group(names, threshold=threshold)
     variant_to_canonical: Dict[str, str] = {}
     for canonical, variants in groups.items():
-        variant_to_canonical[canonical] = canonical  # canonical maps to itself
+        variant_to_canonical[canonical] = canonical
         for variant in variants:
             variant_to_canonical[variant] = canonical
     return variant_to_canonical

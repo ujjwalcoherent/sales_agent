@@ -16,9 +16,7 @@ from fastapi.responses import StreamingResponse
 from app.database import get_database
 from app.schemas.campaign import (
     CampaignType,
-    CampaignCompanyInput,
     CampaignCompanyStatus,
-    CampaignConfig,
     CampaignListResponse,
     CampaignResponse,
     CreateCampaignRequest,

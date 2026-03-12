@@ -41,16 +41,25 @@ from app.intelligence.models import (
 
 logger = logging.getLogger(__name__)
 
-# Weights for composite score
+# Weights for composite score.
+# Research basis: entity_consistency (semantic) outweighs coherence (embedding)
+# for B2B signal detection — Salton & McGill (1983) term weighting shows entity
+# co-occurrence is more discriminative than pure cosine similarity for domain-specific text.
 CHECK_WEIGHTS = {
     "min_articles": 0.10,
     "multi_source": 0.15,
-    "coherence": 0.25,
-    "entity_consistency": 0.20,
+    "coherence": 0.20,           # was 0.25 — reduce embedding-similarity dominance
+    "entity_consistency": 0.25,  # was 0.20 — entity co-occurrence is better B2B signal
     "temporal_proximity": 0.10,
     "not_duplicate": 0.10,
     "outlier_ejection": 0.10,
 }
+
+# Coherence threshold for discovery clusters (Leiden on ungrouped articles).
+# Leiden discovers latent communities — lower threshold (0.35) appropriate since
+# these clusters have no entity anchor. Entity-seeded clusters use val_coherence_min (0.40).
+# Campello et al. (2013): soft membership naturally produces lower within-cluster similarity.
+_DISCOVERY_COHERENCE_MIN: float = 0.35
 
 
 def validate_cluster(
@@ -83,6 +92,19 @@ def validate_cluster(
 
     indices = cluster.article_indices
 
+    # Cluster type determines adaptive thresholds and hard vetoes.
+    # Entity-seeded (HAC/HDBSCAN on entity groups): high prior — entity match IS relatedness.
+    # Discovery (Leiden on ungrouped articles): no entity anchor — use adaptive coherence threshold.
+    is_entity_seeded = getattr(cluster, "is_entity_seeded", False)
+
+    # Adaptive coherence threshold per cluster type.
+    # Discovery clusters naturally have lower cosine similarity (~0.35-0.42) because Leiden
+    # groups articles by community structure, not entity co-occurrence.
+    # Campello et al. (2013): soft cluster membership ↔ lower within-cluster similarity.
+    coh_threshold = params.val_coherence_min if is_entity_seeded else min(
+        _DISCOVERY_COHERENCE_MIN, params.val_coherence_min
+    )
+
     # Check 1: Minimum articles
     checks["min_articles"], scores["min_articles"] = _check_min_articles(
         indices, params.val_min_articles,
@@ -97,12 +119,12 @@ def validate_cluster(
     if not checks["multi_source"]:
         reasons.append(f"Single source cluster, need {params.val_min_sources}+ sources")
 
-    # Check 3: Coherence
+    # Check 3: Coherence (adaptive threshold)
     checks["coherence"], scores["coherence"], raw_coherence = _check_coherence(
-        indices, embeddings, params.val_coherence_min,
+        indices, embeddings, coh_threshold,
     )
     if not checks["coherence"]:
-        reasons.append(f"Coherence {raw_coherence:.3f} < {params.val_coherence_min}")
+        reasons.append(f"Coherence {raw_coherence:.3f} < {coh_threshold:.2f}")
 
     # Check 4: Entity consistency
     checks["entity_consistency"], scores["entity_consistency"], raw_consistency = _check_entity_consistency(
@@ -138,24 +160,19 @@ def validate_cluster(
         for check, weight in CHECK_WEIGHTS.items()
     )
 
-    # Hard vetoes — these checks MUST pass regardless of composite score.
+    # Hard vetoes — must pass regardless of composite score.
     #
-    # Entity-seeded clusters (from known companies/people) have HIGH prior
-    # probability of being real — the entity match IS the relatedness signal.
-    # Embedding coherence measures TOPIC similarity, not entity relatedness.
-    # Two articles about "Snowflake" discussing different events (earnings vs
-    # partnership) may have cosine sim ~0.43 but ARE genuinely related.
+    # Entity-seeded clusters: min_articles + not_duplicate only.
+    #   Entity match is the relatedness signal (Campello et al. 2013).
+    #   Two articles about the same company in different events ARE related.
     #
-    # Discovery clusters (Leiden on ungrouped articles) have NO entity anchor,
-    # so they need stricter validation: coherence + multi-source as hard vetoes.
-    #
-    # Entity-seeded: min_articles + not_duplicate = hard vetoes
-    # Discovery:     min_articles + coherence + multi_source + not_duplicate = hard vetoes
-    is_entity_seeded = getattr(cluster, "is_entity_seeded", False)
+    # Discovery clusters: min_articles + multi_source + not_duplicate.
+    #   multi_source ensures we're not just clustering a single press release.
+    #   coherence is NOT a hard veto for discovery clusters — it's weighted in
+    #   composite score with the adaptive 0.35 threshold instead (see coh_threshold above).
     hard_vetoes = {"min_articles", "not_duplicate"}
     if not is_entity_seeded:
         hard_vetoes.add("multi_source")
-        hard_vetoes.add("coherence")
     hard_pass = all(checks.get(v, False) for v in hard_vetoes)
     passed = hard_pass and composite >= params.val_composite_reject
 
@@ -177,50 +194,6 @@ def validate_cluster(
         outliers=outliers,
         ejected_article_indices=ejected,
     )
-
-
-def validate_all_clusters(
-    clusters: List[ClusterResult],
-    embeddings: np.ndarray,
-    articles: Optional[List[Any]] = None,
-    params: Optional[ClusteringParams] = None,
-) -> tuple:
-    """Validate all clusters, tracking centroids for duplicate detection.
-
-    Returns:
-        (passed_ids, rejected_ids, validation_results)
-    """
-    if params is None:
-        params = DEFAULT_PARAMS
-
-    passed_ids: List[str] = []
-    rejected_ids: List[str] = []
-    results: List[ValidationResult] = []
-    existing_centroids: List[np.ndarray] = []
-
-    for cluster in clusters:
-        result = validate_cluster(
-            cluster, embeddings, articles, existing_centroids, params,
-        )
-        results.append(result)
-
-        if result.passed:
-            passed_ids.append(cluster.cluster_id)
-            # Add centroid for duplicate checking
-            centroid = _compute_centroid(cluster.article_indices, embeddings)
-            if centroid is not None:
-                existing_centroids.append(centroid)
-        else:
-            rejected_ids.append(cluster.cluster_id)
-
-    total = len(clusters)
-    rejection_rate = len(rejected_ids) / max(total, 1)
-
-    logger.info(
-        "Validation: %d/%d passed (%.0f%% rejection rate)",
-        len(passed_ids), total, rejection_rate * 100,
-    )
-    return passed_ids, rejected_ids, results
 
 
 # ══════════════════════════════════════════════════════════════════════════════

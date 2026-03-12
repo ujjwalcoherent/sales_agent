@@ -6,9 +6,12 @@ import {
   CheckCircle, AlertCircle, XCircle,
   Wifi, WifiOff, Clock, Server,
   Search, Mail, Brain, Globe, Users, Newspaper,
+  FlaskConical, ChevronDown,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, getMockMode, setMockMode } from "@/lib/api";
+import type { MockModeState } from "@/lib/api";
 import type { HealthResponse, ProviderHealth } from "@/lib/types";
+import { ALL_COUNTRIES } from "@/lib/countries";
 
 type Tab = "appearance" | "pipeline" | "enrichment" | "contacts" | "news_email" | "connections";
 
@@ -20,34 +23,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "news_email",  label: "News & Email" },
   { id: "connections",  label: "Connections" },
 ];
-
-// ── All countries via Intl API ──────────────────────
-
-const ALL_COUNTRIES: { code: string; name: string }[] = (() => {
-  try {
-    const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-    const codes = [
-      "AF","AL","DZ","AD","AO","AG","AR","AM","AU","AT","AZ","BS","BH","BD","BB",
-      "BY","BE","BZ","BJ","BT","BO","BA","BW","BR","BN","BG","BF","BI","KH","CM",
-      "CA","CV","CF","TD","CL","CN","CO","KM","CG","CR","HR","CU","CY","CZ","CD",
-      "DK","DJ","DM","DO","EC","EG","SV","GQ","ER","EE","SZ","ET","FJ","FI","FR",
-      "GA","GM","GE","DE","GH","GR","GD","GT","GN","GW","GY","HT","HN","HU","IS",
-      "IN","ID","IR","IQ","IE","IL","IT","CI","JM","JP","JO","KZ","KE","KI","KW",
-      "KG","LA","LV","LB","LS","LR","LY","LI","LT","LU","MG","MW","MY","MV","ML",
-      "MT","MH","MR","MU","MX","FM","MD","MC","MN","ME","MA","MZ","MM","NA","NR",
-      "NP","NL","NZ","NI","NE","NG","KP","MK","NO","OM","PK","PW","PS","PA","PG",
-      "PY","PE","PH","PL","PT","QA","RO","RU","RW","KN","LC","VC","WS","SM","ST",
-      "SA","SN","RS","SC","SL","SG","SK","SI","SB","SO","ZA","KR","SS","ES","LK",
-      "SD","SR","SE","CH","SY","TW","TJ","TZ","TH","TL","TG","TO","TT","TN","TR",
-      "TM","TV","UG","UA","AE","GB","US","UY","UZ","VU","VE","VN","YE","ZM","ZW",
-    ];
-    return codes
-      .map((c) => ({ code: c, name: regionNames.of(c) ?? c }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  } catch {
-    return [{ code: "IN", name: "India" }, { code: "US", name: "United States" }];
-  }
-})();
 
 // ── Reusable primitives ─────────────────────────────
 
@@ -397,6 +372,128 @@ function AppearanceTab() {
   );
 }
 
+// ── Mock Mode Section ───────────────────────────────
+
+function MockModeSection() {
+  const [state, setState] = useState<MockModeState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    getMockMode()
+      .then(s => { setState(s); if (s.enabled) setExpanded(true); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = async (enabled: boolean) => {
+    if (!state) return;
+    setToggling(true);
+    try {
+      const next = await setMockMode(enabled, enabled ? (state.available_recordings.find(r => r.recommended)?.run_id ?? state.available_recordings[0]?.run_id) : undefined);
+      setState(next);
+      if (enabled) setExpanded(true);
+    } catch { /* noop */ }
+    finally { setToggling(false); }
+  };
+
+  const selectRecording = async (run_id: string) => {
+    if (!state?.enabled) return;
+    setToggling(true);
+    try {
+      const next = await setMockMode(true, run_id);
+      setState(next);
+    } catch { /* noop */ }
+    finally { setToggling(false); }
+  };
+
+  if (loading) return <div className="skeleton" style={{ height: 52, borderRadius: 10, marginBottom: 20 }} />;
+
+  return (
+    <div style={{
+      marginBottom: 24,
+      border: `1px solid ${state?.enabled ? "var(--accent)" : "var(--border)"}`,
+      borderRadius: 10, overflow: "hidden",
+      background: state?.enabled ? "var(--accent-light)" : "var(--surface)",
+      transition: "border-color 200ms, background 200ms",
+    }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
+        <FlaskConical size={14} style={{ color: state?.enabled ? "var(--accent)" : "var(--text-muted)", flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: state?.enabled ? "var(--accent)" : "var(--text)", marginBottom: 1 }}>
+            Mock Mode
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>
+            {state?.enabled
+              ? `Active — using recording ${state.selected_recording}`
+              : "All pipeline runs use live APIs. Enable to replay cached recordings."}
+          </div>
+        </div>
+        {toggling
+          ? <div style={{ width: 36, height: 20, borderRadius: 10, background: "var(--border)", animation: "pulse 1s ease-in-out infinite" }} />
+          : <ToggleSwitch checked={state?.enabled ?? false} onChange={toggle} />
+        }
+        {(state?.available_recordings.length ?? 0) > 0 && (
+          <button
+            onClick={() => setExpanded(p => !p)}
+            style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", padding: 2 }}
+          >
+            <ChevronDown size={14} style={{ transform: expanded ? "rotate(0)" : "rotate(-90deg)", transition: "transform 200ms" }} />
+          </button>
+        )}
+      </div>
+
+      {/* Recording picker */}
+      {expanded && state && state.available_recordings.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--border)", padding: "10px 16px" }}>
+          {state.recommendation && (
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
+              {state.recommendation}
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {state.available_recordings.map(rec => {
+              const isSelected = rec.run_id === state.selected_recording;
+              return (
+                <button
+                  key={rec.run_id}
+                  onClick={() => selectRecording(rec.run_id)}
+                  disabled={!state.enabled}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 7,
+                    border: `1px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
+                    background: isSelected ? "var(--accent-light)" : "var(--surface-raised)",
+                    cursor: state.enabled ? "pointer" : "not-allowed",
+                    opacity: state.enabled ? 1 : 0.5,
+                    textAlign: "left",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: isSelected ? 600 : 400, color: isSelected ? "var(--accent)" : "var(--text)", fontFamily: "monospace" }}>
+                      {rec.run_id}
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                      {rec.files} files · {rec.has_leads ? "has leads" : "no leads"}
+                    </div>
+                  </div>
+                  {rec.recommended && (
+                    <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "var(--accent)", color: "#fff", fontWeight: 600 }}>
+                      BEST
+                    </span>
+                  )}
+                  {isSelected && <Check size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Pipeline Tab ────────────────────────────────────
 
 function PipelineTab({ health }: { health: HealthResponse | null }) {
@@ -412,6 +509,8 @@ function PipelineTab({ health }: { health: HealthResponse | null }) {
   const leadGenTimeout = useSetting("lead_gen_timeout", cfg.lead_gen_timeout, "900");
 
   return (
+    <div>
+      <MockModeSection />
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 48px" }}>
       <div>
         <SectionTitle>TARGET MARKET</SectionTitle>
@@ -490,6 +589,7 @@ function PipelineTab({ health }: { health: HealthResponse | null }) {
           </div>
         </SettingRow>
       </div>
+    </div>
     </div>
   );
 }
@@ -629,7 +729,7 @@ function EnrichmentTab({ health }: { health: HealthResponse | null }) {
 
 function ContactsTab({ health }: { health: HealthResponse | null }) {
   const cfg = health?.config ?? {} as Record<string, unknown>;
-  const maxContacts = useSetting("max_contacts_per_company", cfg.max_contacts_per_company, "8");
+  const maxContacts = useSetting("max_contacts_per_company", cfg.max_contacts_per_company, "6");
   const roleInference = useSetting("contact_role_inference", cfg.contact_role_inference, "llm");
   const dmRoles = useSetting("default_dm_roles", cfg.default_dm_roles, "CEO,CTO,CFO,COO,VP Operations,Founder");
   const infRoles = useSetting("default_influencer_roles", cfg.default_influencer_roles, "VP Engineering,VP Product,Head of Strategy,VP Marketing,VP Sales");
@@ -796,7 +896,6 @@ const POLL_INTERVAL_MS = 15_000;
 
 function ConnectionsTab({ health, loading, onRefresh }: { health: HealthResponse | null; loading: boolean; onRefresh: () => void }) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [disabledProviders, setDisabledProviders] = useState<Set<string>>(() => getDisabledProviders());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -812,15 +911,6 @@ function ConnectionsTab({ health, loading, onRefresh }: { health: HealthResponse
     if (health) setLastUpdated(new Date());
   }, [health]);
 
-  const toggleProvider = useCallback((name: string, enabled: boolean) => {
-    setDisabledProviders((prev) => {
-      const next = new Set(prev);
-      if (enabled) next.delete(name); else next.add(name);
-      saveDisabledProviders(next);
-      return next;
-    });
-  }, []);
-
   const providers = useMemo(() => {
     if (!health) return [];
     return Object.entries(health.providers).map(([name, info]) => ({
@@ -828,7 +918,7 @@ function ConnectionsTab({ health, loading, onRefresh }: { health: HealthResponse
     }));
   }, [health]);
 
-  const onlineCount = providers.filter((p) => !disabledProviders.has(p.name) && (p.status === "online" || p.status === "ready")).length;
+  const onlineCount = providers.filter((p) => p.status === "online" || p.status === "ready").length;
 
   return (
     <div>
@@ -854,7 +944,7 @@ function ConnectionsTab({ health, loading, onRefresh }: { health: HealthResponse
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {providers.map(({ name, info, status }) => (
-              <ProviderCard key={name} name={name} info={info} status={status} enabled={!disabledProviders.has(name)} onToggle={(enabled) => toggleProvider(name, enabled)} />
+              <ProviderCard key={name} name={name} info={info} status={status} />
             ))}
           </div>
         </>
@@ -868,19 +958,20 @@ function ConnectionsTab({ health, loading, onRefresh }: { health: HealthResponse
         <div>
           <SectionTitle>SEARCH SERVICES</SectionTitle>
           <ServiceRow icon={Search} name="Tavily" description="Primary AI search" status={health?.config?.tavily_enabled ? "connected" : "not configured"} />
-          <ServiceRow icon={Search} name="DuckDuckGo" description="Fallback search" status={health?.config?.use_ddg_fallback !== false ? "active" : "disabled"} />
+          <ServiceRow icon={Search} name="DuckDuckGo" description="Free fallback search" status={health?.config?.use_ddg_fallback !== false ? "active" : "disabled"} />
         </div>
         <div>
           <SectionTitle>CONTACT ENRICHMENT</SectionTitle>
-          <ServiceRow icon={Mail} name="Apollo" description="B2B contacts" status="configured" />
-          <ServiceRow icon={Mail} name="Hunter" description="Email verification" status="configured" />
+          <ServiceRow icon={Mail} name="Apollo" description="B2B contact search + company org data" status="key set" />
+          <ServiceRow icon={Mail} name="Hunter" description="Email finding and verification" status="connected" />
         </div>
       </div>
 
       <div style={{ marginTop: 28 }}>
         <SectionTitle>EMBEDDINGS</SectionTitle>
         <div style={{ maxWidth: "50%" }}>
-          <ServiceRow icon={Brain} name="NVIDIA Embeddings" description="Semantic similarity for dedup and clustering" status="configured" />
+          <ServiceRow icon={Brain} name="NVIDIA Embeddings" description="1024-dim semantic similarity for clustering and dedup" status="configured" />
+          <ServiceRow icon={Brain} name="OpenAI Embeddings" description="Fallback: text-embedding-3-large @1024-dim" status="configured" />
         </div>
       </div>
     </div>
@@ -888,6 +979,7 @@ function ConnectionsTab({ health, loading, onRefresh }: { health: HealthResponse
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
+  OpenAI: "OpenAI (Primary)",
   GeminiDirect: "Gemini (Google AI)",
   GeminiDirectLite: "Gemini Flash Lite",
   VertexLlama: "Llama 4 (Vertex AI)",
@@ -898,24 +990,12 @@ const PROVIDER_LABELS: Record<string, string> = {
   Ollama: "Ollama (Local)",
 };
 
-function getDisabledProviders(): Set<string> {
-  try {
-    const raw = localStorage.getItem("harbinger_disabled_providers");
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch { return new Set(); }
-}
-
-function saveDisabledProviders(disabled: Set<string>) {
-  localStorage.setItem("harbinger_disabled_providers", JSON.stringify([...disabled]));
-}
-
-function ProviderCard({ name, info, status, enabled, onToggle }: {
-  name: string; info: ProviderHealth; status: "online" | "ready" | "degraded" | "offline"; enabled: boolean; onToggle: (enabled: boolean) => void;
+function ProviderCard({ name, info, status }: {
+  name: string; info: ProviderHealth; status: "online" | "ready" | "degraded" | "offline";
 }) {
   const label = PROVIDER_LABELS[name] ?? name;
   let detail = "";
-  if (!enabled) detail = "Disabled";
-  else if (status === "online") detail = "No errors";
+  if (status === "online") detail = "No errors";
   else if (status === "ready") detail = `${info.failure_count} past errors — ready`;
   else if (status === "degraded" && info.backoff_until) {
     const remaining = Math.max(0, Math.round((new Date(info.backoff_until).getTime() - Date.now()) / 1000));
@@ -924,18 +1004,16 @@ function ProviderCard({ name, info, status, enabled, onToggle }: {
     detail = `${info.failure_count} errors`;
   }
 
-  const eff = enabled ? status : "offline";
   return (
-    <div className="card" style={{ padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10, opacity: enabled ? 1 : 0.55, transition: "opacity 200ms" }}>
-      <StatusDot status={eff} />
+    <div className="card" style={{ padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <StatusDot status={status} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{label}</span>
-          <StatusBadge status={eff} />
+          <StatusBadge status={status} />
         </div>
         {detail && <div style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}><Clock size={10} />{detail}</div>}
       </div>
-      <ToggleSwitch checked={enabled} onChange={onToggle} />
     </div>
   );
 }

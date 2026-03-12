@@ -5,6 +5,7 @@ Data source priority:
   2. Database (persisted call sheets from completed runs)
 """
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -460,8 +461,9 @@ async def get_lead_detail(lead_id: int):
         for sheet in all_sheets:
             if sheet["id"] == lead_id:
                 return LeadResponse(**sheet)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"DB error fetching lead {lead_id}: {e}")
+        raise HTTPException(500, "Database error")
 
     raise HTTPException(404, "Lead not found")
 
@@ -484,8 +486,6 @@ async def enrich_lead(lead_id: int):
     Uses Hunter/Apollo to find people, then LLM to generate personalized emails.
     This allows re-enriching a lead without re-running the full pipeline.
     """
-    import asyncio
-
     # Get lead data
     run = run_manager.get_latest_run()
     leads = _leads_from_run(run)

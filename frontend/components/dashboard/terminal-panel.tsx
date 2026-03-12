@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Play, Square, RefreshCw, FlaskConical, ChevronDown, ChevronUp, Terminal, CheckCircle2, AlertCircle } from "lucide-react";
+import { Play, Square, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, AlertCircle } from "lucide-react";
 import { usePipelineContext } from "@/contexts/pipeline-context";
+import { getMockMode } from "@/lib/api";
 import type { LogEntry } from "@/hooks/use-pipeline";
 
 const MIN_HEIGHT = 72;
@@ -179,14 +180,15 @@ export function TerminalPanel() {
 
         <div style={{ width: 1, height: 14, background: "var(--term-border)" }} />
 
-        {/* Action buttons */}
+        {/* Action button — auto-detects mock mode from server */}
         {!isRunning ? (
           <div style={{ display: "flex", gap: 5 }}>
-            <button onClick={() => { setLastMockMode(false); run(false); }} style={tbtn("primary")}>
+            <button onClick={async () => {
+              const mock = await getMockMode().then(s => s.enabled).catch(() => false);
+              setLastMockMode(mock);
+              run(mock);
+            }} style={tbtn("primary")}>
               <Play size={10} strokeWidth={2.5} /> Run
-            </button>
-            <button onClick={() => { setLastMockMode(true); run(true); }} style={tbtn("demo")}>
-              <FlaskConical size={10} /> Mock
             </button>
           </div>
         ) : (
@@ -198,7 +200,7 @@ export function TerminalPanel() {
         {/* Status */}
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0, overflow: "hidden" }}>
           {status === "idle" && (
-            <span style={{ fontSize: 10, color: "var(--term-text-dim)" }}>Ready — Ctrl+` to toggle</span>
+            <span style={{ fontSize: 10, color: "var(--term-text-dim)" }}>Ready — Ctrl+` to toggle · mock mode auto-detected</span>
           )}
 
           {isRunning && (
@@ -254,7 +256,7 @@ export function TerminalPanel() {
       >
         {filteredMessages.length === 0 ? (
           <div style={{ fontSize: 11, color: "var(--term-text-dim)", fontFamily: "'Courier New', monospace", padding: "4px 0" }}>
-            › No output yet. Hit Run or Mock above.
+            › No output yet. Hit Run above (uses mock data when mock mode is enabled).
           </div>
         ) : (
           filteredMessages.map((entry, i, arr) => {

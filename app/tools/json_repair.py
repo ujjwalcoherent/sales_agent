@@ -11,9 +11,13 @@ Handles common LLM output issues:
 import json
 import logging
 import re
-from typing import Any, Dict, List, Union
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
+
+_RE_MD_CODE_START = re.compile(r'^```(?:json)?\n?')
+_RE_MD_CODE_END = re.compile(r'\n?```$')
+_RE_CONTROL_CHARS = re.compile(r'[\x00-\x1f\x7f]')
 
 
 def parse_json_response(response: str) -> Dict[str, Any]:
@@ -22,8 +26,8 @@ def parse_json_response(response: str) -> Dict[str, Any]:
 
     # Remove markdown code blocks if present
     if cleaned.startswith("```"):
-        cleaned = re.sub(r'^```(?:json)?\n?', '', cleaned)
-        cleaned = re.sub(r'\n?```$', '', cleaned)
+        cleaned = _RE_MD_CODE_START.sub('', cleaned)
+        cleaned = _RE_MD_CODE_END.sub('', cleaned)
         cleaned = cleaned.strip()
 
     # Extract the JSON structure (array or object) from the response
@@ -39,7 +43,7 @@ def parse_json_response(response: str) -> Dict[str, Any]:
         except json.JSONDecodeError:
             pass
         # Last resort: strip control characters from inside strings
-        sanitized = re.sub(r'[\x00-\x1f\x7f]', ' ', json_str)
+        sanitized = _RE_CONTROL_CHARS.sub(' ', json_str)
         try:
             return json.loads(sanitized)
         except json.JSONDecodeError as e:
@@ -138,21 +142,3 @@ def repair_truncated_json(text: str) -> str:
     return text
 
 
-def extract_list_from_response(data: Union[Dict, List, Any]) -> List[Dict[str, Any]]:
-    """Extract a list of dicts from LLM response data.
-
-    Handles common patterns where the LLM wraps a list inside a dict
-    with keys like 'items', 'results', 'data', etc.
-    """
-    if isinstance(data, list):
-        return data
-    if isinstance(data, dict):
-        # Check for error responses
-        if "error" in data and len(data) <= 2:
-            return []
-        # Try known wrapper keys
-        for key in ["items", "results", "data", "companies", "contacts", "trends"]:
-            if key in data and isinstance(data[key], list):
-                return data[key]
-        return [data]
-    return [data] if data else []

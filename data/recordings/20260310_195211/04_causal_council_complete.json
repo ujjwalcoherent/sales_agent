@@ -1,0 +1,400 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Google Cloud and Brahma AI have partnered to develop and scale advanced movie-quality digital avatars (ATMANS) in India, enhancing customer engagement and workforce training for enterprises. Key challenges include the high cost and complexity of digital human technology integration, regulatory compliance requirements, and uncertainty about ROI, with risks for companies delaying adoption.",
+      "event_type": "technology",
+      "reasoning": "The Google Cloud and Brahma AI strategic partnership to develop digital human avatars directly impacts their technological investment and client acquisition (Hop 1). We identified these two companies from news sources and given their scale and direct mention in the event, labeled this as an opportunity with high confidence.\n\nNext, mid-size IT service and AI platform companies in India who integrate and deploy these digital avatar technologies to enterprise clients represent the second order impa",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Google Cloud and Brahma AI",
+          "lead_type": "opportunity",
+          "mechanism": "Direct partnership developing scalable AI infrastructure and digital human enterprise platform for digital avatars, driving technology development, infrastructure investment, and enterprise client acquisition",
+          "companies_found": [
+            "Google Cloud",
+            "Brahma AI"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size IT service companies in India integrating AI digital avatar technology for enterprise customer interaction and workforce training",
+          "lead_type": "opportunity",
+          "mechanism": "These companies buy AI platform and cloud infrastructure services from Google Cloud and Brahma AI, adopting digital avatars to enhance customer engagement and operational efficiency",
+          "companies_found": [
+            "SoftColon Technologies",
+            "Ozrit",
+            "Maruti Techlabs",
+            "Newgen"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size retail and manufacturing enterprises in India using AI digital avatars for improved customer engagement and employee training",
+          "lead_type": "opportunity",
+          "mechanism": "These end-user companies benefit from enhanced customer experience and workforce efficiency via integrated AI avatar solutions provided through mid-size IT adopters, improving competitive positioning",
+          "companies_found": [
+            "Rife Technologies (retail)",
+            "UptimeAI (manufacturing)"
+          ],
+          "confidence": 0.65,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "In March 2026, Microsoft announced advancements including partnership for human-centered AI, launched Microsoft 365 E7 subscription with enhanced AI and security, introduced Copilot Cowork AI tool, and released security updates fixing 83 vulnerabilities. In India, this drives urgent need to deploy security patches to avoid breaches and compliance failures, upgrade subscriptions for competitive AI-driven advantage, train staff on new AI tools, and integrate AI capabilities securely.",
+      "event_type": "technology",
+      "reasoning": "The core event is Microsoft's launch of new AI and security features in March 2026, with urgent security patches addressing 83 vulnerabilities. First order affected are mid-size IT service providers in India, such as Abbacus Technologies and Embee Software Solutions, who must rapidly deploy the Microsoft 365 E7 upgrades and security patches. They gain opportunity to grow consulting and managed service revenue but face tight timelines (1 week urgency).\n\nSecond order affected are specialized cyber",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size IT service providers in India specializing in Microsoft 365 E7 migration and security update deployment, with 100-1000 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Directly benefit by providing consulting and deployment services related to Microsoft's March 2026 AI and security updates, including security patch rollout and subscription upgrade assistance",
+          "companies_found": [
+            "Abbacus Technologies",
+            "Embee Software Solutions"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size cybersecurity firms in India, 100-500 employees, providing managed security services and vulnerability assessments supporting mid-size IT service providers handling Microsoft 365 E7 and security patches",
+          "lead_type": "opportunity",
+          "mechanism": "These firms supply cybersecurity services to IT service providers deploying Microsoft patches, needing to enhance offerings due to 83 vulnerabilities fixed in March 2026 update",
+          "companies_found": [
+            "SecurView Technologies",
+            "Cyberops Solutions"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size manufacturing and retail companies in India, 100-1000 employees, using Microsoft 365 requiring secure AI integration and staff training to adopt Copilot Cowork and E7 features",
+          "lead_type": "pain",
+          "mechanism": "Face operational disruption and security risks if unable to timely integrate AI features securely and train staff, potentially causing productivity loss and compliance issues",
+          "companies_found": [
+            "Shakti Manufacturing Pvt Ltd",
+            "RetailMart India"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "Google sold Intersect Power, a clean energy company, expanding its footprint in renewable energy operations in the US. Concurrently, Google expanded its Gemini AI technology integrated into productivity apps and partnered with Brahma AI to enhance generative AI capabilities. This shifts competitive dynamics in clean energy markets and productivity software sectors, intensifying innovation pressure on mid-size companies and startups in India dealing with renewable energy and AI software.",
+      "event_type": "technology",
+      "reasoning": "Stepwise causal tracing of Google's expansion in clean energy and AI sectors revealed direct impacts on mid-size renewable energy firms in India who face increased competition and potential margin pressure due to Google's enhanced clean energy assets. This leads to second-order effects on their supplier ecosystems (SME equipment, installation, and maintenance firms) facing order cuts and payment delays. Third-order effects cascade to smaller component manufacturers and distributors impacted by t",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size renewable energy companies in India with 50-5000 employees",
+          "lead_type": "pain",
+          "mechanism": "Google's acquisition of Intersect Power expands its clean energy capacity in the US, increasing competitive pressure and possibly reducing market share and margins of regional renewable energy SMEs in India due to increased innovation and scale advantage in clean energy solutions, potentially creating pricing pressures.",
+          "companies_found": [
+            "Greenko Energy Holdings",
+            "ReNew Power Services",
+            "ACME Solar Holdings"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "SME suppliers and service providers to mid-size renewable energy companies in India (equipment, installation, maintenance firms with 50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "The reduced market share and pressure on mid-size renewable energy companies (hop 1) translates into lower orders and payment delays to their tier-2 suppliers such as equipment manufacturers and maintenance service SMEs, squeezing their working capital and margins.",
+          "companies_found": [
+            "Sundaram Energy Services",
+            "Microtek Solar",
+            "MHI Energy Solutions"
+          ],
+          "confidence": 0.65,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Manufacturers and distributors of electrical components and materials supplying tier-2 renewable energy service providers in India (50-200 employees)",
+          "lead_type": "pain",
+          "mechanism": "Downstream pain continues as tier-2 renewable energy suppliers reduce inventory and orders from their own suppliers due to squeezed margins and cash flows, affecting micro manufacturers and distributors in electrical and solar component segments, causing potential revenue pressure and inventory challenges.",
+          "companies_found": [
+            "Polycab Wires India (small units)",
+            "Finolex Cables (SME units)",
+            "KEI Industries (small units)"
+          ],
+          "confidence": 0.6,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "IndiGo CEO Pieter Elbers resigned suddenly in early 2024 following an operational meltdown that caused leadership vacuum and investor uncertainty. This disrupts IndiGo's strategic stability and share price, affecting companies dependent on IndiGo contracts. The CEO change triggers possible contract delays or cancellations impacting maintenance providers, technology suppliers, and travel agencies reliant on IndiGo's operations. This leads to potential cash flow issues, customer dissatisfaction, and operational disruption rippling across the aviation service ecosystem in India.",
+      "event_type": "price_change",
+      "reasoning": "Step 1 (Hop 1): IndiGo's CEO Pieter Elbers resignation is directly in the news and confirmed as causing immediate operational and investor instability. IndiGo itself, a major low-cost airline with thousands of employees, faces leadership vacuum and strategic disruption, classified as a pain lead with immediate urgency (1 week).\n\nStep 2 (Hop 2): Companies that supply or partner with IndiGo such as regional airlines, maintenance service providers, and travel agencies are heavily exposed. Due to In",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "IndiGo (InterGlobe Aviation Ltd), India's largest low-cost airline with 5000+ employees",
+          "lead_type": "pain",
+          "mechanism": "CEO resignation causes leadership vacuum leading to operational instability, share price drop, and investor confidence decline directly impacting IndiGo's strategic and operational functions.",
+          "companies_found": [
+            "IndiGo (InterGlobe Aviation Ltd)"
+          ],
+          "confidence": 1.0,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size airlines, aviation maintenance service providers, and travel agencies heavily dependent on IndiGo contracts (50-500 employees, India)",
+          "lead_type": "pain",
+          "mechanism": "These companies face contract renegotiations, delays or cancellations of services with IndiGo due to operational instability and funding uncertainties at IndiGo, which reduces revenue and utilization for these suppliers and agencies.",
+          "companies_found": [
+            "Regional airlines and aviation maintenance SMEs in India",
+            "Travel agencies in India serving IndiGo corporate and leisure travel segments",
+            "Maintenance service providers contracted by IndiGo"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "SME corporate travel management companies and SME technology suppliers in India reliant on regional airlines and IndiGo service providers (50-250 employees)",
+          "lead_type": "pain",
+          "mechanism": "Facing delayed services and reduced booking volumes as travel agencies and maintenance providers experience cash flow problems and contract uncertainty, impacting their customers and technology solution demand.",
+          "companies_found": [
+            "SME travel management firms in India dependent on IndiGo and regional airline bookings",
+            "Technology service providers supporting travel and maintenance operations"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Indian startup funding fell to $90 million in early March 2024, sharply reducing available capital especially for Retail & Consumer Goods and Logistics & Supply Chain startups. This contraction hinders these startups' ability to grow and sustain operations. Consulting firms, marketing agencies, technology service providers, and suppliers dependent on startup clients face revenue declines due to reduced startup spending, risking financial stress and underutilized resources.",
+      "event_type": "m_and_a",
+      "reasoning": "Step 1 (Hop 1): The news highlights a drop in venture capital funding in India to $90 million in early 2024, directly hitting startups in Retail & Consumer Goods and Logistics sectors. Companies like Ninjacart (agri-marketing) and GrubMarket (food supply logistics) which fit the SME startup profile (50-500 employees) are impacted by reduced access to capital—hence pain leads.\n\nStep 2 (Hop 2): Because startups face constrained budgets, they cut back on external spending like consulting, marketing",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Retail & Consumer Goods startups in India, 50-500 employees, early-stage VC-funded",
+          "lead_type": "pain",
+          "mechanism": "Direct impact of venture capital funding decline reduces available capital for growth and operations, risking stagnation or failure.",
+          "companies_found": [
+            "Ninjacart",
+            "GrubMarket"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Indian consulting firms, technology service providers, marketing agencies serving startups, 50-500 employees",
+          "lead_type": "pain",
+          "mechanism": "Startups' constrained budgets due to funding cuts cause them to reduce spending on consulting, IT services, and marketing, leading to revenue and client loss risk for these firms.",
+          "companies_found": [
+            "Craze HRIS",
+            "Razorpay",
+            "DesignRush (India marketing)",
+            "Creatlive Studios"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Suppliers and vendors providing goods/services to consulting firms and startup support service providers, 50-500 employees, India",
+          "lead_type": "pain",
+          "mechanism": "Financial stress and fewer contracts for consulting and service firms cascade to their suppliers and vendors, causing order volume declines and resource underutilization risks.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Apple plans to increase iPhone production in India by 53% to 55 million units in 2025, directly impacting manufacturing volume, component demand, logistics, retail inventory, and marketing needs. Redington, a key distributor, is benefiting immediately. Component manufacturers face capacity constraints and risk contract losses if they don't scale. Logistics firms risk delays without upgrading infrastructure. Retailers deal with complex inventory management challenges, and marketing agencies have new client opportunities promoting high-end products.",
+      "event_type": "price_change",
+      "reasoning": "Step 1: The event is Apple's plan to increase iPhone production in India by 53% (to 55 million units) in 2025. This is a big volume increase for manufacturing and distribution. Redington, a key distributor mentioned in the news with a price surge, is clearly the immediate beneficiary (Hop 1). This is a direct, high-confidence impact.\n\nStep 2: Component manufacturers supplying Apple iPhones in India face capacity constraints to scale production to meet demand, risking losing contracts. This tensi",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Redington India distribution company",
+          "lead_type": "opportunity",
+          "mechanism": "Apple's iPhone production surge boosts distribution volume handled by Redington, causing increased revenue and stock price surge.",
+          "companies_found": [
+            "Redington"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size component manufacturers supplying Apple iPhone in India, 50-500 employees",
+          "lead_type": "pain",
+          "mechanism": "Increased iPhone production raises component demand, stressing mid-size suppliers to scale capacity quickly under risk of losing contracts.",
+          "companies_found": [
+            "India Circuits Ltd",
+            "PROTOCIRCUITS"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size logistics firms in Pune and Mumbai serving electronics sector, 50-500 employees",
+          "lead_type": "pain",
+          "mechanism": "Higher iPhone production causes greater logistics and warehousing demand, risking delays and lost contracts if infrastructure is not upgraded timely.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size electronics retailers and smartphone sellers in Maharashtra, India, 50-500 employees",
+          "lead_type": "risk",
+          "mechanism": "Retailers face challenges managing larger inventory and new product lines, risking stockouts or overstock if inventory planning fails.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size digital marketing agencies in Pune India specializing in technology products, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Increased iPhone launches create demand for marketing agencies with expertise in tech product promotion, opening new client opportunities.",
+          "companies_found": [
+            "Social Beat"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "SME mid-size smartphone component fabricators and electronics part suppliers to Apple-part suppliers in India, 50-500 employees",
+          "lead_type": "pain",
+          "mechanism": "Component manufacturers facing capacity pains increase prices or delay supply impacting their buyers such as small-scale assembly units and resellers.",
+          "companies_found": [],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        },
+        {
+          "hop": 3,
+          "segment": "Small and mid-size smartphone retailers and resellers in Maharashtra and nearby states, 50-200 employees",
+          "lead_type": "risk",
+          "mechanism": "Resellers experience delays and price volatility from component suppliers leading to difficulties in fulfilling customer demand timely.",
+          "companies_found": [],
+          "confidence": 0.6,
+          "urgency_weeks": 10
+        },
+        {
+          "hop": 3,
+          "segment": "Small-mid size digital marketing agencies India serving tech clients, 50-200 employees",
+          "lead_type": "risk",
+          "mechanism": "Marketing agencies missing telecom and device launches risk losing clients to more specialized competitors due to shifting demand.",
+          "companies_found": [],
+          "confidence": 0.6,
+          "urgency_weeks": 10
+        }
+      ]
+    },
+    {
+      "event_summary": "IndiGo CEO Pieter Elbers resigned suddenly in March 2026, amid operational instability and a major flight meltdown in December 2025. This triggered immediate uncertainty in IndiGo's operations, causing investor confidence to drop and flight disruptions to rise. As IndiGo's contracts and payments to suppliers became uncertain, SME suppliers faced cash flow risks. Travel agencies experienced unreliability in flight schedules, threatening customer satisfaction and revenue. Regional airport retail SMEs saw reduced passenger footfall, causing risks of inventory overstock and staffing inefficiencies.",
+      "event_type": "price_change",
+      "reasoning": "The news of IndiGo CEO Pieter Elbers' resignation amid ongoing operational meltdown has caused immediate operational uncertainty for IndiGo as a company. This directly affects its suppliers who provide flight services such as ground handling, catering, and other support services, many of which are SMEs. These suppliers face contract and payment uncertainties, risking cash flow and business disruption (Hop 1).\n\nFlight delays and cancellations increase, which in turn impacts travel agencies, espec",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "IndiGo airline and direct SME suppliers for flight services and catering, India",
+          "lead_type": "pain",
+          "mechanism": "CEO resignation and operational meltdown caused contract and payment uncertainty, impacting cash flows and operational stability of suppliers directly serving IndiGo flights.",
+          "companies_found": [
+            "AGOS Aviation",
+            "VVIP Flight",
+            "Global Aviation Services Pvt Ltd"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Travel agencies (SMEs) in Maharashtra and Pune, India",
+          "lead_type": "pain",
+          "mechanism": "Due to flight delays and cancellations faced by IndiGo, SME travel agencies experience client dissatisfaction due to unreliability, facing loss of revenue and market share.",
+          "companies_found": [
+            "MakeMyTrip (SME segment)",
+            "Egencia",
+            "Jetways Travels"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Regional airport retail SMEs in Maharashtra and Pune, India",
+          "lead_type": "pain",
+          "mechanism": "Lower passenger volumes from IndiGo disruptions reduce footfall for retail shops in regional airports, leading to inventory overstock and staffing inefficiencies, increasing operational costs and revenue loss.",
+          "companies_found": [
+            "Airport Retail Private Limited",
+            "April Moon Retail Pvt Ltd",
+            "AMRPL"
+          ],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "OpenAI acquired Promptfoo to enhance its AI testing and security capabilities, setting a new standard for AI application safety. This move pressures AI developers and users in sensitive sectors in India to upgrade their AI testing and security practices to meet emerging regulatory requirements and market demands, or face risks including data breaches, regulatory penalties, and loss of customer trust.",
+      "event_type": "technology",
+      "reasoning": "The initial direct impact is on AI testing and security startups like Promptfoo, with Quantro Security and Indian CyberSecuritySolutions emerging as Indian peers with similar focus and employee size, forming Hop 1. They face opportunity to capture new business demand driven by heightened AI safety standards post-acquisition.\n\nHop 2 comprises mid-size AI development companies such as Mad Street Den and Manthan, typical Indian AI firms of 50-500 staff, who buy AI testing services from Hop 1 compan",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "AI testing and security startups in India (50-500 employees)",
+          "lead_type": "opportunity",
+          "mechanism": "OpenAI's acquisition of Promptfoo enhances AI security standards, creating demand for similar advanced AI testing and security capabilities among Indian AI startups.",
+          "companies_found": [
+            "Quantro Security",
+            "Indian CyberSecuritySolutions (ICSS)"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size AI development companies in India (50-500 employees) using AI testing services",
+          "lead_type": "pain",
+          "mechanism": "These AI development firms must upgrade their AI testing and security in response to higher standards set by OpenAI's new capabilities and associated regulatory expectations, resulting in increased costs and compliance complexity.",
+          "companies_found": [
+            "Mad Street Den",
+            "Manthan"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "SMEs in regulated industries in India deploying AI solutions (50-500 employees)",
+          "lead_type": "pain",
+          "mechanism": "SMEs in sectors like finance, healthcare and telecom that consume AI solutions from mid-size AI developers face indirect risks from non-compliance or security lapses, including operational failures and reputational damage.",
+          "companies_found": [
+            "Innovacio Technologies",
+            "SigTuple"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    }
+  ],
+  "total_hops": 29,
+  "log_messages": []
+}

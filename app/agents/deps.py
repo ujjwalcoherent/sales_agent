@@ -32,16 +32,17 @@ class AgentDeps:
     log_callback: Optional[object] = field(default=None, repr=False)
     disabled_providers: List[str] = field(default_factory=list, repr=False)
     scope: Optional[Any] = field(default=None, repr=False)  # DiscoveryScope from CLI
+    # Full ProductEntry list from UserProfile — used by email_agent for personalization.
+    # Carries value_prop, target_roles, relevant_event_types that user_products (names-only) lacks.
+    own_products: List[Any] = field(default_factory=list, repr=False)
 
     # Lazy-initialized tools
     _llm_service: Optional[object] = field(default=None, repr=False)
-    _llm_lite_service: Optional[object] = field(default=None, repr=False)
     _tavily_tool: Optional[object] = field(default=None, repr=False)
     _rss_tool: Optional[object] = field(default=None, repr=False)
     _apollo_tool: Optional[object] = field(default=None, repr=False)
     _hunter_tool: Optional[object] = field(default=None, repr=False)
     _embedding_tool: Optional[object] = field(default=None, repr=False)
-    _article_cache: Optional[object] = field(default=None, repr=False)
     _source_bandit: Optional[object] = field(default=None, repr=False)
     _company_bandit: Optional[object] = field(default=None, repr=False)
 
@@ -51,7 +52,6 @@ class AgentDeps:
     _event_distribution: Dict[str, int] = field(default_factory=dict, repr=False)
     _trend_tree: Optional[object] = field(default=None, repr=False)
     _pipeline: Optional[object] = field(default=None, repr=False)
-    _params_used: Dict[str, float] = field(default_factory=dict, repr=False)
     _trend_data: List[Any] = field(default_factory=list, repr=False)
     _impacts: List[Any] = field(default_factory=list, repr=False)
     _viable_impacts: List[Any] = field(default_factory=list, repr=False)
@@ -64,7 +64,7 @@ class AgentDeps:
     _search_manager: Optional[object] = field(default=None, repr=False)
     _causal_results: List[Any] = field(default_factory=list, repr=False)
     _lead_sheets: List[Any] = field(default_factory=list, repr=False)
-    # Per-run quality metrics for autonomous weight/bandit learning
+    # Per-run quality metrics for bandit learning
     _signals: List[Any] = field(default_factory=list, repr=False)
 
     # Run recorder — captures step snapshots for mock replay (real runs only)
@@ -104,15 +104,6 @@ class AgentDeps:
             _recorder=recorder,
         )
 
-    def _log(self, msg: str, level: str = "info"):
-        """Log to both logger and optional UI callback."""
-        getattr(logger, level, logger.info)(msg)
-        if self.log_callback:
-            try:
-                self.log_callback(msg, level)
-            except Exception:
-                pass
-
     # ── Tool properties (lazy init) ──────────────────────────────────
 
     @property
@@ -124,17 +115,6 @@ class AgentDeps:
                 disabled_providers=self.disabled_providers,
             )
         return self._llm_service
-
-    @property
-    def llm_lite_service(self):
-        if self._llm_lite_service is None:
-            from app.tools.llm.llm_service import LLMService
-            self._llm_lite_service = LLMService(
-                mock_mode=self.mock_mode,
-                lite=True,
-                disabled_providers=self.disabled_providers,
-            )
-        return self._llm_lite_service
 
     @property
     def tavily_tool(self):
@@ -170,13 +150,6 @@ class AgentDeps:
             from app.tools.llm.embeddings import EmbeddingTool
             self._embedding_tool = EmbeddingTool()
         return self._embedding_tool
-
-    @property
-    def article_cache(self):
-        if self._article_cache is None:
-            from app.tools.article_cache import ArticleCache
-            self._article_cache = ArticleCache()
-        return self._article_cache
 
     @property
     def source_bandit(self):
@@ -222,18 +195,6 @@ class AgentDeps:
 # ── Learning signals ─────────────────────────────────────────────────────────
 
 @dataclass
-class HopSignal:
-    """Quality signal for a single causal hop."""
-    hop: int
-    segment: str
-    lead_type: str
-    confidence: float
-    companies_found: int          # How many real companies KB returned
-    tool_calls: int               # How many tool calls the LLM agent made
-    mechanism_specificity: float  # OSS-like score for mechanism text (0-1)
-
-
-@dataclass
 class LearningSignal:
     """
     Per-run learning signal captured from all pipeline agents.
@@ -250,21 +211,14 @@ class LearningSignal:
 
     # Synthesis quality (set from app/trends/specificity.py OSS computation)
     oss_score: float = 0.0
-    synthesis_retries: int = 0
 
     # Causal chain quality
     hops_generated: int = 0
-    hop_signals: list[HopSignal] = field(default_factory=list)
-    causal_tool_calls: int = 0     # Total LLM tool calls across all hops
     kb_hit_rate: float = 0.0       # Fraction of hops that found real KB companies
 
     # Lead crystallization quality
     leads_generated: int = 0
     leads_with_companies: int = 0  # Leads with a real company from KB (not placeholder)
-    avg_lead_confidence: float = 0.0
-
-    # Source tracking (for source bandit feedback loop)
-    source_article_ids: list[str] = field(default_factory=list)
 
     # Run metadata
     run_id: str = ""
@@ -276,9 +230,7 @@ class LearningSignal:
             "event_type": self.event_type,
             "oss_score": self.oss_score,
             "hops_generated": self.hops_generated,
-            "causal_tool_calls": self.causal_tool_calls,
             "kb_hit_rate": self.kb_hit_rate,
             "leads_generated": self.leads_generated,
             "leads_with_companies": self.leads_with_companies,
-            "avg_lead_confidence": self.avg_lead_confidence,
         }

@@ -1,0 +1,245 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "RBI's Q1 2026 digital lending compliance mandate requires all NBFCs and digital lending platforms to implement real-time audit trails, 24-hour KYC validation, and disbursement monitoring systems. Non-compliance risks fines of ₹50 lakh per violation. The deadline creates immediate demand for RegTech vendors, compliance consultants, and technology integrators specializing in RBI-grade audit infrastructure.",
+      "event_type": "regulation",
+      "reasoning": "The RBI's digital lending circular creates a hard compliance deadline — a forcing function that drives immediate technology procurement. First-order affected are NBFCs and digital lenders who must build or buy compliance infrastructure within weeks. Second-order affected are RegTech vendors and compliance consultants who gain urgent new mandates. Third-order affected are the NBFC borrowers who will see faster KYC and better loan pricing as the compliance ecosystem matures.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size NBFCs and digital lending platforms in India with 200-2000 employees, processing digital loans above ₹100 crore monthly",
+          "lead_type": "pain",
+          "mechanism": "Must immediately procure audit trail systems, real-time KYC validation, and disbursement monitoring to avoid ₹50L per violation fines ahead of Q1 2026 deadline",
+          "companies_found": [
+            "Lendingkart Finance",
+            "Aye Finance",
+            "Kissht",
+            "FlexiLoans"
+          ],
+          "confidence": 0.92,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "RegTech and compliance technology vendors serving Indian financial institutions, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "NBFC compliance demand creates an immediate pipeline of contracts for RegTech platforms offering RBI-grade audit trails, automated KYC, and regulatory reporting",
+          "companies_found": [
+            "Signzy Technologies",
+            "Bureau.id",
+            "Perfios Account Aggregation"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Legal and compliance consulting firms specializing in RBI financial sector regulations",
+          "lead_type": "opportunity",
+          "mechanism": "NBFCs lacking internal compliance expertise turn to outside counsel and consulting firms to interpret RBI circulars, draft remediation plans, and coordinate audits",
+          "companies_found": [
+            "Cyril Amarchand Mangaldas (financial regulatory practice)",
+            "AZB & Partners",
+            "Luthra and Luthra"
+          ],
+          "confidence": 0.78,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "RBI has mandated all payment aggregators processing above ₹500 crore UPI monthly to obtain fresh PA licenses by March 31, 2026. The licensing process requires technical audits, nodal account restructuring, merchant onboarding compliance, and board-level governance certifications. Several mid-size fintechs face temporary suspension risk if they miss the deadline.",
+      "event_type": "regulation",
+      "reasoning": "The PA licensing mandate is a binary compliance event — either the aggregator is licensed or it cannot operate above the threshold. This creates intense urgency for the 20+ payment aggregators currently operating without an updated PA license. First-order affected are the aggregators themselves who must immediately engage compliance infrastructure vendors. Second-order affected are the merchants and platforms that depend on these aggregators for payment processing continuity.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Payment aggregators and payment gateway companies in India with UPI monthly volumes above ₹500 crore",
+          "lead_type": "pain",
+          "mechanism": "Must restructure nodal accounts, pass RBI technical audits, and complete merchant compliance certifications before March 31, 2026 or risk operations suspension",
+          "companies_found": [
+            "Cashfree Payments",
+            "Razorpay",
+            "PayU India",
+            "Easebuzz"
+          ],
+          "confidence": 0.91,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Merchant platforms and e-commerce companies in India dependent on mid-size payment aggregators for checkout",
+          "lead_type": "pain",
+          "mechanism": "If their payment aggregator loses PA license, merchants face payment processing disruption requiring emergency migration to licensed aggregators within days",
+          "companies_found": [
+            "Meesho",
+            "Nykaa",
+            "Udaan B2B Commerce"
+          ],
+          "confidence": 0.82,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 3,
+          "segment": "Compliance technology and audit firms specializing in RBI payment system infrastructure",
+          "lead_type": "opportunity",
+          "mechanism": "PA licensing requirements create demand for technical audit services, nodal account reconciliation tools, and compliance documentation platforms",
+          "companies_found": [
+            "Deloitte India Financial Advisory",
+            "KPMG India Regulatory"
+          ],
+          "confidence": 0.77,
+          "urgency_weeks": 3
+        }
+      ]
+    },
+    {
+      "event_summary": "SEBI has released a comprehensive Virtual Digital Assets (VDA) regulation framework requiring crypto exchanges and custodians to register with SEBI by June 2026, maintain segregated client funds in regulated bank accounts, implement AML/CFT controls equivalent to stock brokers, and file suspicious transaction reports. The framework imposes compliance costs of ₹5-20 crore annually on larger exchanges.",
+      "event_type": "regulation",
+      "reasoning": "SEBI's VDA framework transforms crypto exchanges from unregulated entities to quasi-broker-dealers. The compliance burden — segregated fund accounts, AML systems, SEBI registration — requires immediate investment in compliance infrastructure. First-order affected are exchanges who must build or buy broker-grade compliance stacks. Second-order affected are institutional investors now able to allocate to regulated crypto for the first time.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Crypto exchanges and VDA custodians operating in India with more than 100,000 active users",
+          "lead_type": "pain",
+          "mechanism": "Must register with SEBI by June 2026, implement AML/CFT controls, segregate client funds, and file suspicious transaction reports — all requiring new compliance technology stacks",
+          "companies_found": [
+            "CoinDCX",
+            "CoinSwitch Kuber",
+            "WazirX",
+            "Mudrex"
+          ],
+          "confidence": 0.88,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 2,
+          "segment": "AML/KYC compliance technology vendors serving regulated financial institutions in India",
+          "lead_type": "opportunity",
+          "mechanism": "Crypto exchanges need broker-grade AML/KYC systems for the first time, creating net-new procurement mandates for compliance tech vendors previously excluded from the crypto market",
+          "companies_found": [
+            "Credgenics",
+            "Karza Technologies",
+            "IDfy"
+          ],
+          "confidence": 0.83,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Institutional investors and family offices in India seeking regulated crypto allocation vehicles",
+          "lead_type": "opportunity",
+          "mechanism": "SEBI regulation creates investor-grade asset class from crypto, enabling institutional allocation through SEBI-registered custodians and exchanges for the first time",
+          "companies_found": [
+            "Edelweiss Wealth Management",
+            "Kotak Alternate Asset Managers"
+          ],
+          "confidence": 0.71,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "India's Account Aggregator ecosystem has crossed 50 million active consents in FY2026, with banks and NBFCs integrating AA-based credit decisioning to reduce loan underwriting time from weeks to hours. The surge is driven by mandated participation by all scheduled commercial banks and the expanding FIP/FIU ecosystem covering mutual funds, insurance, and pension data.",
+      "event_type": "technology",
+      "reasoning": "The AA framework's adoption surge creates competitive pressure among financial institutions — those who adopt AA credit decisioning gain significant underwriting advantage over peers still using traditional credit bureau data. This urgency drives immediate API integration projects and creates opportunities for fintech middleware vendors who connect institutions to the AA network.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Regional cooperative banks and mid-size NBFCs not yet integrated with Account Aggregator network",
+          "lead_type": "pain",
+          "mechanism": "Larger competitors using AA data are undercutting on loan pricing and approval speed; non-AA lenders face adverse selection as better borrowers migrate to faster lenders",
+          "companies_found": [
+            "Mahindra Finance",
+            "Muthoot Finance",
+            "Bajaj Finance",
+            "Cholamandalam Investment"
+          ],
+          "confidence": 0.86,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 2,
+          "segment": "Financial data technology vendors and API integration specialists for Indian banking sector",
+          "lead_type": "opportunity",
+          "mechanism": "AA integration complexity drives demand for middleware vendors who handle FIP/FIU onboarding, consent management, and financial data normalization",
+          "companies_found": [
+            "Setu (acquired by Pine Labs)",
+            "Finbit Analytics",
+            "Onemoney"
+          ],
+          "confidence": 0.81,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "RBI's bi-annual financial stability report identified 18 NBFCs with capital adequacy ratios below the 15% regulatory minimum, requiring them to submit 60-day remediation plans. The report also flagged concentration risk in unsecured lending, with the top 10 digital lenders controlling 68% of disbursements. This signals potential tightening of unsecured lending limits.",
+      "event_type": "regulation",
+      "reasoning": "NBFCs under capital stress have two choices: raise fresh capital or shrink their loan books. Both paths require specialized advisory services, technology for portfolio monitoring, and access to alternative capital markets. The concentration risk warning also signals that lenders must diversify into secured lending, creating demand for collateral management and property valuation technology.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "The 18 undercapitalized NBFCs identified by RBI stress test with CAR below 15%",
+          "lead_type": "pain",
+          "mechanism": "Must submit remediation plans within 60 days, requiring capital advisory, portfolio stress testing tools, and potential asset-liability restructuring services",
+          "companies_found": [
+            "SREI Equipment Finance",
+            "Asirvad Micro Finance",
+            "Arohan Financial Services",
+            "Spandana Sphoorty Financial"
+          ],
+          "confidence": 0.84,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 2,
+          "segment": "Capital advisory firms and distressed asset investors focused on Indian NBFC sector",
+          "lead_type": "opportunity",
+          "mechanism": "Undercapitalized NBFCs create demand for capital raise advisory, NPA resolution services, and alternative investment vehicles for stressed financial sector assets",
+          "companies_found": [
+            "ARCIL (Asset Reconstruction Company India)",
+            "JM Financial Asset Reconstruction"
+          ],
+          "confidence": 0.76,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "UIDAI and RBI jointly launched e-KYC 2.0, enabling financial institutions to complete KYC in under 3 minutes using Aadhaar biometrics and PAN linkage. Early adopters report 80% reduction in onboarding time and 45% reduction in fraud drop-off. The framework is expected to become mandatory for all regulated financial entities by FY2027.",
+      "event_type": "technology",
+      "reasoning": "e-KYC 2.0 creates a competitive advantage for early adopters — fintechs that integrate first gain conversion rate improvements that translate directly to revenue. The anticipated mandatory adoption timeline creates urgency for institutions still using legacy KYC workflows. This benefits integration SDK vendors and compliance technology companies.",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Fintech companies and digital banks with manual or semi-automated KYC processes causing >10% drop-off in customer onboarding",
+          "lead_type": "opportunity",
+          "mechanism": "e-KYC 2.0 integration reduces onboarding time 80% and fraud 45%, directly improving conversion rates and reducing CAC; first movers gain competitive differentiation",
+          "companies_found": [
+            "KreditBee",
+            "MoneyTap",
+            "ZestMoney",
+            "Navi Technologies"
+          ],
+          "confidence": 0.89,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Digital onboarding and identity verification SDK vendors for Indian financial sector",
+          "lead_type": "opportunity",
+          "mechanism": "e-KYC 2.0 adoption creates demand for integration middleware, Aadhaar XML parsers, PAN API connectors, and CKYC registry interfaces",
+          "companies_found": [
+            "Digio (Digital Identity Solutions)",
+            "Aadhaar Bridge",
+            "HyperVerge"
+          ],
+          "confidence": 0.82,
+          "urgency_weeks": 3
+        }
+      ]
+    }
+  ],
+  "log_messages": []
+}

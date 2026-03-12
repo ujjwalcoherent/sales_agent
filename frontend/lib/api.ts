@@ -11,8 +11,6 @@ import type {
   CompanySearchResponse,
   CompanyNewsResponse,
   GenerateLeadsResponse,
-  NewsListResponse,
-  FeedbackHistoryResponse,
   SavedCompany,
   SavedCompanyListResponse,
   Campaign,
@@ -54,7 +52,7 @@ export const api = {
     mockMode = false,
     replayRunId?: string,
     disabledProviders?: string[],
-    overrides?: { country?: string; max_trends?: number },
+    overrides?: { country?: string; max_trends?: number; mode?: string; industry?: string; companies?: string[] },
   ): Promise<RunPipelineResponse> {
     return apiFetch("/api/v1/pipeline/run", {
       method: "POST",
@@ -64,6 +62,9 @@ export const api = {
         ...(disabledProviders?.length ? { disabled_providers: disabledProviders } : {}),
         ...(overrides?.country ? { country: overrides.country } : {}),
         ...(overrides?.max_trends ? { max_trends: overrides.max_trends } : {}),
+        ...(overrides?.mode ? { mode: overrides.mode } : {}),
+        ...(overrides?.industry ? { industry: overrides.industry } : {}),
+        ...(overrides?.companies?.length ? { companies: overrides.companies } : {}),
       }),
     });
   },
@@ -159,20 +160,6 @@ export const api = {
     });
   },
 
-  /** GET /api/v1/feedback/history — paginated feedback records */
-  getFeedbackHistory(params?: {
-    feedback_type?: string;
-    page?: number;
-    per_page?: number;
-  }): Promise<FeedbackHistoryResponse> {
-    const qs = new URLSearchParams();
-    if (params?.feedback_type) qs.set("feedback_type", params.feedback_type);
-    if (params?.page !== undefined) qs.set("page", String(params.page));
-    if (params?.per_page !== undefined) qs.set("per_page", String(params.per_page));
-    const query = qs.toString();
-    return apiFetch(`/api/v1/feedback/history${query ? `?${query}` : ""}`);
-  },
-
   /** POST /api/v1/pipeline/cancel — force-cancel all active runs */
   cancelPipeline(): Promise<{ cancelled: number; message: string }> {
     return apiFetch("/api/v1/pipeline/cancel", { method: "POST" });
@@ -219,27 +206,6 @@ export const api = {
   /** GET /api/v1/companies/{id}/news — paginated company news from ChromaDB */
   getCompanyNews(companyId: string, page = 1, perPage = 20): Promise<CompanyNewsResponse> {
     return apiFetch(`/api/v1/companies/${companyId}/news?page=${page}&per_page=${perPage}`);
-  },
-
-  /** GET /api/v1/news — paginated news feed from article cache */
-  getNews(params?: {
-    search?: string;
-    source?: string;
-    page?: number;
-    per_page?: number;
-  }): Promise<NewsListResponse> {
-    const qs = new URLSearchParams();
-    if (params?.search) qs.set("search", params.search);
-    if (params?.source) qs.set("source", params.source);
-    if (params?.page !== undefined) qs.set("page", String(params.page));
-    if (params?.per_page !== undefined) qs.set("per_page", String(params.per_page));
-    const query = qs.toString();
-    return apiFetch(`/api/v1/news${query ? `?${query}` : ""}`);
-  },
-
-  /** GET /api/v1/news/stats — article cache statistics */
-  getNewsStats(): Promise<{ total_articles: number; sources: Record<string, number>; date_range: { earliest: string; latest: string } }> {
-    return apiFetch("/api/v1/news/stats");
   },
 
   /**
@@ -432,6 +398,19 @@ export const api = {
       currentEs?.close();
     };
   },
+
+  /** GET /api/v1/settings/mock-mode — get global mock mode state */
+  getMockMode(): Promise<MockModeState> {
+    return apiFetch("/api/v1/settings/mock-mode");
+  },
+
+  /** POST /api/v1/settings/mock-mode — toggle global mock mode */
+  setMockMode(enabled: boolean, recording?: string): Promise<MockModeState> {
+    return apiFetch("/api/v1/settings/mock-mode", {
+      method: "POST",
+      body: JSON.stringify({ enabled, ...(recording ? { recording } : {}) }),
+    });
+  },
 };
 
 // ─── Profiles ────────────────────────────────────────────────────────────────
@@ -461,13 +440,26 @@ export async function updateProfile(profileId: string, data: Partial<CreateProfi
   })
 }
 
-export async function patchProfile(profileId: string, data: Partial<CreateProfileRequest>): Promise<UserProfile> {
-  return apiFetch(`/api/v1/profiles/${profileId}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  })
-}
-
 export async function deleteProfile(profileId: string): Promise<void> {
   return apiFetch(`/api/v1/profiles/${profileId}`, { method: "DELETE" })
+}
+
+// ─── Global Mock Mode ─────────────────────────────────────────────────────────
+
+export interface MockModeState {
+  enabled: boolean
+  selected_recording: string
+  available_recordings: { run_id: string; files: number; has_leads: boolean; recommended: boolean }[]
+  recommendation: string
+}
+
+export async function getMockMode(): Promise<MockModeState> {
+  return apiFetch("/api/v1/settings/mock-mode")
+}
+
+export async function setMockMode(enabled: boolean, recording?: string): Promise<MockModeState> {
+  return apiFetch("/api/v1/settings/mock-mode", {
+    method: "POST",
+    body: JSON.stringify({ enabled, ...(recording ? { recording } : {}) }),
+  })
 }

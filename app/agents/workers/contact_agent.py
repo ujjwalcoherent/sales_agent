@@ -3,18 +3,20 @@ Contact Finder Agent.
 Finds decision-makers at companies based on trend type.
 """
 
+import asyncio
 import logging
 import hashlib
 import re
-from typing import List, Dict, Optional
+from typing import List
 
-from ...schemas import CompanyData, ContactData, ImpactAnalysis, AgentState
+from ...schemas import CompanyData, ContactData, AgentState
 from app.tools.llm.llm_service import LLMService
 from app.tools.crm.apollo_tool import ApolloTool
 from ...config import get_settings, TREND_ROLE_MAPPING
 
 logger = logging.getLogger(__name__)
 
+_RE_DIGITS = re.compile(r"\d+")
 
 _C_SUITE = frozenset({
     "ceo", "cfo", "cto", "coo", "cmo", "cio", "ciso", "founder", "co-founder",
@@ -51,11 +53,14 @@ def match_roles_to_trend(
     who_needs_help: str = "",
     trend_title: str = "",
     employee_count: int | None = None,
+    bandit=None,
 ) -> list[str]:
     """Determine which roles to target based on the trend.
 
     Uses trend_type as primary signal, then scans trend_title, pain_point,
     and who_needs_help for role keywords. Returns ordered list of target roles.
+
+    bandit: pre-loaded ContactBandit instance; if None, loads from disk.
     """
     roles = list(TREND_ROLE_MAPPING.get(trend_type, []))
 
@@ -112,8 +117,9 @@ def match_roles_to_trend(
     # Bandit learns which (role × event_type × company_size) combos get replies.
     # REF: Chapelle & Li (2011) Thompson Sampling for CTR — arXiv:1111.1797
     try:
-        from app.learning.contact_bandit import ContactBandit
-        bandit = ContactBandit.load()
+        if bandit is None:
+            from app.learning.contact_bandit import ContactBandit
+            bandit = ContactBandit.load()
         if bandit.total_updates > 0:
             size = "enterprise" if (employee_count or 0) > 900 else (
                 "smb" if (employee_count or 0) < 100 else "mid_market"
@@ -279,8 +285,15 @@ class ContactFinder:
         search_errors = []
 
         # Parallel contact search — semaphore limits concurrent API calls
-        import asyncio
         semaphore = asyncio.Semaphore(4)
+
+        # Load ContactBandit once — avoid N redundant file reads (one per company)
+        _contact_bandit = None
+        try:
+            from app.learning.contact_bandit import ContactBandit
+            _contact_bandit = ContactBandit.load()
+        except Exception:
+            pass  # Graceful degradation: rank_roles won't be called
 
         async def _find_one(company):
             async with semaphore:
@@ -289,30 +302,28 @@ class ContactFinder:
                     trend_title = ""
                     who_needs_help = ""
                     pain_point = ""
-                    trend_context = ""
                     if getattr(company, "target_roles", None):
                         target_roles = list(company.target_roles)
-                        # Still build trend_context from impact if available
                         impact = impact_map.get(company.trend_id)
                         trend = trend_map.get(company.trend_id)
-                        trend_title = getattr(trend, "trend_title", "") or "" if trend else ""
-                        who_needs_help = getattr(impact, "who_needs_help", "") or "" if impact else ""
+                        trend_title = getattr(trend, "trend_title", "") if trend else ""
+                        who_needs_help = getattr(impact, "who_needs_help", "") if impact else ""
                     else:
                         impact = impact_map.get(company.trend_id)
                         trend = trend_map.get(company.trend_id)
-                        trend_type = getattr(trend, "trend_type", "") or "" if trend else ""
-                        trend_title = getattr(trend, "trend_title", "") or "" if trend else ""
+                        trend_type = getattr(trend, "trend_type", "") if trend else ""
+                        trend_title = getattr(trend, "trend_title", "") if trend else ""
                         pain_point = " ".join(getattr(impact, "midsize_pain_points", []) or []) if impact else ""
-                        who_needs_help = getattr(impact, "who_needs_help", "") or "" if impact else ""
+                        who_needs_help = getattr(impact, "who_needs_help", "") if impact else ""
                         emp_count = getattr(company, "employee_count", None)
                         if isinstance(emp_count, str):
                             # Parse "500-1000" → take lower bound
-                            import re as _re
-                            m = _re.search(r"\d+", emp_count)
+                            m = _RE_DIGITS.search(emp_count)
                             emp_count = int(m.group()) if m else None
+                        # Pass pre-loaded bandit — avoids N disk reads (one per company)
                         matched_roles = match_roles_to_trend(
                             trend_type, pain_point, who_needs_help, trend_title=trend_title,
-                            employee_count=emp_count,
+                            employee_count=emp_count, bandit=_contact_bandit,
                         )
                         if matched_roles:
                             target_roles = matched_roles
@@ -320,33 +331,8 @@ class ContactFinder:
                             target_roles = impact.target_roles
                         else:
                             target_roles = list(TREND_ROLE_MAPPING.get("default", []))
-
-                        # ContactBandit re-ranking: prioritize roles that historically
-                        # produce high-value contacts for this event type
-                        try:
-                            from app.learning.contact_bandit import ContactBandit
-                            _cb = ContactBandit.load()
-                            _event = trend_type or "general"
-                            _size = getattr(company, "company_size_band", "mid") or "mid"
-                            _ranked = _cb.rank_roles(
-                                roles=target_roles, event_type=_event, company_size=_size,
-                            )
-                            # rank_roles returns List[Tuple[str, float]] — extract role names
-                            target_roles = [r for r, _ in _ranked]
-                        except Exception:
-                            pass  # Graceful degradation: use original role order
-                    # Build trend context for trend-aware search + extraction
-                    _tc_parts = []
-                    if trend_title:
-                        _tc_parts.append(trend_title)
-                    if who_needs_help:
-                        _tc_parts.append(who_needs_help)
-                    elif pain_point:
-                        _tc_parts.append(pain_point[:150])
-                    trend_context = " | ".join(_tc_parts)[:200]
-
                     contacts = await self._find_contacts_for_company(
-                        company, target_roles, max_contacts, trend_context=trend_context,
+                        company, target_roles, max_contacts,
                     )
                     logger.info(f"Found {len(contacts)} contacts at: {company.company_name}")
                     return contacts
@@ -374,7 +360,6 @@ class ContactFinder:
         company: CompanyData,
         target_roles: List[str],
         limit: int,
-        trend_context: str = "",
     ) -> List[ContactData]:
         """Find contacts at a company — tiered: decision-makers first, then influencers."""
         contacts = []
@@ -389,8 +374,8 @@ class ContactFinder:
         if not other_roles:
             other_roles = [r.strip() for r in self.settings.default_influencer_roles.split(",") if r.strip()]
 
-        # Phase 1: Decision makers (up to half the limit, at least 3)
-        dm_limit = min(max(3, limit // 2), limit)
+        # Phase 1: Decision makers (30% of budget, at least 2)
+        dm_limit = min(max(2, limit * 3 // 10), limit)
         if company.domain:
             try:
                 apollo_dms = await self._find_via_apollo(company, dm_roles, dm_limit)
@@ -398,7 +383,7 @@ class ContactFinder:
             except Exception as e:
                 logger.debug(f"Apollo DM search failed for {company.company_name}: {e}")
 
-        # Phase 2: Influencers (remaining quota)
+        # Phase 2: Influencers + evaluators (remaining quota)
         inf_limit = limit - len(contacts)
         if inf_limit > 0 and company.domain:
             try:
@@ -453,8 +438,7 @@ class ContactFinder:
         if self.hunter_tool and company.domain:
             no_email = [c for c in contacts if not c.email and c.person_name]
             if no_email:
-                import asyncio as _aio
-                email_results = await _aio.gather(
+                email_results = await asyncio.gather(
                     *[
                         self.hunter_tool.find_email(company.domain, c.person_name)
                         for c in no_email[:5]  # Cap at 5 to stay within Hunter rate limits
@@ -563,7 +547,3 @@ class ContactFinder:
             if new_email and (contact.email or "").lower().strip() == new_email:
                 return True
         return False
-
-
-# Backward compatibility alias
-ContactAgent = ContactFinder

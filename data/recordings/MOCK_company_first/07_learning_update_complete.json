@@ -1,0 +1,137 @@
+{
+  "signal_count": 6,
+  "avg_oss": 0.817,
+  "avg_kb_hit": 0.962,
+  "signals": [
+    {
+      "trend_title": "Generative AI Services Demand: 180% Revenue Growth at Indian IT Leaders",
+      "event_type": "technology",
+      "oss_score": 0.85,
+      "hops_generated": 3,
+      "causal_tool_calls": 2,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 3,
+      "leads_with_companies": 3,
+      "avg_lead_confidence": 0.919
+    },
+    {
+      "trend_title": "EU AI Act Compliance: $500M Implementation Opportunity for Indian IT",
+      "event_type": "regulation",
+      "oss_score": 0.85,
+      "hops_generated": 2,
+      "causal_tool_calls": 2,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 2,
+      "leads_with_companies": 2,
+      "avg_lead_confidence": 0.882
+    },
+    {
+      "trend_title": "DOGE Federal Tech Cuts: Indian IT Companies Pivot to Private Sector",
+      "event_type": "m_and_a",
+      "oss_score": 0.75,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 0.917,
+      "leads_generated": 1,
+      "leads_with_companies": 1,
+      "avg_lead_confidence": 0.843
+    },
+    {
+      "trend_title": "BFSI Cloud Migration Drives $12B Deal Wins for Indian IT FY2026",
+      "event_type": "technology",
+      "oss_score": 0.85,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 3,
+      "leads_with_companies": 3,
+      "avg_lead_confidence": 0.857
+    },
+    {
+      "trend_title": "HCL Technologies €380M Acquisition Expands EU SAP Practice",
+      "event_type": "m_and_a",
+      "oss_score": 0.75,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 0.875,
+      "leads_generated": 1,
+      "leads_with_companies": 1,
+      "avg_lead_confidence": 0.892
+    },
+    {
+      "trend_title": "Wipro AI360: 30,000 Employees Certified, 65% AI Deal Growth",
+      "event_type": "technology",
+      "oss_score": 0.85,
+      "hops_generated": 2,
+      "causal_tool_calls": 1,
+      "kb_hit_rate": 1.0,
+      "leads_generated": 1,
+      "leads_with_companies": 1,
+      "avg_lead_confidence": 0.903
+    }
+  ],
+  "signal_bus": {
+    "system_confidence": 0.893,
+    "exploration_budget": 0.107,
+    "learning_path": "exploitation",
+    "total_drift": 0.0,
+    "source_degraded": [],
+    "feedback_distribution": {
+      "good_trend": 6,
+      "already_knew": 0,
+      "bad_trend": 0
+    },
+    "reasoning_grade": "A",
+    "reasoning_quality": 0.891,
+    "strategy_adjustments": {
+      "source_intel": {
+        "real_time_relevance": "Company earnings releases (Q3 FY2026) and acquisition announcements provide the highest signal density for company_first mode — prioritize BSE/NSE filings and company press rooms.",
+        "noise_filtering": "IT sector articles without specific deal values or financial metrics should be deprioritized — vague 'AI transformation' coverage adds noise without actionable signal.",
+        "quality_metrics": "Deal value specificity ($100M+ contracts) should receive score boost in trend analysis; vague deal announcements underperform in lead conversion."
+      },
+      "analysis": {
+        "drop_trends": [],
+        "boost_trends": [
+          "Company-specific financial milestones (deal pipeline crossing thresholds, quarterly results) outperform sector-wide trend articles for lead generation precision.",
+          "M&A events at target companies create highest-urgency post-acquisition integration sales opportunity — prioritize."
+        ]
+      },
+      "lead_gen": {
+        "personalization_tips": [
+          "Reference the specific deal value or metric (₹63,847 crore revenue, 340 AI projects) in outreach — specificity demonstrates research depth and increases open rates.",
+          "For IT company targets (B2B selling TO the IT companies), VP Alliances and partnership roles consistently outperform CTO for first contact."
+        ],
+        "targeting_improvements": [
+          "Company_first mode benefits from expanding hop-2 and hop-3 to the IT company's enterprise clients — the client ecosystem is often easier to reach than the IT company itself.",
+          "Post-acquisition integration signals should trigger immediate outreach — the 90-day window is the highest-urgency period."
+        ]
+      }
+    }
+  },
+  "retrospective": {
+    "grade": "A",
+    "summary": "Company_first mode on Infosys, TCS, Wipro, and HCL Technologies generated 8 high-confidence leads across 6 trend clusters, with exceptional contact coverage (100% of companies have verified email + LinkedIn contacts). The causal reasoning chain consistently expanded beyond the 4 target companies to their enterprise client ecosystem, yielding richer lead sets than pure target-company-only analysis.",
+    "successes": [
+      "All 4 target companies (Infosys, TCS, Wipro, HCL) converted to actionable lead sheets with VP/C-suite contact data.",
+      "Causal chain expansion to client ecosystem (Yes Bank, ICICI Lombard, HDFC Life, Siemens India) added 4 high-quality adjacent leads.",
+      "Average lead confidence of 0.882 — highest recorded for company_first mode.",
+      "EU AI Act and DOGE/US federal trends provided macro context that makes outreach emails immediately relevant to FY2026 business concerns."
+    ],
+    "failures": [],
+    "improvement_plan": [
+      {
+        "target": "source_bandit",
+        "action": "increase",
+        "expected_impact": "Add NSE/BSE corporate filings as Tier 1 source for Indian IT company tracking — earnings surprises and major deal announcements discovered hours earlier via filings vs news.",
+        "priority": "high"
+      },
+      {
+        "target": "analysis",
+        "action": "focus",
+        "expected_impact": "For company_first mode, add an acquisition-trigger detection: when a target company makes an acquisition, immediately generate hop-1 post-acquisition integration leads.",
+        "priority": "medium"
+      }
+    ]
+  },
+  "log_messages": []
+}

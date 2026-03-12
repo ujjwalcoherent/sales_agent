@@ -1,0 +1,608 @@
+[
+  {
+    "cluster_id": "37b65aac617d",
+    "label": "Microsoft event 1",
+    "article_count": 11,
+    "article_indices": [
+      16,
+      97,
+      113,
+      259,
+      384,
+      455,
+      524,
+      525,
+      526,
+      527,
+      529
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8855,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7602,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4543,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3421,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8318,
+      "silhouette_score": 0.0731,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "aefb5b466275",
+    "label": "Google event 1",
+    "article_count": 9,
+    "article_indices": [
+      16,
+      102,
+      113,
+      209,
+      359,
+      393,
+      486,
+      517,
+      534
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.8075,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7894,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4543,
+      "not_duplicate": 0.1468,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3552,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9122,
+      "silhouette_score": 0.0285,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "6feb51eadc67",
+    "label": "OpenAI event 1",
+    "article_count": 2,
+    "article_indices": [
+      116,
+      338
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "leadership_change",
+    "event_granularity": "nano",
+    "confidence": 0.9148,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8231,
+      "not_duplicate": 0.3245,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7461,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8487,
+      "silhouette_score": 0.0418,
+      "cut_threshold": 0.51,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "79fe014b61e8",
+    "label": "OpenAI event 2",
+    "article_count": 8,
+    "article_indices": [
+      297,
+      384,
+      532,
+      533,
+      534,
+      535,
+      537,
+      538
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.9054,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9084,
+      "not_duplicate": 0.1453,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5405,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8487,
+      "silhouette_score": 0.0418,
+      "cut_threshold": 0.51,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "cd7a743f99c4",
+    "label": "Amazon event 1",
+    "article_count": 3,
+    "article_indices": [
+      171,
+      381,
+      511
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9262,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8587,
+      "not_duplicate": 0.4037,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4876,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9809,
+      "silhouette_score": 0.1492,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "53bc542150bc",
+    "label": "Amazon event 2",
+    "article_count": 4,
+    "article_indices": [
+      16,
+      30,
+      257,
+      339
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.7685,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5588,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.53,
+      "not_duplicate": 0.2583,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2514,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9809,
+      "silhouette_score": 0.1492,
+      "cut_threshold": 0.66,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "23bca10f1cfc",
+    "label": "Revolut (all)",
+    "article_count": 4,
+    "article_indices": [
+      163,
+      241,
+      287,
+      452
+    ],
+    "primary_entity": "Revolut",
+    "entity_names": [
+      "Revolut"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9473,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8815,
+      "not_duplicate": 0.5915,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7994,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Financial Services",
+      "level_2": "Banking & Digital Payments",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "09265e5b3f3d",
+    "label": "Paramount (all)",
+    "article_count": 2,
+    "article_indices": [
+      5,
+      170
+    ],
+    "primary_entity": "Paramount",
+    "entity_names": [
+      "Paramount"
+    ],
+    "event_type": "merger",
+    "event_granularity": "major",
+    "confidence": 0.8796,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4607,
+      "not_duplicate": 0.335,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7532,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Media & Entertainment",
+      "level_2": "Media Conglomerates",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "9946200c6261",
+    "label": "Netflix (all)",
+    "article_count": 3,
+    "article_indices": [
+      30,
+      245,
+      454
+    ],
+    "primary_entity": "Netflix",
+    "entity_names": [
+      "Netflix"
+    ],
+    "event_type": "merger",
+    "event_granularity": "major",
+    "confidence": 0.8896,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6693,
+      "not_duplicate": 0.2265,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.524,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Media & Entertainment",
+      "level_2": "Streaming Services",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "a02ff01fb089",
+    "label": "Broadcom (all)",
+    "article_count": 3,
+    "article_indices": [
+      117,
+      120,
+      361
+    ],
+    "primary_entity": "Broadcom",
+    "entity_names": [
+      "Broadcom"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9215,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8157,
+      "not_duplicate": 0.3988,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7672,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Semiconductors & Infrastructure",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "7c0ad2677468",
+    "label": "SoftBank (all)",
+    "article_count": 3,
+    "article_indices": [
+      9,
+      483,
+      535
+    ],
+    "primary_entity": "SoftBank",
+    "entity_names": [
+      "SoftBank"
+    ],
+    "event_type": "funding",
+    "event_granularity": "major",
+    "confidence": 0.8546,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3504,
+      "not_duplicate": 0.1954,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4899,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Financial Services & Technology",
+      "level_2": "Investment & Tech Funding",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "b74d8fe0f899",
+    "label": "Palantir (all)",
+    "article_count": 2,
+    "article_indices": [
+      16,
+      232
+    ],
+    "primary_entity": "Palantir",
+    "entity_names": [
+      "Palantir"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8352,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8272,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.566,
+      "not_duplicate": 0.2176,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3722,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Healthcare",
+      "level_2": "Pharmaceuticals",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "0c74490d4a56",
+    "label": "Coinbase (all)",
+    "article_count": 2,
+    "article_indices": [
+      138,
+      210
+    ],
+    "primary_entity": "Coinbase",
+    "entity_names": [
+      "Coinbase"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8527,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.6532,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.919,
+      "not_duplicate": 0.4749,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2939,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Financial Services",
+      "level_2": "Cryptocurrency & Blockchain",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "6b3707ce9880",
+    "label": "Morgan Stanley (all)",
+    "article_count": 2,
+    "article_indices": [
+      414,
+      415
+    ],
+    "primary_entity": "Morgan Stanley",
+    "entity_names": [
+      "Morgan Stanley"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8885,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9017,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 1.0,
+      "not_duplicate": 0.464,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4058,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Media & Communications",
+      "level_2": "News & Broadcasting",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "26fa2da8173a",
+    "label": "Rocket Lab (all)",
+    "article_count": 2,
+    "article_indices": [
+      77,
+      352
+    ],
+    "primary_entity": "Rocket Lab",
+    "entity_names": [
+      "Rocket Lab"
+    ],
+    "event_type": "growth",
+    "event_granularity": "major",
+    "confidence": 0.7781,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5442,
+      "entity_consistency": 0.8333,
+      "temporal_proximity": 0.773,
+      "not_duplicate": 0.4812,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2449,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Financial Services",
+      "level_2": "Banking & Investment Banking",
+      "order": 2
+    }
+  },
+  {
+    "cluster_id": "5eb1fbaf2b0c",
+    "label": "Shell (all)",
+    "article_count": 2,
+    "article_indices": [
+      134,
+      190
+    ],
+    "primary_entity": "Shell",
+    "entity_names": [
+      "Shell"
+    ],
+    "event_type": "earnings",
+    "event_granularity": "major",
+    "confidence": 0.9469,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.917,
+      "not_duplicate": 0.5516,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5979,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Aerospace & Defense",
+      "level_2": "Space Systems & Launch Services",
+      "order": 2
+    }
+  }
+]

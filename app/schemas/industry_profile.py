@@ -14,7 +14,7 @@ Used by:
   - app/learning/threshold_adapter.py (industry-aware adaptation)
 """
 
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel, Field
 
 
@@ -60,7 +60,7 @@ class UserProfile(BaseModel):
     profile_id: str
     user_name: str
     own_company: str = ""
-    region: str = "global"                   # "IN", "US", "SEA", "global"
+    region: str = "global"                   # ISO 3166-1 alpha-2 (e.g. "IN", "US", "GB") or "global"
 
     # What the user sells
     own_products: List[ProductEntry] = Field(default_factory=list)
@@ -84,117 +84,4 @@ class UserProfile(BaseModel):
 
     # Self-learning signals (updated by learning loops — not user-editable)
     path_preference: str = "auto"            # "auto" | "industry" | "account" | "report"
-    total_runs: int = 0
-    total_emails_sent: int = 0
-    total_replies: int = 0
 
-
-# ── Default contact hierarchy (extended by user profile) ─────────────────────
-
-DEFAULT_CONTACT_HIERARCHY: List[ContactHierarchyEntry] = [
-    ContactHierarchyEntry(
-        event_type="funding",
-        company_size="enterprise",
-        role_priority=["VP Finance", "Director of FP&A", "Head of Procurement", "CFO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="funding",
-        company_size="mid_market",
-        role_priority=["CFO", "VP Finance", "CEO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="funding",
-        company_size="smb",
-        role_priority=["CEO", "Founder", "CFO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="expansion",
-        company_size="enterprise",
-        role_priority=["VP Operations", "Director of Expansion", "COO", "Head of Real Estate"],
-    ),
-    ContactHierarchyEntry(
-        event_type="expansion",
-        company_size="mid_market",
-        role_priority=["COO", "VP Operations", "CEO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="expansion",
-        company_size="smb",
-        role_priority=["CEO", "Founder", "COO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="technology_adoption",
-        company_size="enterprise",
-        role_priority=["VP Engineering", "Director of Digital", "Head of IT", "CTO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="technology_adoption",
-        company_size="mid_market",
-        role_priority=["CTO", "VP Engineering", "Head of Technology"],
-    ),
-    ContactHierarchyEntry(
-        event_type="technology_adoption",
-        company_size="smb",
-        role_priority=["CEO", "CTO", "Founder"],
-    ),
-    ContactHierarchyEntry(
-        event_type="product_launch",
-        company_size="enterprise",
-        role_priority=["VP Marketing", "CMO", "Director of Product Marketing"],
-    ),
-    ContactHierarchyEntry(
-        event_type="product_launch",
-        company_size="mid_market",
-        role_priority=["CMO", "VP Marketing", "CEO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="product_launch",
-        company_size="smb",
-        role_priority=["CEO", "CMO", "Founder"],
-    ),
-    ContactHierarchyEntry(
-        event_type="regulation_compliance",
-        company_size="enterprise",
-        role_priority=["Head of Compliance", "CLO", "VP Legal", "CISO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="regulation_compliance",
-        company_size="mid_market",
-        role_priority=["CLO", "Head of Compliance", "CEO"],
-    ),
-    ContactHierarchyEntry(
-        event_type="regulation_compliance",
-        company_size="smb",
-        role_priority=["CEO", "Founder", "Legal Counsel"],
-    ),
-]
-
-
-def get_role_priority(
-    event_type: str,
-    company_size: str,
-    profile: Optional[UserProfile] = None,
-) -> List[str]:
-    """Return ordered list of roles to target for a given event + company size.
-
-    Merges profile's custom hierarchy with defaults (profile takes priority).
-    Falls back gracefully if no match found.
-    """
-    # Check profile-level overrides first
-    if profile and profile.contact_hierarchy:
-        for entry in profile.contact_hierarchy:
-            if entry.event_type == event_type and entry.company_size == company_size:
-                return entry.role_priority
-
-    # Fall back to defaults
-    for entry in DEFAULT_CONTACT_HIERARCHY:
-        if entry.event_type == event_type and entry.company_size == company_size:
-            return entry.role_priority
-
-    # Generic fallback by size
-    size_fallback = {
-        "enterprise": ["VP " + event_type.replace("_", " ").title(), "Director", "C-Suite"],
-        "mid_market": ["VP", "Director", "CEO"],
-        "smb": ["CEO", "Founder", "Co-Founder"],
-    }
-    return size_fallback.get(company_size, ["CEO", "Founder"])

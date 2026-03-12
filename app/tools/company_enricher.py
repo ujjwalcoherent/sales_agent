@@ -23,10 +23,11 @@ Usage:
 """
 
 import asyncio
+import json
 import logging
 import re
 import unicodedata
-from typing import Optional, Union
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -214,7 +215,7 @@ async def validate_entity(name: str) -> ValidationResult:
         guessed_domain = extract_domain_from_company_name(name)
         if guessed_domain and is_valid_company_domain(guessed_domain):
             # Require strong name↔domain overlap to avoid accepting description strings
-            name_base = re.sub(r"[^a-z0-9]", "", name.lower())
+            name_base = _RE_NON_ALNUM.sub("", name.lower())
             dom_base = guessed_domain.split(".")[0].lower()
             # Domain must be a significant substring of company name or vice versa
             if len(dom_base) >= 4 and (dom_base in name_base or name_base.startswith(dom_base)):
@@ -238,6 +239,25 @@ _STRIP_SUFFIXES = re.compile(
     r"\b(inc\.?|ltd\.?|llc|corp\.?|corporation|limited|pvt\.?|private|plc|gmbh|sa|ag|co\.?)\b",
     re.IGNORECASE,
 )
+_RE_MULTI_SPACE = re.compile(r"\s+")
+_RE_NON_ALNUM = re.compile(r"[^a-z0-9]")
+
+# Wikipedia markup cleanup — _strip_wiki() is called ~5-10× per company
+_RE_WIKI_LINK = re.compile(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]")
+_RE_WIKI_HLIST = re.compile(r"\{\{(?:hlist|Unbulleted list|ubl|plainlist)\|([^}]*)\}\}", re.I)
+_RE_WIKI_DATE = re.compile(r"\{\{Start date(?: and age)?\|([^}]*)\}\}", re.I)
+_RE_WIKI_SMALL = re.compile(r"\{\{small\|([^}]*)\}\}", re.I)
+_RE_WIKI_TREND = re.compile(r"\{\{(?:Increase|Decrease|Steady)\}\}", re.I)
+_RE_WIKI_INR = re.compile(r"\{\{INRConvert\|[^}]*\}\}", re.I)
+_RE_WIKI_TPL_CONTENT = re.compile(r"\{\{[^|}]*\|([^|}]*?)(?:\|[^}]*)?\}\}")
+_RE_WIKI_TPL_EMPTY = re.compile(r"\{\{[^}]*\}\}")
+_RE_WIKI_REF = re.compile(r"<ref[^>]*>.*?</ref>|<ref[^/]*/?>", re.DOTALL)
+_RE_WIKI_BR = re.compile(r"<br\s*/?>", re.I)
+_RE_WIKI_TAG = re.compile(r"<[^>]+>")
+_RE_WIKI_TRIM = re.compile(r"^[,\s|]+|[,\s|]+$")
+_RE_YEAR = re.compile(r"\b(1[89]\d{2}|20[0-2]\d)\b")
+_RE_URL = re.compile(r"https?://[^\s|}\]]+")
+_RE_PRODUCT_SEP = re.compile(r"[,\n•·|*]")
 
 
 def _names_match(a: str, b: str) -> bool:
@@ -245,7 +265,7 @@ def _names_match(a: str, b: str) -> bool:
     def _norm(s: str) -> str:
         s = unicodedata.normalize("NFKC", s).lower().strip()
         s = _STRIP_SUFFIXES.sub("", s).strip()
-        s = re.sub(r"\s+", " ", s)
+        s = _RE_MULTI_SPACE.sub(" ", s)
         return s
 
     na, nb = _norm(a), _norm(b)
@@ -626,55 +646,66 @@ async def _extract_structured_fields(company: EnrichedCompany, text: str) -> Non
     Extracts everything possible: industry, headquarters, CEO, employee count,
     founded year, products/services, competitors, sub-industries, tech stack,
     investors, funding stage. Only fills fields that are still empty.
+
+    Track A: run_structured() with CompanyFieldsLLM (pydantic-ai typed output).
+    Track B: generate(json_mode) + manual parse fallback.
     """
     if not text or len(text) < 50:
         return
 
-    # Build dynamic field list based on what's missing
-    field_defs = {
-        "industry": ("string", not company.industry),
-        "headquarters": ("string", not company.headquarters),
-        "ceo": ("string", not company.ceo),
-        "employee_count": ("string", not company.employee_count),
-        "founded_year": ("integer", company.founded_year is None),
-        "products_services": ("list of strings", not company.products_services),
-        "competitors": ("list of strings", not company.competitors),
-        "sub_industries": ("list of strings", not company.sub_industries),
-        "tech_stack": ("list of strings", not company.tech_stack),
-        "investors": ("list of strings", not company.investors),
-        "funding_stage": ("string", not company.funding_stage),
-        "revenue": ("string", not company.revenue),
-        "stock_ticker": ("string", not company.stock_ticker),
-    }
-
-    missing = {k: t for k, (t, needed) in field_defs.items() if needed}
-    if not missing:
+    # Check if any fields are missing
+    field_checks = [
+        company.industry, company.headquarters, company.ceo, company.employee_count,
+        company.products_services, company.competitors, company.sub_industries,
+        company.tech_stack, company.investors, company.funding_stage, company.revenue,
+        company.stock_ticker,
+    ]
+    if all(field_checks) and company.founded_year is not None:
         return
+
+    sys_prompt = (
+        "You extract structured business intelligence from company profile text. "
+        "Fill all fields you can find. Use empty strings or empty lists for fields not found."
+    )
+    user_prompt = (
+        f"Extract all available business intelligence from this text about '{company.company_name}'.\n\n"
+        f"Text: {text[:2500]}"
+    )
 
     try:
         from .llm.llm_service import LLMService
 
         llm = LLMService(lite=True)
+        data = None
 
-        field_desc = ", ".join(f"{k} ({t})" for k, t in missing.items())
-        prompt = (
-            f"Extract all available business intelligence from this text about '{company.company_name}'.\n"
-            f"Return a JSON object with any of these fields you can find: {field_desc}\n"
-            f"Use null for fields not found. For list fields, return arrays.\n\n"
-            f"Text: {text[:2500]}\n\nJSON:"
-        )
-        response = await asyncio.wait_for(
-            llm.generate(prompt, temperature=0.1, max_tokens=500),
-            timeout=10.0,
-        )
+        # Track A: run_structured with pydantic-ai typed output
+        try:
+            from app.schemas.llm_outputs import CompanyFieldsLLM
+            result = await asyncio.wait_for(
+                llm.run_structured(
+                    prompt=user_prompt,
+                    system_prompt=sys_prompt,
+                    output_type=CompanyFieldsLLM,
+                ),
+                timeout=10.0,
+            )
+            # Convert to dict for uniform field-filling logic below
+            data = result.model_dump()
+        except Exception as e_struct:
+            logger.debug(f"Structured field extraction Track A failed for '{company.company_name}': {e_struct}")
 
-        if not response:
-            return
-
-        from app.tools.json_repair import parse_json_response
-        data = parse_json_response(response)
-        if not data or data.get("error"):
-            return
+        # Track B: generate + manual parse fallback
+        if data is None:
+            response = await asyncio.wait_for(
+                llm.generate(user_prompt + "\n\nReturn a JSON object.", temperature=0.1, max_tokens=500),
+                timeout=10.0,
+            )
+            if not response:
+                return
+            from app.tools.json_repair import parse_json_response
+            data = parse_json_response(response)
+            if not data or data.get("error"):
+                return
 
         def _to_list(val) -> list[str]:
             if isinstance(val, list):
@@ -689,7 +720,6 @@ async def _extract_structured_fields(company: EnrichedCompany, text: str) -> Non
             if not company.industry:
                 company.industry = llm_ind
             elif llm_ind.lower() != company.industry.lower():
-                # A1: LLM may extract a different/broader label → store as sub_industry
                 if llm_ind not in (company.sub_industries or []):
                     company.sub_industries.append(llm_ind)
         if not company.headquarters and data.get("headquarters"):
@@ -718,7 +748,6 @@ async def _extract_structured_fields(company: EnrichedCompany, text: str) -> Non
         if not company.competitors and data.get("competitors"):
             company.competitors = _to_list(data["competitors"])
         if data.get("sub_industries"):
-            # A1: Merge LLM sub_industries with existing (don't overwrite)
             for si in _to_list(data["sub_industries"]):
                 if si not in (company.sub_industries or []):
                     company.sub_industries.append(si)
@@ -852,29 +881,19 @@ async def _enrich_from_wikipedia(company: EnrichedCompany) -> None:
         # Field mapping: Wikipedia key variants → our field
         def _strip_wiki(val: str) -> str:
             """Strip wiki markup while preserving meaningful content."""
-            # Links: [[Target|Display]] → Display, [[Target]] → Target
-            val = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]", r"\1", val)
-            # Templates with content: {{hlist|A|B}} → A, B
-            # {{Unbulleted list|A|B}} → A, B
-            val = re.sub(r"\{\{(?:hlist|Unbulleted list|ubl|plainlist)\|([^}]*)\}\}", r"\1", val, flags=re.I)
-            # Date templates: {{Start date and age|2 July 1981}} → 2 July 1981
-            val = re.sub(r"\{\{Start date(?: and age)?\|([^}]*)\}\}", r"\1", val, flags=re.I)
-            # Small template: {{small|(text)}} → text
-            val = re.sub(r"\{\{small\|([^}]*)\}\}", r"\1", val, flags=re.I)
-            # Increase/Decrease markers
-            val = re.sub(r"\{\{(?:Increase|Decrease|Steady)\}\}", "", val, flags=re.I)
-            # Currency conversion: {{INRConvert|...}} → remove
-            val = re.sub(r"\{\{INRConvert\|[^}]*\}\}", "", val, flags=re.I)
-            # Other templates: strip remaining {{...}} but try to keep first arg
-            val = re.sub(r"\{\{[^|}]*\|([^|}]*?)(?:\|[^}]*)?\}\}", r"\1", val)
-            val = re.sub(r"\{\{[^}]*\}\}", "", val)
-            # HTML tags and refs
-            val = re.sub(r"<ref[^>]*>.*?</ref>|<ref[^/]*/?>", "", val, flags=re.DOTALL)
-            val = re.sub(r"<br\s*/?>", ", ", val, flags=re.I)
-            val = re.sub(r"<[^>]+>", "", val)
-            # Clean up
-            val = re.sub(r"\s+", " ", val)
-            val = re.sub(r"^[,\s|]+|[,\s|]+$", "", val)
+            val = _RE_WIKI_LINK.sub(r"\1", val)
+            val = _RE_WIKI_HLIST.sub(r"\1", val)
+            val = _RE_WIKI_DATE.sub(r"\1", val)
+            val = _RE_WIKI_SMALL.sub(r"\1", val)
+            val = _RE_WIKI_TREND.sub("", val)
+            val = _RE_WIKI_INR.sub("", val)
+            val = _RE_WIKI_TPL_CONTENT.sub(r"\1", val)
+            val = _RE_WIKI_TPL_EMPTY.sub("", val)
+            val = _RE_WIKI_REF.sub("", val)
+            val = _RE_WIKI_BR.sub(", ", val)
+            val = _RE_WIKI_TAG.sub("", val)
+            val = _RE_MULTI_SPACE.sub(" ", val)
+            val = _RE_WIKI_TRIM.sub("", val)
             return val.strip()
 
         def _get(keys: list[str]) -> str:
@@ -909,7 +928,7 @@ async def _enrich_from_wikipedia(company: EnrichedCompany) -> None:
         if company.founded_year is None:
             founded = _get(["founded", "foundation", "formation_date"])
             if founded:
-                year_match = re.search(r"\b(1[89]\d{2}|20[0-2]\d)\b", founded)
+                year_match = _RE_YEAR.search(founded)
                 if year_match:
                     company.founded_year = int(year_match.group(1))
         if not company.website:
@@ -918,7 +937,7 @@ async def _enrich_from_wikipedia(company: EnrichedCompany) -> None:
             for key in ["homepage", "website", "official_website"]:
                 raw_val = infobox.get(key, "")
                 if raw_val:
-                    url_match = re.search(r"https?://[^\s|}\]]+", str(raw_val))
+                    url_match = _RE_URL.search(str(raw_val))
                     if url_match:
                         raw_site = url_match.group(0)
                         break
@@ -935,7 +954,7 @@ async def _enrich_from_wikipedia(company: EnrichedCompany) -> None:
             products = _get(["products", "Products", "services"])
             if products:
                 # Split on common separators (including pipe | and bullet *)
-                items = re.split(r"[,\n•·|*]", products)
+                items = _RE_PRODUCT_SEP.split(products)
                 company.products_services = [
                     p.strip() for p in items
                     if p.strip() and len(p.strip()) > 2 and not p.strip().startswith("(")
@@ -990,18 +1009,14 @@ async def _search_products_services(company: EnrichedCompany) -> None:
             f"main products, services, or solutions. Return as a JSON array of strings.\n\n"
             f"Text: {answer[:1500]}\n\nJSON array:"
         )
-        response = await asyncio.wait_for(
-            llm.generate_json(prompt=prompt, system_prompt="Return valid JSON only."),
+        from app.schemas.llm_outputs import ProductServicesLLM
+        ps = await asyncio.wait_for(
+            llm.run_structured(prompt=prompt, system_prompt="Return valid JSON only.",
+                               output_type=ProductServicesLLM),
             timeout=6.0,
         )
-
-        if isinstance(response, list) and response:
-            company.products_services = [str(p).strip() for p in response if p and str(p).strip()][:10]
-        elif isinstance(response, dict):
-            for v in response.values():
-                if isinstance(v, list):
-                    company.products_services = [str(p).strip() for p in v if p and str(p).strip()][:10]
-                    break
+        if ps.products:
+            company.products_services = ps.products[:10]
 
     except Exception as e:
         logger.debug(f"Product search failed for '{company.company_name}': {e}")
@@ -1096,7 +1111,6 @@ async def _background_deep_enrichment(
         # Persist merged deep intel to DB
         if merged:
             try:
-                import json
                 from ..database import get_database
                 db = get_database()
                 # Convert lists to JSON strings for storage
@@ -1248,14 +1262,13 @@ async def _analyze_hiring_signals(
             "'Hiring 5+ data scientists', 'New CISO role posted')"
         )
 
-        result = await asyncio.wait_for(
-            llm.generate_json(prompt=prompt, system_prompt="Return valid JSON only."),
+        from app.schemas.llm_outputs import HiringSignalsLLM
+        hs = await asyncio.wait_for(
+            llm.run_structured(prompt=prompt, system_prompt="Return valid JSON only.",
+                               output_type=HiringSignalsLLM),
             timeout=8.0,
         )
-
-        if isinstance(result, dict):
-            return result
-        return {}
+        return {"hiring_signals": hs.hiring_signals}
 
     except Exception as e:
         logger.debug(f"Hiring signal analysis failed for {company_name}: {e}")
@@ -1301,14 +1314,13 @@ async def _analyze_tech_ip(company_name: str, industry: str) -> dict:
             "- partnerships: list of technology partnerships or integrations"
         )
 
-        result = await asyncio.wait_for(
-            llm.generate_json(prompt=prompt, system_prompt="Return valid JSON only."),
+        from app.schemas.llm_outputs import TechIpLLM
+        ti = await asyncio.wait_for(
+            llm.run_structured(prompt=prompt, system_prompt="Return valid JSON only.",
+                               output_type=TechIpLLM),
             timeout=8.0,
         )
-
-        if isinstance(result, dict):
-            return result
-        return {}
+        return ti.model_dump()
 
     except Exception as e:
         logger.debug(f"Tech/IP analysis failed for {company_name}: {e}")
@@ -1406,8 +1418,10 @@ async def enrich(
             if not tavily.available:
                 return
 
+            # Public companies (NSE/BSE/NYSE listed) benefit from advanced finance depth
+            is_public = bool(getattr(company, "stock_symbol", None))
             research = await asyncio.wait_for(
-                tavily.deep_company_research(company_name),
+                tavily.deep_company_research(company_name, is_public=is_public),
                 timeout=15.0,
             )
             _merge_tavily(company, research)
@@ -1487,7 +1501,6 @@ async def enrich(
     await _search_products_services(company)
 
     # ── Step 6: Save to Company KB (ALL fields) ──────────────────
-    import json as _json
     try:
         from ..database import get_database
 
@@ -1506,11 +1519,11 @@ async def enrich(
             "revenue": company.revenue,
             "total_funding": company.total_funding,
             # List fields persisted as JSON strings
-            "products_services": _json.dumps(company.products_services) if company.products_services else "",
-            "competitors": _json.dumps(company.competitors) if company.competitors else "",
-            "sub_industries": _json.dumps(company.sub_industries) if company.sub_industries else "",
-            "tech_stack": _json.dumps(company.tech_stack) if company.tech_stack else "",
-            "investors": _json.dumps(company.investors) if company.investors else "",
+            "products_services": json.dumps(company.products_services) if company.products_services else "",
+            "competitors": json.dumps(company.competitors) if company.competitors else "",
+            "sub_industries": json.dumps(company.sub_industries) if company.sub_industries else "",
+            "tech_stack": json.dumps(company.tech_stack) if company.tech_stack else "",
+            "investors": json.dumps(company.investors) if company.investors else "",
         }
         db.upsert_company_profile(company_name, profile_dict)
     except Exception as e:

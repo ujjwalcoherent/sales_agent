@@ -6,7 +6,6 @@ Campaign types:
   - report_driven: User pastes report text → LLM extracts companies → company_first flow
 """
 
-from datetime import datetime
 from enum import Enum
 from typing import Optional
 
@@ -17,13 +16,6 @@ class CampaignType(str, Enum):
     COMPANY_FIRST = "company_first"
     INDUSTRY_FIRST = "industry_first"
     REPORT_DRIVEN = "report_driven"
-
-
-class CampaignStatus(str, Enum):
-    DRAFT = "draft"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
 
 
 class CampaignCompanyInput(BaseModel):
@@ -42,6 +34,12 @@ class CampaignConfig(BaseModel):
     target_roles: list[str] = Field(default_factory=list)
     country: str = ""
     background_deep: bool = False  # Run ScrapeGraphAI deep enrichment
+    # Targeting persona filters
+    seniority_filter: str = "both"        # "decision_maker" | "influencer" | "both"
+    company_size_filter: str = "all"      # "smb" | "mid_market" | "enterprise" | "all"
+    trigger_signals: list[str] = Field(default_factory=list)  # ["regulatory_pressure", ...]
+    product_context: str = ""             # Which product/service is being pitched
+    narrow_keyword: str = ""              # Industry-first: narrow the sector search
 
 
 class CreateCampaignRequest(BaseModel):
@@ -61,7 +59,7 @@ class CampaignContact(BaseModel):
     email: str = ""
     linkedin_url: str = ""
     seniority: str = ""
-    email_confidence: float = 0.0
+    email_confidence: int = 0
 
 
 class CampaignEmail(BaseModel):

@@ -1,0 +1,337 @@
+{
+  "causal_results": [
+    {
+      "event_summary": "Tata Consultancy Services (TCS) has expanded its AI initiatives by launching AI innovation centers and partnerships aimed at accelerating AI adoption in manufacturing and workspace solutions. This drives mid-size manufacturers, mid-size IT service providers, and sustainability consulting firms in India to adopt or adapt AI technologies to maintain competitiveness and client retention.",
+      "event_type": "technology",
+      "reasoning": "The news trend is TCS's AI expansion, directly impacting the Indian mid-size IT service providers who must evolve or lose competitiveness (Hop 1). These IT service providers supply AI integration and consulting to mid-size manufacturers, who must adopt AI solutions to stay competitive (Hop 2). Finally, sustainability consulting firms, like En3, are pressured to adopt AI-driven sustainability tools to align with evolving client expectations influenced by TCS's AI platforms (Hop 3). The urgency sp",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size IT service providers in India (50-500 employees) focused on AI workspace solutions and integration",
+          "lead_type": "pain",
+          "mechanism": "TCS expansion of AI workspace and manufacturing AI services increases competition and sets higher technology standards, pressuring mid-size IT service providers to invest in AI capabilities or lose market share.",
+          "companies_found": [],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size manufacturing companies in India (100-1000 employees) adopting AI-powered manufacturing solutions",
+          "lead_type": "pain",
+          "mechanism": "Mid-size manufacturers must buy AI integration and consulting services, increasing demand on mid-size IT integrators and consultants, facing cost and transformation pressure to remain competitive.",
+          "companies_found": [],
+          "confidence": 0.75,
+          "urgency_weeks": 6
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size sustainability consulting firms in India (50-300 employees) adapting to AI-driven sustainability platforms",
+          "lead_type": "pain",
+          "mechanism": "These firms face pressure to incorporate AI-driven sustainability assessment and reporting platforms like TCS's GoZero Hub to maintain client base and relevance.",
+          "companies_found": [
+            "En3 Sustainability"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 8
+        }
+      ]
+    },
+    {
+      "event_summary": "Intel and Infosys expanded their AI partnership focused on AI infrastructure, triggering market confidence and a rise in Intel stock price. Infosys AI services division is directly benefiting from leveraging Intel's Core Series 2 technology to enhance AI service offerings. This expansion also raises the need for mid-sized AI software developers, IT infrastructure providers, and system integrators in India to upgrade compatibility and collaborate with Infosys and Intel-led AI projects. Companies lagging will risk loss of contracts and market share.",
+      "event_type": "m_and_a",
+      "reasoning": "Step 1: The direct news event is the expanded AI partnership between Intel and Infosys focused on AI infrastructure using Intel's Core Series 2 technology. Infosys AI services division is the primary beneficiary, experiencing increased projects and rising market positioning, representing a clear opportunity with urgency of about 1 week due to immediacy.\n\nStep 2: Second order are mid-sized AI software developers in key hubs like Bangalore and Hyderabad with 50-500 employees. These companies must ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Infosys AI services division - mid-sized to large specialized AI project teams in Bangalore",
+          "lead_type": "opportunity",
+          "mechanism": "Direct beneficiary of expanded AI infrastructure projects using Intel's new Core Series 2 technology, increasing project volumes and market position.",
+          "companies_found": [
+            "Infosys AI division"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-sized AI software developers in Bangalore and Hyderabad, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "These companies need to develop AI software offerings compatible with Intel-Infosys AI infrastructure to tap into increased demand from Infosys AI projects and clients adopting new AI hardware.",
+          "companies_found": [
+            "Zerone Consulting Pvt Ltd"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-sized IT infrastructure providers and AI system integrators in India, 100-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "These providers and integrators supply infrastructure and integration services to AI software developers and Infosys clients, needing to upgrade their offerings to support Intel-based AI infrastructure solutions, enabling them to capture new project work.",
+          "companies_found": [
+            "Datacipher Solutions Pvt Ltd",
+            "SISL Infotech"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "Vanguard Group ends outsourcing contract with Infosys in India, reclaiming hundreds of jobs, leading to workforce reduction and revenue loss for Infosys. Vanguard faces challenges in reintegrating workforce and scaling operations. Local IT service providers see shifting demand dynamics: increased orders from Vanguard, decreased from Infosys. Recruitment agencies experience fluctuating demand due to contrasting hiring needs of both firms.",
+      "event_type": "m_and_a",
+      "reasoning": "Step 1: The news is about Vanguard ending an outsourcing contract with Infosys in India, reclaiming jobs. Infosys directly loses these jobs and revenue (hop 1). We identified mid-size Infosys local teams as impacted segments. Step 2: Companies that supply IT services to Infosys or support Vanguard's expanding internal IT needs will be affected. Vendors that lose orders from Infosys will face pain. We searched for mid-size IT service and consulting firms in Malvern, Pune, Bangalore as examples. S",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size IT service providers in Malvern, India (50-500 employees) including Infosys' local teams facing contract termination",
+          "lead_type": "pain",
+          "mechanism": "Infosys loses workforce and revenue from contract termination as jobs shift back to Vanguard, causing financial strain and workforce redeployment challenges.",
+          "companies_found": [
+            "Infosys Local IT Teams (mid-size units)"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size IT support and consulting companies in Malvern and nearby Indian cities (50-500 employees) that supply services to Infosys or support Vanguard's increased internal operations",
+          "lead_type": "pain",
+          "mechanism": "Shift in orders from Infosys to Vanguard changes demand patterns for local IT service providers and consulting firms, leading to revenue losses for Infosys suppliers and operational pressure, while Vanguard's growth increases demand for other providers, mostly causing pain due to Infosys scale-down.",
+          "companies_found": [
+            "Pune IT service providers (e.g. SME firms)",
+            "Bangalore IT consulting firms"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size IT recruitment agencies in Bangalore and Pune (50-500 employees) adapting to fluctuating hiring demand",
+          "lead_type": "pain",
+          "mechanism": "Recruitment firms face reduced or variable business due to Infosys downsizing and Vanguard's selective hiring, requiring shifts in hiring strategies and potential client portfolio diversification.",
+          "companies_found": [
+            "SGA Recruitment Pune",
+            "Bangalore IT recruitment agencies"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Infosys and Incora have partnered in 2024 to deploy AI-enabled capabilities in aerospace and defense supply chains worldwide, including India. Infosys leads the AI solution deployment targeting improved operational efficiency for aerospace clients requiring advanced AI integration. This forces mid-size aerospace component manufacturers in India to upgrade IT and operational systems to meet AI-driven supply chain demands or risk losing contracts. Aerospace logistics providers in India must also enhance their real-time data and operations capabilities. Additionally, Indian consulting firms lacking AI expertise risk losing relevance as clients expect AI integration and supply chain optimization guidance.",
+      "event_type": "supply_chain",
+      "reasoning": "Step-by-step causal chain analysis:\n\nHop 1: Infosys is central in the news with the AI aerospace supply chain partnership with Incora, directly benefiting as the AI solution provider (opportunity).\n\nHop 2: Mid-size aerospace component manufacturers in India, especially in Pune, supplying OEMs and Tier-1s, must rapidly upgrade IT and operations to meet AI-based supply chain standards or lose contracts (pain). Trimurti Enterprises identified as a representative mid-size aerospace component manufac",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Infosys, the IT and AI systems integrator leading the aerospace AI supply chain digital transformation in India",
+          "lead_type": "opportunity",
+          "mechanism": "Infosys gains direct business growth as it deploys AI technologies in aerospace/defense supply chains, enhancing its service offerings and market positioning.",
+          "companies_found": [
+            "Infosys"
+          ],
+          "confidence": 1.0,
+          "urgency_weeks": 1
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size aerospace component manufacturers in India, 50-500 employees, Pune region",
+          "lead_type": "pain",
+          "mechanism": "These manufacturers face pressure to upgrade IT and operational systems to comply with AI-driven supply chain requirements introduced by Infosys and Incora's collaboration, risking contract loss if unprepared.",
+          "companies_found": [
+            "Trimurti Enterprises"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Aerospace logistics providers in India, mid-size companies with 50-500 employees focusing on supply chain real-time data and operational efficiency",
+          "lead_type": "pain",
+          "mechanism": "As aerospace component manufacturers upgrade and demand more efficient logistics, aerospace logistics providers must enhance real-time data capabilities or risk losing business from OEMs and Tier-1 suppliers.",
+          "companies_found": [
+            "Holisol Logistics Pvt Ltd"
+          ],
+          "confidence": 0.7,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Infosys's rising stock price and positive analyst outlook in February 2026, amid a general market selloff, has led to investor preference shifts with private insurers buying Infosys shares and selling shares of other mid-size companies like IRCTC, Coforge, and MCX. This boosts Infosys's market valuation and investor confidence directly. This trend causes a competitive environment impacting mid-size IT service providers who face talent retention challenges as skilled employees are drawn to Infosys, mid-size software product companies at risk of missing growth opportunities linked to Infosys's expansion if they don't align strategically, and mid-size IT infrastructure suppliers needing to scale capacity and optimize pricing to meet increased demand from Infosys. Additionally, mid-size transport and commodity sector companies face funding shortages due to investor sell-offs, threatening liquidity and business continuity if alternative financing strategies are not adopted.",
+      "event_type": "price_change",
+      "reasoning": "Step 1: Analyze the immediate context of the event - Infosys stock rises amid a market selloff while mid-size firms IRCTC, Coforge, MCX see share sell-offs. This directly impacts Infosys (positive) and these mid-size companies (negative).\n\nStep 2: Identify mid-size IT service providers (like Coforge, LTI Mindtree, Mphasis) who face talent retention challenges due to rising Infosys market confidence attracting skilled employees, risking client loss and turnover (Hop 1 - pain).\n\nStep 3: Mid-size I",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size IT service providers in India, 50-2000 employees, IT services sector",
+          "lead_type": "pain",
+          "mechanism": "Talent retention challenges arise as Infosys's rising market confidence attracts skilled employees away from mid-size competitors leading to turnover and potential client losses.",
+          "companies_found": [
+            "Coforge",
+            "LTI Mindtree",
+            "Mphasis"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size IT infrastructure suppliers in India, 50-1000 employees, supply tech hardware and consulting to IT services firms",
+          "lead_type": "opportunity",
+          "mechanism": "Increased demand from Infosys for IT infrastructure and consulting services requires suppliers to scale capacity and optimize pricing to capture contracts and revenue growth.",
+          "companies_found": [
+            "Sify Technologies",
+            "Ness Digital Engineering"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size transport and commodity sector companies in India, 50-500 employees, facing funding shortages due to investor sell-offs",
+          "lead_type": "pain",
+          "mechanism": "Investor portfolio rebalancing away from these sectors causes funding shortages which threaten business continuity unless alternative financing is implemented.",
+          "companies_found": [
+            "ABCC India Project Cargo Corp"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Infosys mandates a four-day per week in-office attendance policy for JL6+ employees in India, leading to increased physical presence on Infosys campuses. This direct operational change creates higher demand for ancillary office-related services such as facility management, catering, and employee transportation. Mid-size companies in these service sectors see increased business and must scale quickly to meet the new requirements. Facility management firms face opportunities and operational pressures to expand capacity; caterers must improve service quality and volume to retain clients; transportation providers need to optimize routes and capacity to handle higher ridership and maintain customer satisfaction.",
+      "event_type": "regulation",
+      "reasoning": "Infosys' new four-day office attendance policy creates a direct impact on Infosys employees (particularly JL6+ level) and Infosys's own internal operations. This drives up demand for onsite services. \n\nHop 1: Facility management companies in Bangalore, India, especially mid-sized firms (50-500 employees), benefit directly as they must handle increased facility upkeep, security, and support due to higher employee presence. Companies like FCS Facility Management Bangalore, Noah Facility Services, ",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size facility management firms in Bangalore, India, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Direct increased demand for facility maintenance and related services due to higher on-site attendance at Infosys offices requiring expanded facility management services.",
+          "companies_found": [
+            "FCS Facility Management Bangalore",
+            "Noah Facility Services",
+            "Get-It Facility Management"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size corporate catering companies in Bangalore, India, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Facility management and Infosys itself contract with caterers to provide food services for increased onsite workforce, requiring caterers to scale up capacity and improve quality to meet demand.",
+          "companies_found": [
+            "Servewell Essential India Pvt Ltd",
+            "CaterNinja",
+            "WeCaters"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 3
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size employee transportation and shuttle service providers in Bangalore, India, 50-500 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Catering and facility firms working onsite require reliable employee transportation services. Increased office attendance leads to higher employee ridership demand, pushing transport providers to optimize routes and increase capacity.",
+          "companies_found": [
+            "Routematic",
+            "VIYAGOO Travels",
+            "ETS Employee Transport Services"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        }
+      ]
+    },
+    {
+      "event_summary": "Google Cloud and TCS partnership to launch AI innovation centers, driving adoption of AI technologies among mid-size manufacturers and IT service providers in India, creating a cascading impact in the AI technology supply chain.",
+      "event_type": "technology",
+      "reasoning": "The news about the Google Cloud and TCS partnership to launch AI innovation centers points to direct involvement of mid-size IT service providers in India who develop AI platforms and services leveraging this partnership (Hop 1). This creates a direct opportunity as these companies are positioned to benefit from building and delivering AI solutions to clients.\n\nThe second-order impact affects mid-size manufacturers in India, who are the buyers of these AI solutions to improve their manufacturing",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size IT service providers in India developing AI platforms and services, 100-1000 employees",
+          "lead_type": "opportunity",
+          "mechanism": "Google Cloud and TCS partnership creates new AI platforms and services, mid-size IT providers involved in building and enhancing these solutions benefit directly.",
+          "companies_found": [
+            "DRUPTO CONSULTANTS",
+            "TTBS",
+            "DataToBiz"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size manufacturers in India adopting AI solutions to optimize manufacturing and digital human experiences, 200-1000 employees",
+          "lead_type": "pain",
+          "mechanism": "Mid-size manufacturers face challenges in evaluating and integrating AI solutions from hop-1 providers, risk operational inefficiencies if delayed but opportunity in AI optimization if successfully adopted.",
+          "companies_found": [
+            "Indian SMEs in manufacturing",
+            "OEM Update SMEs"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Smaller IT consulting and AI implementation firms supporting mid-size manufacturers with AI integration, 50-300 employees in India",
+          "lead_type": "opportunity",
+          "mechanism": "As mid-size manufacturers increase AI adoption, smaller IT consulting firms that provide implementation and customization services see increased demand for support and integration.",
+          "companies_found": [
+            "DRUPTO CONSULTANTS"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    },
+    {
+      "event_summary": "Apple's launch of the iPhone 18 Pro in India creates multi-tiered impacts across its local supply, software, and accessory ecosystems. Manufacturing and assembly partners must rapidly align with new device specifications. Software developers face pressure to innovate for the device's capabilities, while accessory makers must redesign to fit new form factors. Competing smartphone brands and marketing firms must also react strategically to heightened market competition.",
+      "event_type": "technology",
+      "reasoning": "The first order impact centers on companies directly manufacturing and assembling iPhone 18 Pro components in India. These firms, like Wotech Technologies (mid-size), face immediate pressure to meet Apple's updated product specifications within weeks to maintain supply contracts, posing a pain lead type due to cost and compliance risk.\n\nSecond order companies include software developers such as Appinventiv, who provide mobile apps that must now innovate rapidly to support new device features, tu",
+      "hops": [
+        {
+          "hop": 1,
+          "segment": "Mid-size Indian companies manufacturing iPhone 18 Pro components and assembly",
+          "lead_type": "pain",
+          "mechanism": "Companies directly involved in supplying components and assembling new iPhone models must adapt quickly to updated specifications, pushing costs and risks for potential delays or contract loss.",
+          "companies_found": [
+            "Wotech Technologies"
+          ],
+          "confidence": 0.9,
+          "urgency_weeks": 2
+        },
+        {
+          "hop": 2,
+          "segment": "Mid-size Indian mobile app development companies building software for new iPhone capabilities",
+          "lead_type": "opportunity",
+          "mechanism": "App developers need to innovate and update software applications to leverage new iPhone 18 Pro features, increasing demand for their services and innovation capabilities.",
+          "companies_found": [
+            "Appinventiv"
+          ],
+          "confidence": 0.85,
+          "urgency_weeks": 4
+        },
+        {
+          "hop": 3,
+          "segment": "Mid-size Indian mobile accessories manufacturers adapting to new iPhone form factors",
+          "lead_type": "pain",
+          "mechanism": "Accessory makers face pressure to redesign and scale new form factor compatible products, facing cost pressures and potential sales impact if they lag behind the new device launch.",
+          "companies_found": [
+            "boAt"
+          ],
+          "confidence": 0.8,
+          "urgency_weeks": 6
+        }
+      ]
+    }
+  ],
+  "total_hops": 24,
+  "log_messages": []
+}

@@ -300,13 +300,18 @@ RULES:
             "Never fabricate information. Respond with valid JSON only."
         )
 
-        result = await llm.generate_json(
-            prompt=prompt,
-            system_prompt=system_prompt,
-        )
-
-        if isinstance(result, dict) and "error" not in result:
-            return result
+        from app.schemas.llm_outputs import PersonOutreachInsightsLLM
+        try:
+            result = await llm.run_structured(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                output_type=PersonOutreachInsightsLLM,
+            )
+            return result.model_dump()
+        except Exception:
+            raw = await llm.generate_json(prompt=prompt, system_prompt=system_prompt)
+            if isinstance(raw, dict) and "error" not in raw:
+                return raw
         return None
 
     except Exception as e:
@@ -651,17 +656,28 @@ async def _synthesize_content_themes(ctx: PersonContext) -> list[str]:
             "Return as a JSON array of short theme strings."
         )
 
-        result = await asyncio.wait_for(
-            llm.generate_json(prompt=prompt, system_prompt="Return valid JSON only."),
-            timeout=6.0,
-        )
-
-        if isinstance(result, list):
-            return _ensure_list(result)[:5]
-        elif isinstance(result, dict):
-            for v in result.values():
-                if isinstance(v, list):
-                    return _ensure_list(v)[:5]
+        from app.schemas.llm_outputs import ContentThemesLLM
+        try:
+            result = await asyncio.wait_for(
+                llm.run_structured(
+                    prompt=prompt,
+                    system_prompt="Return valid JSON only.",
+                    output_type=ContentThemesLLM,
+                ),
+                timeout=6.0,
+            )
+            return result.themes[:5]
+        except Exception:
+            raw = await asyncio.wait_for(
+                llm.generate_json(prompt=prompt, system_prompt="Return valid JSON only."),
+                timeout=6.0,
+            )
+            if isinstance(raw, list):
+                return _ensure_list(raw)[:5]
+            elif isinstance(raw, dict):
+                for v in raw.values():
+                    if isinstance(v, list):
+                        return _ensure_list(v)[:5]
 
     except Exception as e:
         logger.debug(f"Content theme synthesis failed for {ctx.person_name}: {e}")

@@ -3,8 +3,7 @@ Intelligence Engine Configuration.
 
 All parameters here are STARTING PRIORS — the self-learning system adapts them
 over time via:
-  - WeightLearnerAgent: signal weights (EWC + KL guardrail)
-  - ThresholdAdapterAgent: validation thresholds (EMA α=0.1)
+  - ThresholdAdapterAgent: validation thresholds (EMA α=0.1 + CUSUM guard)
   - SourceBanditAgent: source quality scores (Thompson Sampling)
   - CompanyBanditAgent: company profile quality (LinTS)
 
@@ -12,6 +11,8 @@ No values are permanently hardcoded — they all live in data/*.json and are
 updated after each run. Constants here are only used when no learned values exist.
 """
 
+import json
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
@@ -343,24 +344,6 @@ INDUSTRY_TAXONOMY: Dict[str, Dict] = {
     },
 }
 
-# Derived lookups
-_KEYWORD_TO_INDUSTRY: Dict[str, str] = {}
-for _ind, _cfg in INDUSTRY_TAXONOMY.items():
-    for _kw in _cfg.get("keywords", []):
-        _KEYWORD_TO_INDUSTRY[_kw.lower()] = _ind
-
-# L1 → L2 sub-industry list (derived from rich taxonomy)
-_L1_TO_L2: Dict[str, List[str]] = {
-    ind: cfg.get("1st_order", []) for ind, cfg in INDUSTRY_TAXONOMY.items()
-}
-
-# L2 → L1 reverse lookup
-_L2_TO_L1: Dict[str, str] = {}
-for _l1, _l2_list in _L1_TO_L2.items():
-    for _l2 in _l2_list:
-        _L2_TO_L1[_l2.lower()] = _l1
-
-
 def get_industry_keywords(industry: str) -> Set[str]:
     """Get all search keywords for an industry."""
     cfg = INDUSTRY_TAXONOMY.get(industry, {})
@@ -375,43 +358,6 @@ def get_industry_anchors(industry: str) -> List[str]:
     """
     cfg = INDUSTRY_TAXONOMY.get(industry, {})
     return list(cfg.get("anchor_companies", []))
-
-
-def parse_industry(industry_str: str) -> tuple:
-    """Parse 'Healthcare > Pharmaceuticals' → ('Healthcare', 'Pharmaceuticals').
-
-    Also handles single-level: 'Healthcare' → ('Healthcare', '').
-    """
-    if ">" in industry_str:
-        parts = [p.strip() for p in industry_str.split(">", 1)]
-        return parts[0], parts[1] if len(parts) > 1 else ""
-    return industry_str.strip(), ""
-
-
-def get_l2_industries(l1: str) -> List[str]:
-    """Get all L2 sub-industries for an L1 parent."""
-    return list(_L1_TO_L2.get(l1, []))
-
-
-def get_l1_for_l2(l2: str) -> Optional[str]:
-    """Reverse lookup: find L1 parent for an L2 industry."""
-    return _L2_TO_L1.get(l2.lower())
-
-
-def classify_industry_by_keyword(text: str) -> Optional[str]:
-    """Quick keyword-based industry classification (no LLM).
-    Returns None if ambiguous — use LLM for those.
-    """
-    text_lower = text.lower()
-    matches = [ind for kw, ind in _KEYWORD_TO_INDUSTRY.items() if kw in text_lower]
-    if len(set(matches)) == 1:
-        return matches[0]
-    return None
-
-
-def get_target_roles(industry: str) -> List[str]:
-    """Get the target buyer roles for an industry."""
-    return INDUSTRY_TAXONOMY.get(industry, {}).get("target_roles", ["CEO", "CTO", "COO"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -474,7 +420,7 @@ class ClusteringParams:
     containment_overlap_min: float = 0.30    # For single-word suffix containment guard
 
     # ── Similarity matrix (math gate 4) ──────────────────────────────────────
-    # Starting priors for signal weights — adapted by WeightLearnerAgent
+    # Fixed signal weights for similarity matrix
     sim_weight_semantic: float = 0.35
     sim_weight_entity: float = 0.25
     sim_weight_lexical: float = 0.05
@@ -519,7 +465,7 @@ class ClusteringParams:
     val_separation_margin: float = 0.10     # intra > inter + this
     val_entity_consistency_min: float = 0.60
     val_temporal_window_hours: float = 720.0  # 30 days max
-    val_duplicate_threshold: float = 0.85
+    val_duplicate_threshold: float = 0.80   # was 0.85 — allow variant clusters on same entity
     val_composite_reject: float = 0.50
 
     # ── Synthesis (math gate 7) ───────────────────────────────────────────────
@@ -558,9 +504,6 @@ def load_adaptive_params() -> ClusteringParams:
     Falls back to DEFAULT_PARAMS if file doesn't exist.
     Called at pipeline start — ensures each run uses learned thresholds.
     """
-    import json
-    import os
-
     path = os.path.join("data", "adaptive_thresholds.json")
     if not os.path.exists(path):
         return DEFAULT_PARAMS
@@ -569,7 +512,8 @@ def load_adaptive_params() -> ClusteringParams:
         with open(path) as f:
             stored = json.load(f)
         params = ClusteringParams()
-        for key, value in stored.items():
+        thresholds = stored.get("thresholds", {})
+        for key, value in thresholds.items():
             if hasattr(params, key):
                 setattr(params, key, value)
         return params

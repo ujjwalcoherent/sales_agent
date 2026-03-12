@@ -8,7 +8,7 @@ import {
   CheckCircle, XCircle, Clock, RefreshCw,
   ChevronDown, ChevronRight, Copy, Check, Download,
   User, Briefcase, Shield, FileText, Play, Trash2,
-  Globe, AlertCircle,
+  Globe, AlertCircle, ExternalLink, Send,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
@@ -103,55 +103,54 @@ function StatusDot({ status, pulse = false }: { status: string; pulse?: boolean 
 
 /* ── Contact row ──────────────────────────────────────────── */
 
-function ContactRow({ contact }: { contact: CampaignContact }) {
+function ContactRow({ contact, outreach }: { contact: CampaignContact; outreach?: CampaignEmail }) {
   const sm = SENIORITY_META[contact.seniority] ?? { icon: <User size={11} />, color: "var(--text-muted)", label: contact.seniority };
-  const conf = contact.email_confidence ?? 0;
-  const confColor = conf >= 0.75 ? "var(--green)" : conf >= 0.5 ? "var(--accent)" : "var(--text-muted)";
+  const conf = contact.email_confidence ?? 0;  // 0-100 integer from backend
+  const confColor = conf >= 75 ? "var(--green)" : conf >= 50 ? "var(--accent)" : "var(--text-muted)";
+
+  const mailtoHref = outreach && contact.email
+    ? `mailto:${contact.email}?subject=${encodeURIComponent(outreach.subject)}&body=${encodeURIComponent(outreach.body)}`
+    : contact.email ? `mailto:${contact.email}` : undefined;
 
   return (
     <div style={{
       display: "grid",
-      gridTemplateColumns: "1fr 1fr 1fr auto",
+      gridTemplateColumns: "180px 1fr 160px auto",
       gap: 10, alignItems: "center",
       padding: "9px 12px",
       borderBottom: "1px solid var(--border)",
       fontSize: 12,
     }}>
       {/* Name + seniority */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
         <div style={{
-          width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+          width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
           background: "var(--surface-raised)", color: sm.color,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           {sm.icon}
         </div>
-        <div>
-          <div style={{ fontWeight: 600, color: "var(--text)", fontSize: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 600, color: "var(--text)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {contact.full_name || "—"}
           </div>
-          <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{sm.label}</div>
+          <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{contact.role || sm.label}</div>
         </div>
       </div>
 
-      {/* Role */}
-      <div style={{ color: "var(--text-secondary)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {contact.role || "—"}
-      </div>
-
       {/* Email */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
         {contact.email ? (
           <>
             <span style={{ color: "var(--text-secondary)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {contact.email}
             </span>
             <span style={{
-              fontSize: 10, fontWeight: 600, color: confColor,
+              fontSize: 10, fontWeight: 600, color: confColor, flexShrink: 0,
               padding: "1px 5px", borderRadius: 4,
-              background: conf >= 0.75 ? "var(--green-light)" : conf >= 0.5 ? "var(--amber-light)" : "var(--surface-raised)",
+              background: conf >= 75 ? "var(--green-light)" : conf >= 50 ? "var(--amber-light)" : "var(--surface-raised)",
             }}>
-              {Math.round(conf * 100)}%
+              {Math.round(conf)}%
             </span>
           </>
         ) : (
@@ -159,9 +158,14 @@ function ContactRow({ contact }: { contact: CampaignContact }) {
         )}
       </div>
 
+      {/* Outreach subject preview */}
+      <div style={{ color: "var(--text-muted)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {outreach?.subject || "—"}
+      </div>
+
       {/* Actions */}
-      <div style={{ display: "flex", gap: 4 }}>
-        {contact.email && <CopyButton text={contact.email} label="Email" />}
+      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+        {contact.email && <CopyButton text={contact.email} />}
         {contact.linkedin_url && (
           <a
             href={contact.linkedin_url}
@@ -175,85 +179,25 @@ function ContactRow({ contact }: { contact: CampaignContact }) {
               border: "1px solid var(--border)", textDecoration: "none",
             }}
           >
-            <Globe size={10} /> LinkedIn
+            <Globe size={10} />
+          </a>
+        )}
+        {mailtoHref && (
+          <a
+            href={mailtoHref}
+            onClick={e => e.stopPropagation()}
+            title="Open in email client"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 3,
+              padding: "3px 7px", borderRadius: 6, fontSize: 11,
+              background: "var(--accent-light)", color: "var(--accent)",
+              border: "1px solid var(--border)", textDecoration: "none",
+            }}
+          >
+            <Send size={10} />
           </a>
         )}
       </div>
-    </div>
-  );
-}
-
-/* ── Email preview card ───────────────────────────────────── */
-
-function EmailCard({ email }: { email: CampaignEmail }) {
-  const [expanded, setExpanded] = useState(false);
-  const preview = email.body ? email.body.slice(0, 140).replace(/\n/g, " ") + (email.body.length > 140 ? "…" : "") : "";
-
-  return (
-    <div style={{
-      border: "1px solid var(--border)", borderRadius: 8,
-      background: "var(--surface-raised)", overflow: "hidden",
-    }}>
-      {/* Header */}
-      <div
-        onClick={() => setExpanded(p => !p)}
-        style={{
-          display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-          cursor: "pointer", userSelect: "none",
-        }}
-      >
-        <div style={{
-          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-          background: "var(--accent-light)", color: "var(--accent)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <Mail size={13} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 1 }}>
-            To: {email.recipient_name} — {email.recipient_role}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}>
-            {email.subject}
-          </div>
-          {!expanded && preview && (
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {preview}
-            </div>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-          <CopyButton text={`Subject: ${email.subject}\n\n${email.body}`} label="Copy" />
-          <button
-            onClick={e => { e.stopPropagation(); setExpanded(p => !p); }}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              color: "var(--text-muted)", padding: 4, display: "flex",
-            }}
-          >
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      {expanded && (
-        <div style={{
-          padding: "0 14px 14px",
-          borderTop: "1px solid var(--border)",
-          marginTop: 0,
-        }}>
-          <div style={{
-            marginTop: 12, padding: "12px 14px",
-            background: "var(--surface)", borderRadius: 7,
-            border: "1px solid var(--border)",
-            fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.65,
-            whiteSpace: "pre-wrap", fontFamily: "inherit",
-          }}>
-            {email.body}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -270,9 +214,16 @@ function CompanyCard({
   onToggle: () => void;
 }) {
   const isActive = ["enriching", "contacts", "outreach"].includes(company.status);
-  const dotColor = STATUS_DOT[company.status] ?? "var(--text-muted)";
   const contacts = company.contacts ?? [];
   const emails = company.emails ?? [];
+
+  // Match each contact to their outreach email by name similarity
+  function findEmail(contact: CampaignContact): CampaignEmail | undefined {
+    return emails.find(e =>
+      e.recipient_name?.toLowerCase() === contact.full_name?.toLowerCase() ||
+      e.recipient_role?.toLowerCase() === contact.role?.toLowerCase()
+    );
+  }
 
   return (
     <div style={{
@@ -319,8 +270,8 @@ function CompanyCard({
           )}
         </div>
 
-        {/* Stats */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        {/* Stats + actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {contacts.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--text-secondary)" }}>
               <Users size={10} style={{ color: "var(--text-muted)" }} />
@@ -333,6 +284,23 @@ function CompanyCard({
               <span className="num" style={{ fontWeight: 600 }}>{emails.length}</span>
             </div>
           )}
+
+          {/* View Lead link */}
+          <Link
+            href={`/leads?company=${encodeURIComponent(company.company_name)}`}
+            onClick={e => e.stopPropagation()}
+            title="View in Leads"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 500,
+              border: "1px solid var(--border)",
+              background: "var(--surface-raised)", color: "var(--text-muted)",
+              textDecoration: "none",
+            }}
+          >
+            <ExternalLink size={10} /> Lead
+          </Link>
+
           {/* Status label */}
           <span style={{
             fontSize: 10, padding: "2px 8px", borderRadius: 999, fontWeight: 500,
@@ -381,40 +349,25 @@ function CompanyCard({
             </div>
           )}
 
-          {/* Contacts table */}
+          {/* Contacts table — outreach subject shown inline per row */}
           {contacts.length > 0 && (
             <div>
               <div style={{
-                padding: "8px 12px 6px",
+                padding: "7px 12px 5px",
                 fontSize: 10, fontWeight: 700, color: "var(--text-muted)",
                 textTransform: "uppercase", letterSpacing: "0.06em",
                 borderBottom: "1px solid var(--border)",
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr auto",
+                gridTemplateColumns: "180px 1fr 160px auto",
                 gap: 10,
               }}>
                 <span>Contact</span>
-                <span>Role</span>
                 <span>Email</span>
+                <span>Subject</span>
                 <span />
               </div>
               {contacts.map((ct, i) => (
-                <ContactRow key={i} contact={ct} />
-              ))}
-            </div>
-          )}
-
-          {/* Emails */}
-          {emails.length > 0 && (
-            <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{
-                fontSize: 10, fontWeight: 700, color: "var(--text-muted)",
-                textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4,
-              }}>
-                Outreach Emails
-              </div>
-              {emails.map((em, i) => (
-                <EmailCard key={i} email={em} />
+                <ContactRow key={i} contact={ct} outreach={findEmail(ct)} />
               ))}
             </div>
           )}

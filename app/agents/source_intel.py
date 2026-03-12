@@ -26,6 +26,8 @@ from app.schemas.news import NewsArticle
 
 logger = logging.getLogger(__name__)
 
+_RE_SENTENCE_SPLIT = re.compile(r'(?<=[.!?])\s+')
+
 
 # ── Output schema ─────────────────────────────────────────────────────
 
@@ -208,7 +210,7 @@ async def scrape_and_embed_articles(ctx: RunContext[AgentDeps]) -> str:
         for _a in articles:
             if not _a.summary.strip() or _a.summary == _a.title:
                 if _a.content:
-                    _sentences = re.split(r'(?<=[.!?])\s+', _a.content.strip())
+                    _sentences = _RE_SENTENCE_SPLIT.split(_a.content.strip())
                     _a.summary = " ".join(_sentences[:3])[:500]
 
     char_limit = settings.summary_max_chars
@@ -374,7 +376,7 @@ async def run_source_intel(deps: AgentDeps) -> tuple:
             for _a in articles:
                 if not _a.summary.strip() or _a.summary == _a.title:
                     if _a.content:
-                        _sentences = re.split(r'(?<=[.!?])\s+', _a.content.strip())
+                        _sentences = _RE_SENTENCE_SPLIT.split(_a.content.strip())
                         _a.summary = " ".join(_sentences[:3])[:500]
         texts = [f"{a.title} {a.content or a.summary or ''}"[:cfg.summary_max_chars] for a in articles]
         embeddings = deps.embedding_tool.embed_batch(texts)
@@ -398,14 +400,18 @@ def _make_mock_articles(scope: Optional[Any] = None) -> List[NewsArticle]:
 
     Selects the appropriate mock dataset based on the discovery scope mode:
       - company_first  → MOCK_ARTICLES_COMPANY_FIRST  (IT services / consulting)
-      - report_driven  → MOCK_ARTICLES_REPORT_DRIVEN  (5G / IoT / telecom)
+      - report_driven  → MOCK_ARTICLES_REPORT_DRIVEN  (carrier rocket / space launch)
       - industry_first → MOCK_ARTICLES_RAW            (fintech / regulation)
       - None           → MOCK_ARTICLES_RAW            (safe default)
+
+    For report_driven: also injects MOCK_REPORT_SUMMARY into scope.report_text
+    if it's empty, so downstream entity extraction has something to work with.
     """
     from app.data.mock_articles import (
         MOCK_ARTICLES_RAW,
         MOCK_ARTICLES_COMPANY_FIRST,
         MOCK_ARTICLES_REPORT_DRIVEN,
+        MOCK_REPORT_SUMMARY,
     )
     from uuid import uuid4
     from datetime import datetime, timezone
@@ -418,15 +424,27 @@ def _make_mock_articles(scope: Optional[Any] = None) -> List[NewsArticle]:
             raw = MOCK_ARTICLES_COMPANY_FIRST
         elif "report_driven" in mode_str:
             raw = MOCK_ARTICLES_REPORT_DRIVEN
+            # Inject default report text so downstream stages see it
+            if not getattr(scope, "report_text", None):
+                scope.report_text = MOCK_REPORT_SUMMARY
         else:
             raw = MOCK_ARTICLES_RAW  # industry_first default
+            # For fintech/bfsi industries, use only the fintech-relevant
+            # articles (first 12 = RBI KYC + UPI/BNPL clusters) to avoid
+            # mixed-sector output from quick-commerce and semiconductor articles
+            industry = getattr(scope, "industry", "") or ""
+            if any(kw in industry.lower() for kw in ["fintech", "bfsi", "banking", "lending"]):
+                raw = raw[:12]  # First 12 articles = 2 fintech clusters
     else:
         raw = MOCK_ARTICLES_RAW
 
+    from datetime import timedelta
     now = datetime.now(timezone.utc)
     articles = []
     for i, (title, content, source, event_type) in enumerate(raw):
         slug = source.lower().replace(" ", "-")
+        # Distribute published_at across last 7 days for realistic temporal clustering
+        pub_offset = timedelta(hours=(i * 7) % (7 * 24))
         a = NewsArticle(
             id=uuid4(),
             title=title,
@@ -435,8 +453,9 @@ def _make_mock_articles(scope: Optional[Any] = None) -> List[NewsArticle]:
             source_id=slug,
             source_name=source,
             source_credibility=round(0.7 + (i % 3) * 0.05, 2),
-            published_at=now,
+            published_at=now - pub_offset,
             url=f"https://mock-{slug}.com/article-{i+1}",
+            fetch_method="mock",      # enables NLI fast-path in filter.py
         )
         articles.append(a)
     return articles

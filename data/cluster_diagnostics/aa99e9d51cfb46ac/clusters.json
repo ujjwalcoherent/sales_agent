@@ -1,0 +1,577 @@
+[
+  {
+    "cluster_id": "1c2c6c817b79",
+    "label": "Microsoft event 1",
+    "article_count": 15,
+    "article_indices": [
+      45,
+      56,
+      125,
+      146,
+      150,
+      208,
+      214,
+      291,
+      292,
+      293,
+      296,
+      297,
+      99,
+      295,
+      298
+    ],
+    "primary_entity": "Microsoft",
+    "entity_names": [
+      "Microsoft"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8954,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7044,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6931,
+      "not_duplicate": 1.0,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3298,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8163,
+      "silhouette_score": 0.0327,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Software",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "e815f03ceec9",
+    "label": "Google event 1",
+    "article_count": 8,
+    "article_indices": [
+      13,
+      49,
+      56,
+      121,
+      147,
+      218,
+      290,
+      48
+    ],
+    "primary_entity": "Google",
+    "entity_names": [
+      "Google"
+    ],
+    "event_type": "partnership",
+    "event_granularity": "major",
+    "confidence": 0.7739,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7025,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4237,
+      "not_duplicate": 0.1837,
+      "outlier_ejection": 0.875
+    },
+    "coherence_score": 0.3212,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.6274,
+      "silhouette_score": -0.0072,
+      "cut_threshold": 0.63,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Software",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "ad5aa5530dc0",
+    "label": "Trump (all)",
+    "article_count": 4,
+    "article_indices": [
+      56,
+      153,
+      190,
+      256
+    ],
+    "primary_entity": "Trump",
+    "entity_names": [
+      "Trump"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8652,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8593,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7402,
+      "not_duplicate": 0.2635,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3867,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "cb5a345d525b",
+    "label": "Amazon (all)",
+    "article_count": 3,
+    "article_indices": [
+      13,
+      197,
+      212
+    ],
+    "primary_entity": "Amazon",
+    "entity_names": [
+      "Amazon"
+    ],
+    "event_type": "supply_chain",
+    "event_granularity": "major",
+    "confidence": 0.7603,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.5306,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.5132,
+      "not_duplicate": 0.2633,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.2388,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Cloud Computing & E-commerce",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "08851153ad88",
+    "label": "Nvidia (all)",
+    "article_count": 5,
+    "article_indices": [
+      61,
+      69,
+      209,
+      223,
+      73
+    ],
+    "primary_entity": "Nvidia",
+    "entity_names": [
+      "Nvidia"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.9103,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9938,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.8194,
+      "not_duplicate": 0.2994,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.4593,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Semiconductors & AI Hardware",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "1a6b29954119",
+    "label": "Anthropic event 1",
+    "article_count": 5,
+    "article_indices": [
+      7,
+      58,
+      126,
+      190,
+      251
+    ],
+    "primary_entity": "Anthropic",
+    "entity_names": [
+      "Anthropic"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.8612,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3436,
+      "not_duplicate": 0.2689,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5884,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8903,
+      "silhouette_score": 0.1012,
+      "cut_threshold": 0.51,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Artificial Intelligence",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a43d95e3fdd6",
+    "label": "Anthropic event 2",
+    "article_count": 2,
+    "article_indices": [
+      61,
+      82
+    ],
+    "primary_entity": "Anthropic",
+    "entity_names": [
+      "Anthropic"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.915,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.922,
+      "not_duplicate": 0.2277,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 1.0,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.8903,
+      "silhouette_score": 0.1012,
+      "cut_threshold": 0.51,
+      "n_subclusters": 2,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Artificial Intelligence",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "a87b06105e50",
+    "label": "OpenAI event 1",
+    "article_count": 4,
+    "article_indices": [
+      12,
+      58,
+      191,
+      184
+    ],
+    "primary_entity": "OpenAI",
+    "entity_names": [
+      "OpenAI"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.856,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.4586,
+      "not_duplicate": 0.1016,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.5837,
+    "algorithm": "hac",
+    "is_entity_seeded": true,
+    "dendrogram_metrics": {
+      "cophenetic_r": 0.9538,
+      "silhouette_score": -0.0694,
+      "cut_threshold": 0.48,
+      "n_subclusters": 3,
+      "outlier_count": 0,
+      "linkage_method": "average"
+    },
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Artificial Intelligence",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "198095ea62b7",
+    "label": "Meta (all)",
+    "article_count": 2,
+    "article_indices": [
+      130,
+      230
+    ],
+    "primary_entity": "Meta",
+    "entity_names": [
+      "Meta"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9453,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9436,
+      "not_duplicate": 0.5094,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7108,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Technology",
+      "level_2": "Social Media & AR/VR",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "addbb73cc9ab",
+    "label": "You (all)",
+    "article_count": 7,
+    "article_indices": [
+      85,
+      93,
+      139,
+      28,
+      77,
+      158,
+      166
+    ],
+    "primary_entity": "You",
+    "entity_names": [
+      "You"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8499,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.8483,
+      "entity_consistency": 0.9524,
+      "temporal_proximity": 0.7709,
+      "not_duplicate": 0.3449,
+      "outlier_ejection": 0.8571
+    },
+    "coherence_score": 0.3447,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "771706be8736",
+    "label": "GPT-5.4 (all)",
+    "article_count": 3,
+    "article_indices": [
+      146,
+      191,
+      157
+    ],
+    "primary_entity": "GPT-5.4",
+    "entity_names": [
+      "GPT-5.4"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.9054,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9756,
+      "not_duplicate": 0.078,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.7516,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "35f790019c40",
+    "label": "Elon Musk (all)",
+    "article_count": 2,
+    "article_indices": [
+      20,
+      179
+    ],
+    "primary_entity": "Elon Musk",
+    "entity_names": [
+      "Elon Musk"
+    ],
+    "event_type": "technology",
+    "event_granularity": "major",
+    "confidence": 0.8276,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.7397,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.6363,
+      "not_duplicate": 0.2904,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3329,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "N/A",
+      "level_2": "",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "893e68d8a364",
+    "label": "Revolut (all)",
+    "article_count": 3,
+    "article_indices": [
+      114,
+      140,
+      244
+    ],
+    "primary_entity": "Revolut",
+    "entity_names": [
+      "Revolut"
+    ],
+    "event_type": "regulation",
+    "event_granularity": "major",
+    "confidence": 0.9564,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.9191,
+      "not_duplicate": 0.6452,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.8155,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Financial Services",
+      "level_2": "Banking",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "d58b2eec34bf",
+    "label": "BYD (all)",
+    "article_count": 4,
+    "article_indices": [
+      175,
+      297,
+      74,
+      187
+    ],
+    "primary_entity": "BYD",
+    "entity_names": [
+      "BYD"
+    ],
+    "event_type": "product_launch",
+    "event_granularity": "major",
+    "confidence": 0.8996,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 0.9203,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.7993,
+      "not_duplicate": 0.3959,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.3951,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Energy",
+      "level_2": "EV & Batteries",
+      "order": 1
+    }
+  },
+  {
+    "cluster_id": "98ce9ed3461c",
+    "label": "Warner Bros (all)",
+    "article_count": 3,
+    "article_indices": [
+      5,
+      181,
+      22
+    ],
+    "primary_entity": "Warner Bros",
+    "entity_names": [
+      "Warner Bros"
+    ],
+    "event_type": "merger",
+    "event_granularity": "major",
+    "confidence": 0.8908,
+    "confidence_breakdown": {
+      "min_articles": 1.0,
+      "multi_source": 1.0,
+      "coherence": 1.0,
+      "entity_consistency": 1.0,
+      "temporal_proximity": 0.3911,
+      "not_duplicate": 0.517,
+      "outlier_ejection": 1.0
+    },
+    "coherence_score": 0.6407,
+    "algorithm": "single",
+    "is_entity_seeded": true,
+    "industry": {
+      "level_1": "Entertainment",
+      "level_2": "Film & Television Production & Distribution",
+      "order": 1
+    }
+  }
+]

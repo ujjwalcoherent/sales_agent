@@ -1,0 +1,556 @@
+{
+  "companies": [
+    {
+      "id": "f1a2b3c4d5e6",
+      "company_name": "Lendingkart Finance",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.lendingkart.com",
+      "domain": "lendingkart.com",
+      "description": "Lendingkart Finance is an NBFC-licensed digital lending platform founded in 2014, providing working capital loans to MSMEs across India. It has disbursed over ₹15,000 crore to 200,000+ businesses and processes loan applications fully online using alternative data and ML-based credit scoring.",
+      "reason_relevant": "As an NBFC processing digital loans at scale, Lendingkart faces direct regulatory exposure under RBI's Q1 2026 digital lending compliance deadline and must implement real-time audit trails and 24-hour KYC validation to avoid ₹50 lakh per violation penalties.",
+      "trend_id": "RBI's Q1 2026 digital lending compliance mandate requires all NBFCs and digital lending platforms to implement real-time audit trails, 24-hour KYC validation, and disbursement monitoring systems. Non-compliance risks fines of ₹50 lakh per violation.",
+      "wikidata_id": "",
+      "founded_year": 2014,
+      "headquarters": "Ahmedabad, Gujarat",
+      "employee_count": "800",
+      "stock_ticker": "",
+      "ceo": "Harshvardhan Lunia",
+      "funding_stage": "Series D",
+      "tech_stack": ["AWS", "Python", "Salesforce", "Kafka"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.92,
+      "target_roles": [
+        "Chief Compliance Officer",
+        "VP Regulatory Affairs",
+        "Head of Risk",
+        "CTO",
+        "VP Technology"
+      ],
+      "contacts": [
+        {
+          "name": "Priya Ramachandran",
+          "title": "Chief Compliance Officer",
+          "email": "p.ramachandran@lendingkart.com",
+          "linkedin_url": "https://www.linkedin.com/in/priya-ramachandran-lendingkart",
+          "confidence": 0.82
+        },
+        {
+          "name": "Aditya Patel",
+          "title": "VP Technology",
+          "email": "a.patel@lendingkart.com",
+          "linkedin_url": "https://www.linkedin.com/in/aditya-patel-lendingkart",
+          "confidence": 0.78
+        }
+      ],
+      "outreach_email": {
+        "subject": "RBI Q1 2026 deadline: audit trail gap at Lendingkart?",
+        "body": "Hi Priya,\n\nWith RBI's digital lending compliance deadline now weeks away, I wanted to reach out directly — the ₹50 lakh per-violation penalty framework is creating urgent remediation mandates for NBFCs of Lendingkart's scale.\n\nThe specific challenge we see for platforms like yours: real-time audit trail generation across distributed loan processing pipelines is technically non-trivial, especially when KYC validation must complete within 24 hours of application submission at volume.\n\nWe've helped three other NBFC-licensed lenders achieve RBI compliance ahead of deadline by deploying our automated audit trail and KYC validation platform in under 4 weeks — without disrupting their existing disbursement infrastructure.\n\nWould a 20-minute call this week make sense? I can walk you through exactly what RBI's technical auditors are looking for and show you how quickly we can close the gap.\n\nBest regards"
+      },
+      "lead_score": 0.9210
+    },
+    {
+      "id": "a2b3c4d5e6f1",
+      "company_name": "Cashfree Payments",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.cashfree.com",
+      "domain": "cashfree.com",
+      "description": "Cashfree Payments is a full-stack payment technology company founded in 2015, offering payment gateway, payment links, auto-collect, instant refunds, and payouts to 700,000+ businesses in India. It processes over ₹1,000 crore in daily UPI transactions and is one of India's leading payment aggregators.",
+      "reason_relevant": "Processing over ₹1,000 crore in daily UPI transactions, Cashfree is squarely above RBI's ₹500 crore monthly PA licensing threshold and must obtain a fresh PA license by March 31, 2026 or face operational suspension — an existential compliance event.",
+      "trend_id": "RBI has mandated all payment aggregators processing above ₹500 crore UPI monthly to obtain fresh PA licenses by March 31, 2026. Non-compliance risks operations suspension.",
+      "wikidata_id": "",
+      "founded_year": 2015,
+      "headquarters": "Bangalore, Karnataka",
+      "employee_count": "1200",
+      "stock_ticker": "",
+      "ceo": "Akash Sinha",
+      "funding_stage": "Series C",
+      "tech_stack": ["AWS", "Go", "React", "PostgreSQL", "Kafka"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.94,
+      "target_roles": [
+        "CEO",
+        "VP Compliance",
+        "Head of Payments Licensing",
+        "Chief Legal Officer",
+        "VP Regulatory Affairs"
+      ],
+      "contacts": [
+        {
+          "name": "Siddharth Menon",
+          "title": "VP Compliance & Regulatory Affairs",
+          "email": "s.menon@cashfree.com",
+          "linkedin_url": "https://www.linkedin.com/in/siddharth-menon-cashfree",
+          "confidence": 0.85
+        },
+        {
+          "name": "Ritu Sharma",
+          "title": "Head of Legal",
+          "email": "r.sharma@cashfree.com",
+          "linkedin_url": "https://www.linkedin.com/in/ritu-sharma-cashfree-payments",
+          "confidence": 0.80
+        }
+      ],
+      "outreach_email": {
+        "subject": "PA license deadline March 31 — Cashfree's nodal account readiness",
+        "body": "Hi Siddharth,\n\nMarch 31 is days away and the PA licensing process involves more than just the application — RBI's technical audit requires nodal account restructuring, merchant compliance certifications, and board-level governance attestations that typically take 6-8 weeks to prepare correctly.\n\nGiven Cashfree's daily UPI volumes, the stakes couldn't be higher. A delayed or rejected PA license application would force you to pause operations above the ₹500 crore threshold — a situation no platform of your scale can afford.\n\nWe've guided two payment aggregators through the complete PA licensing process in the past 90 days, including the NPCI technical certification and RBI nodal account documentation. Our team knows exactly what the auditors look for and where most applications get rejected.\n\nCan we connect this week to assess where Cashfree's application currently stands?\n\nBest regards"
+      },
+      "lead_score": 0.9034
+    },
+    {
+      "id": "b3c4d5e6f1a2",
+      "company_name": "CoinDCX",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.coindcx.com",
+      "domain": "coindcx.com",
+      "description": "CoinDCX is India's largest cryptocurrency exchange by trading volume, founded in 2018, serving over 14 million registered users. It is the first Indian crypto unicorn and offers spot trading, futures, staking, and SIP products for digital assets.",
+      "reason_relevant": "As India's largest crypto exchange, CoinDCX faces the full weight of SEBI's VDA regulation framework — mandatory SEBI registration by June 2026, broker-grade AML/KYC systems, client fund segregation into regulated bank accounts, and suspicious transaction reporting obligations requiring an estimated ₹15-20 crore in first-year compliance investment.",
+      "trend_id": "SEBI's Virtual Digital Assets regulation framework requires crypto exchanges to register with SEBI by June 2026, implement AML/CFT controls equivalent to stock brokers, and maintain segregated client funds.",
+      "wikidata_id": "",
+      "founded_year": 2018,
+      "headquarters": "Mumbai, Maharashtra",
+      "employee_count": "500",
+      "stock_ticker": "",
+      "ceo": "Sumit Gupta",
+      "funding_stage": "Series C",
+      "tech_stack": ["AWS", "Node.js", "React", "MongoDB", "Redis"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.91,
+      "target_roles": [
+        "Chief Compliance Officer",
+        "VP Legal",
+        "CISO",
+        "CFO",
+        "VP Regulatory Affairs"
+      ],
+      "contacts": [
+        {
+          "name": "Vikram Nair",
+          "title": "Chief Compliance Officer",
+          "email": "v.nair@coindcx.com",
+          "linkedin_url": "https://www.linkedin.com/in/vikram-nair-coindcx",
+          "confidence": 0.79
+        },
+        {
+          "name": "Ananya Krishnamurthy",
+          "title": "Head of Legal & Regulatory Affairs",
+          "email": "a.krishnamurthy@coindcx.com",
+          "linkedin_url": "https://www.linkedin.com/in/ananya-krishnamurthy-coindcx",
+          "confidence": 0.76
+        }
+      ],
+      "outreach_email": {
+        "subject": "SEBI VDA registration by June 2026 — CoinDCX's compliance roadmap",
+        "body": "Hi Vikram,\n\nSEBI's Virtual Digital Asset framework creates a fundamentally new compliance obligation for CoinDCX — you're no longer just a technology platform but effectively a SEBI-regulated broker-equivalent. That means AML/CFT controls, client fund segregation, suspicious transaction reporting, and SEBI registration by June 2026.\n\nThe compliance gap between where crypto exchanges operate today and what SEBI requires is significant. Building broker-grade AML/KYC infrastructure from scratch typically takes 9-12 months; you have roughly 3.\n\nOur platform delivers a pre-integrated SEBI-compliant AML/KYC stack specifically designed for VDA entities — covering transaction monitoring, STR filing, client fund segregation tracking, and SEBI registration documentation. We've already adapted it for three stock brokers transitioning to VDA offerings.\n\nWould it be useful to walk through the specific SEBI technical requirements and how quickly we can get CoinDCX compliant?\n\nBest regards"
+      },
+      "lead_score": 0.8812
+    },
+    {
+      "id": "c4d5e6f1a2b3",
+      "company_name": "Bajaj Finance",
+      "company_size": "large",
+      "industry": "fintech_bfsi",
+      "website": "https://www.bajajfinserv.in",
+      "domain": "bajajfinserv.in",
+      "description": "Bajaj Finance Limited is India's largest retail-focused NBFC with over ₹3.5 lakh crore AUM, serving 80 million+ customers. It operates across consumer lending, SME finance, home loans, and deposits, with a fully digital loan processing stack processing 1.5 lakh applications daily.",
+      "reason_relevant": "Despite its technology leadership, Bajaj Finance is not yet fully integrated with the Account Aggregator network for credit decisioning — competitors using AA data are gaining underwriting speed advantage on key customer segments, creating urgency to integrate AA-based real-time income and cash flow data.",
+      "trend_id": "India's Account Aggregator ecosystem crossed 50 million active consents in FY2026, with NBFCs integrating AA-based credit decisioning to reduce loan underwriting time from weeks to hours.",
+      "wikidata_id": "",
+      "founded_year": 2007,
+      "headquarters": "Pune, Maharashtra",
+      "employee_count": "45000",
+      "stock_ticker": "BAJFINANCE",
+      "ceo": "Rajeev Jain",
+      "funding_stage": "Public",
+      "tech_stack": ["Salesforce", "Oracle", "AWS", "Python", "Hadoop"],
+      "ner_verified": true,
+      "verification_source": "kb_cache",
+      "verification_confidence": 0.98,
+      "target_roles": [
+        "CTO",
+        "Chief Digital Officer",
+        "VP Technology",
+        "Head of Analytics",
+        "VP Credit Risk"
+      ],
+      "contacts": [
+        {
+          "name": "Deepak Aggarwal",
+          "title": "Chief Digital Officer",
+          "email": "d.aggarwal@bajajfinserv.in",
+          "linkedin_url": "https://www.linkedin.com/in/deepak-aggarwal-bajaj-finance",
+          "confidence": 0.81
+        },
+        {
+          "name": "Sunita Joshi",
+          "title": "VP Credit Risk Technology",
+          "email": "s.joshi@bajajfinserv.in",
+          "linkedin_url": "https://www.linkedin.com/in/sunita-joshi-bajaj",
+          "confidence": 0.75
+        }
+      ],
+      "outreach_email": {
+        "subject": "AA integration gap: how fintech competitors are beating Bajaj Finance on approval speed",
+        "body": "Hi Deepak,\n\nBajaj Finance processes 1.5 lakh loan applications daily — an extraordinary scale that makes even marginal improvements in underwriting accuracy and speed matter enormously to revenue.\n\nHere's what we're seeing in the market: NBFCs that have integrated the Account Aggregator network for credit decisioning are now approving the same borrower profiles in 2-4 hours that previously took 3-5 days. That's a meaningful first-mover advantage on your shared customer segments.\n\nOur AA integration middleware connects to the Sahamati network, normalizes financial data from 120+ Financial Information Providers, and delivers standardized cash flow models directly into your existing credit decisioning engine — with no changes to your core stack.\n\nGiven Bajaj Finance's loan book scale, even a 5% improvement in approval accuracy translates to hundreds of crores in avoided NPAs annually. Worth a conversation?\n\nBest regards"
+      },
+      "lead_score": 0.8734
+    },
+    {
+      "id": "d5e6f1a2b3c4",
+      "company_name": "KreditBee",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.kreditbee.in",
+      "domain": "kreditbee.in",
+      "description": "KreditBee is a personal loan fintech platform founded in 2018 targeting salaried professionals and self-employed individuals. It has disbursed over ₹25,000 crore in loans to 5 million+ customers and holds an NBFC license. The platform processes 50,000 loan applications daily with an average approval time of 15 minutes.",
+      "reason_relevant": "KreditBee's 15-minute average onboarding time would drop to under 3 minutes with e-KYC 2.0 integration, and its high-volume digital-first customer base makes it an ideal early adopter — the 45% fraud drop-off improvement directly impacts its loss ratios on unsecured personal loans.",
+      "trend_id": "UIDAI and RBI jointly launched e-KYC 2.0, enabling financial institutions to complete KYC in under 3 minutes using Aadhaar biometrics and PAN linkage, with early adopters reporting 80% reduction in onboarding time and 45% reduction in fraud.",
+      "wikidata_id": "",
+      "founded_year": 2018,
+      "headquarters": "Bangalore, Karnataka",
+      "employee_count": "700",
+      "stock_ticker": "",
+      "ceo": "Madhusudan Ekambaram",
+      "funding_stage": "Series D",
+      "tech_stack": ["AWS", "Python", "React Native", "PostgreSQL", "Redis"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.89,
+      "target_roles": [
+        "CTO",
+        "VP Product",
+        "Chief Digital Officer",
+        "Head of Engineering",
+        "VP Risk"
+      ],
+      "contacts": [
+        {
+          "name": "Rohit Kapoor",
+          "title": "Chief Technology Officer",
+          "email": "r.kapoor@kreditbee.in",
+          "linkedin_url": "https://www.linkedin.com/in/rohit-kapoor-kreditbee",
+          "confidence": 0.83
+        },
+        {
+          "name": "Neha Saxena",
+          "title": "VP Product Management",
+          "email": "n.saxena@kreditbee.in",
+          "linkedin_url": "https://www.linkedin.com/in/neha-saxena-kreditbee",
+          "confidence": 0.77
+        }
+      ],
+      "outreach_email": {
+        "subject": "e-KYC 2.0: cutting KreditBee's onboarding from 15 mins to under 3",
+        "body": "Hi Rohit,\n\nKreditBee's 50,000 daily applications represent one of India's most compelling e-KYC 2.0 use cases — and the economics are straightforward.\n\nAt 50,000 applications daily, even a 2% improvement in application completion rate (from faster, less friction-heavy KYC) translates to 1,000 additional funded loans per day. At KreditBee's average ticket size, that's a meaningful revenue impact from a single integration.\n\nBeyond conversion: the 45% fraud reduction in early e-KYC 2.0 adopters directly improves your loss ratio on unsecured personal loans — which is where the real bottom-line impact shows up in your P&L.\n\nOur SDK integrates e-KYC 2.0 with your existing mobile onboarding flow in 2 weeks, handling Aadhaar XML parsing, PAN API, CKYC registry lookup, and fallback flows in a single interface. We're already live with two other NBFC-licensed lenders.\n\nWorth exploring the integration timeline?\n\nBest regards"
+      },
+      "lead_score": 0.8690
+    },
+    {
+      "id": "e6f1a2b3c4d5",
+      "company_name": "Aye Finance",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.ayefin.com",
+      "domain": "ayefin.com",
+      "description": "Aye Finance is an NBFC-licensed micro-enterprise lender founded in 2014, serving micro and small businesses in Tier 2-4 cities across India. It has a loan book of over ₹5,000 crore, uses cluster-based lending models, and is backed by Alphabet's CapitalG among others.",
+      "reason_relevant": "Aye Finance operates in the most scrutinized segment of digital NBFC lending (micro-enterprise credit to underserved borrowers), making it particularly exposed to RBI's Q1 2026 compliance deadline — its cluster-based disbursement model requires audit trail coverage across distributed field operations that current systems may not provide.",
+      "trend_id": "RBI's Q1 2026 digital lending compliance mandate requires all NBFCs to implement real-time audit trails, 24-hour KYC validation, and disbursement monitoring. Non-compliance risks ₹50 lakh per violation fines.",
+      "wikidata_id": "",
+      "founded_year": 2014,
+      "headquarters": "Gurugram, Haryana",
+      "employee_count": "3500",
+      "stock_ticker": "",
+      "ceo": "Sanjay Sharma",
+      "funding_stage": "Series E",
+      "tech_stack": ["AWS", "Java", "Angular", "MySQL", "Salesforce"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.87,
+      "target_roles": [
+        "Chief Compliance Officer",
+        "CEO",
+        "VP Operations",
+        "Head of Technology",
+        "VP Risk"
+      ],
+      "contacts": [
+        {
+          "name": "Kavitha Menon",
+          "title": "Chief Compliance Officer",
+          "email": "k.menon@ayefin.com",
+          "linkedin_url": "https://www.linkedin.com/in/kavitha-menon-aye-finance",
+          "confidence": 0.78
+        },
+        {
+          "name": "Suresh Reddy",
+          "title": "Head of Technology",
+          "email": "s.reddy@ayefin.com",
+          "linkedin_url": "https://www.linkedin.com/in/suresh-reddy-aye-finance",
+          "confidence": 0.74
+        }
+      ],
+      "outreach_email": {
+        "subject": "Aye Finance's cluster lending model and the RBI audit trail requirement",
+        "body": "Hi Kavitha,\n\nAye Finance's distributed cluster-based lending model is uniquely exposed to RBI's Q1 2026 compliance requirement — generating real-time audit trails across field operations spread across Tier 2-4 cities is a harder technical problem than for purely digital lenders operating from a single stack.\n\nWe've worked through this exact challenge with another cluster-based NBFC lender. The key is a lightweight edge audit agent that captures disbursement events at the point of origination — even in low-connectivity environments — and synchronizes them to your central compliance ledger in real time.\n\nGiven Aye Finance's CapitalG backing and the scrutiny that brings, having a demonstrably compliant audit trail before RBI conducts spot audits is more important than ever.\n\nCan we spend 30 minutes reviewing your current audit trail coverage against RBI's checklist?\n\nBest regards"
+      },
+      "lead_score": 0.8567
+    },
+    {
+      "id": "f7a8b9c0d1e2",
+      "company_name": "Spandana Sphoorty Financial",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.spandanasphoorty.com",
+      "domain": "spandanasphoorty.com",
+      "description": "Spandana Sphoorty Financial is a listed NBFC-MFI (microfinance institution) headquartered in Hyderabad, serving rural and semi-urban borrowers across 18 states. It manages a gross loan portfolio of ₹10,000+ crore with over 3 million active borrowers.",
+      "reason_relevant": "Spandana Sphoorty was among the NBFCs flagged by RBI's stress test for capital adequacy concerns, and its concentration in unsecured micro-lending puts it directly in the line of RBI's portfolio composition warnings — creating urgent demand for capital planning and portfolio monitoring tools.",
+      "trend_id": "RBI's bi-annual financial stability report identified 18 NBFCs with capital adequacy ratios below 15% minimum, requiring 60-day remediation plans. RBI also flagged concentration risk in unsecured lending.",
+      "wikidata_id": "",
+      "founded_year": 2003,
+      "headquarters": "Hyderabad, Telangana",
+      "employee_count": "8000",
+      "stock_ticker": "SPANDANA",
+      "ceo": "Shalabh Saxena",
+      "funding_stage": "Public",
+      "tech_stack": ["Oracle", "Java", "Finacle", "AWS"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.88,
+      "target_roles": [
+        "CEO",
+        "CFO",
+        "Chief Risk Officer",
+        "VP Treasury",
+        "Head of Compliance"
+      ],
+      "contacts": [
+        {
+          "name": "Padma Krishnan",
+          "title": "Chief Risk Officer",
+          "email": "p.krishnan@spandanasphoorty.com",
+          "linkedin_url": "https://www.linkedin.com/in/padma-krishnan-spandana",
+          "confidence": 0.76
+        },
+        {
+          "name": "Ajay Nambiar",
+          "title": "CFO",
+          "email": "a.nambiar@spandanasphoorty.com",
+          "linkedin_url": "https://www.linkedin.com/in/ajay-nambiar-spandana-sphoorty",
+          "confidence": 0.80
+        }
+      ],
+      "outreach_email": {
+        "subject": "RBI remediation plan: Spandana's capital adequacy path forward",
+        "body": "Hi Padma,\n\nWith Spandana Sphoorty in the spotlight following RBI's latest financial stability report, the 60-day window to submit a credible remediation plan is both tight and consequential — the quality of that plan will directly influence how RBI approaches your next supervisory review.\n\nThe most effective remediation plans we've seen combine three things: a real-time capital adequacy dashboard that gives management live visibility into CAR movements, a loan portfolio rebalancing model that identifies which segments to de-grow and where to add secured lending exposure, and documented governance controls that demonstrate the board's oversight of risk appetite.\n\nWe've helped two other NBFC-MFIs prepare and submit RBI remediation plans in the past 6 months. One was approved in 3 weeks without a follow-up query.\n\nWould it be useful to review Spandana's current capital position against what RBI expects to see in a remediation plan?\n\nBest regards"
+      },
+      "lead_score": 0.8423
+    },
+    {
+      "id": "g8h9i0j1k2l3",
+      "company_name": "Signzy Technologies",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.signzy.com",
+      "domain": "signzy.com",
+      "description": "Signzy Technologies is a RegTech company founded in 2015 that provides digital KYC, onboarding automation, and compliance infrastructure for banks, NBFCs, and fintechs. It serves 100+ financial institutions including HDFC Bank, ICICI Bank, and SBI, and processes 10 million+ KYC verifications annually.",
+      "reason_relevant": "The wave of RBI compliance mandates (digital lending audit trails, PA licensing, e-KYC 2.0) creates an unprecedented opportunity for Signzy to expand its RegTech footprint — its existing bank relationships position it perfectly to sell compliance upgrades to the 200+ NBFCs and fintechs facing new regulatory requirements.",
+      "trend_id": "Multiple simultaneous RBI regulatory mandates are creating urgent compliance infrastructure demand across the fintech_bfsi sector in India, benefiting RegTech vendors with established financial institution relationships.",
+      "wikidata_id": "",
+      "founded_year": 2015,
+      "headquarters": "Bangalore, Karnataka",
+      "employee_count": "300",
+      "stock_ticker": "",
+      "ceo": "Ankur Pandey",
+      "funding_stage": "Series B",
+      "tech_stack": ["AWS", "Python", "React", "Node.js", "MongoDB"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.85,
+      "target_roles": [
+        "CEO",
+        "VP Sales",
+        "Head of Business Development",
+        "VP Partnerships",
+        "Chief Revenue Officer"
+      ],
+      "contacts": [
+        {
+          "name": "Arjun Desai",
+          "title": "VP Business Development",
+          "email": "a.desai@signzy.com",
+          "linkedin_url": "https://www.linkedin.com/in/arjun-desai-signzy",
+          "confidence": 0.80
+        },
+        {
+          "name": "Pooja Bhatt",
+          "title": "Head of Partnerships",
+          "email": "p.bhatt@signzy.com",
+          "linkedin_url": "https://www.linkedin.com/in/pooja-bhatt-signzy",
+          "confidence": 0.75
+        }
+      ],
+      "outreach_email": {
+        "subject": "Your competitors are selling to the RBI compliance wave — are you?",
+        "body": "Hi Arjun,\n\nWith RBI simultaneously mandating digital lending audit trails, PA licensing, and e-KYC 2.0 adoption, the next 90 days represent the highest-density compliance technology sales window India's fintech sector has seen in years.\n\nSignzy is already trusted by 100+ financial institutions — which means your team has the relationships to convert this regulatory pressure into a significant pipeline expansion right now. The question is speed.\n\nWe work with RegTech companies like Signzy to run account-based outreach to the 200+ NBFCs and fintechs facing compliance deadlines — using intent data from regulatory filing activity, RBI communication responses, and compliance job postings to identify which institutions are actively shopping for solutions.\n\nWould it be useful to see which of your existing accounts are showing buying signals right now, and which net-new prospects are in active compliance procurement mode?\n\nBest regards"
+      },
+      "lead_score": 0.8234
+    },
+    {
+      "id": "h9i0j1k2l3m4",
+      "company_name": "Navi Technologies",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.navi.com",
+      "domain": "navi.com",
+      "description": "Navi Technologies is a fintech company founded by Sachin Bansal in 2018, operating across health insurance, digital home loans, and personal lending through NBFC and insurance licenses. It processes 100% digital loan applications and has disbursed over ₹8,000 crore.",
+      "reason_relevant": "Navi's fully digital-first customer acquisition funnel makes it an ideal e-KYC 2.0 early adopter — faster onboarding directly improves its customer acquisition economics, and its home loan business would particularly benefit from reduced document verification turnaround on property and income KYC.",
+      "trend_id": "UIDAI and RBI launched e-KYC 2.0, enabling financial institutions to complete KYC in under 3 minutes using Aadhaar biometrics and PAN linkage, with early adopters reporting 80% reduction in onboarding time.",
+      "wikidata_id": "",
+      "founded_year": 2018,
+      "headquarters": "Bangalore, Karnataka",
+      "employee_count": "2000",
+      "stock_ticker": "",
+      "ceo": "Sachin Bansal",
+      "funding_stage": "Series D",
+      "tech_stack": ["AWS", "Python", "React", "Kubernetes", "PostgreSQL"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.90,
+      "target_roles": [
+        "CTO",
+        "VP Product",
+        "Head of Engineering",
+        "VP Risk",
+        "Chief Digital Officer"
+      ],
+      "contacts": [
+        {
+          "name": "Ankit Agarwal",
+          "title": "Chief Technology Officer",
+          "email": "a.agarwal@navi.com",
+          "linkedin_url": "https://www.linkedin.com/in/ankit-agarwal-navi",
+          "confidence": 0.82
+        },
+        {
+          "name": "Shruti Iyer",
+          "title": "VP Product — Lending",
+          "email": "s.iyer@navi.com",
+          "linkedin_url": "https://www.linkedin.com/in/shruti-iyer-navi-technologies",
+          "confidence": 0.77
+        }
+      ],
+      "outreach_email": {
+        "subject": "e-KYC 2.0 for Navi: 3-minute onboarding across home loans and personal credit",
+        "body": "Hi Ankit,\n\nNavi's competitive thesis is frictionless financial products — and e-KYC 2.0 is the biggest single improvement available to your onboarding stack right now.\n\nFor your home loan customers specifically, the document verification bottleneck has always been income and identity confirmation. e-KYC 2.0's PAN-Aadhaar linkage collapses a multi-step process into a 3-minute verification, while the CKYC registry lookup eliminates re-KYC for customers who've verified elsewhere in the financial system.\n\nGiven Sachin Bansal's emphasis on tech-first operations, we thought Navi would be among the first movers here. Our integration team has already built the Aadhaar XML parser, PAN validation API, and CKYC registry connector as pre-built modules — meaning your engineering team isn't building from scratch.\n\nCan we show you the integration architecture? We're talking about a 2-week deployment that could meaningfully improve Navi's onboarding conversion.\n\nBest regards"
+      },
+      "lead_score": 0.8156
+    },
+    {
+      "id": "i0j1k2l3m4n5",
+      "company_name": "Mahindra Finance",
+      "company_size": "large",
+      "industry": "fintech_bfsi",
+      "website": "https://www.mahindrafinance.com",
+      "domain": "mahindrafinance.com",
+      "description": "Mahindra & Mahindra Financial Services Limited is one of India's leading rural-focused NBFCs with ₹1 lakh crore+ AUM, serving rural and semi-urban India. It finances tractors, commercial vehicles, and rural housing with a network of 1,400+ branches.",
+      "reason_relevant": "Mahindra Finance's rural borrower base — underserved by traditional credit bureau data — is precisely the segment where Account Aggregator integration delivers the highest underwriting lift, giving the company access to consented income, insurance, and pension data that better predicts rural repayment behavior.",
+      "trend_id": "India's Account Aggregator ecosystem crossed 50 million active consents in FY2026, enabling NBFCs to access consented financial data for real-time credit decisions. Rural-focused lenders gain the most from agricultural income and pension data now available through AA.",
+      "wikidata_id": "",
+      "founded_year": 1991,
+      "headquarters": "Mumbai, Maharashtra",
+      "employee_count": "20000",
+      "stock_ticker": "M&MFIN",
+      "ceo": "Raul Rebello",
+      "funding_stage": "Public",
+      "tech_stack": ["Oracle", "SAP", "AWS", "Finacle", "Python"],
+      "ner_verified": true,
+      "verification_source": "kb_cache",
+      "verification_confidence": 0.96,
+      "target_roles": [
+        "CTO",
+        "Chief Digital Officer",
+        "Head of Analytics",
+        "VP Credit Risk",
+        "Head of Technology"
+      ],
+      "contacts": [
+        {
+          "name": "Gaurav Trivedi",
+          "title": "Chief Technology Officer",
+          "email": "g.trivedi@mahindrafinance.com",
+          "linkedin_url": "https://www.linkedin.com/in/gaurav-trivedi-mahindra-finance",
+          "confidence": 0.79
+        },
+        {
+          "name": "Meera Pillai",
+          "title": "Head of Credit Analytics",
+          "email": "m.pillai@mahindrafinance.com",
+          "linkedin_url": "https://www.linkedin.com/in/meera-pillai-mahindra-finance",
+          "confidence": 0.74
+        }
+      ],
+      "outreach_email": {
+        "subject": "Account Aggregator for rural credit: Mahindra Finance's underwriting advantage",
+        "body": "Hi Gaurav,\n\nMahindra Finance's rural borrower base is one of the most data-sparse segments in Indian credit — traditional bureau scores miss over 40% of your customers. That's exactly where Account Aggregator integration creates the most dramatic underwriting improvement.\n\nThrough AA, Mahindra Finance can now access consented data from PFRDA (pension), insurance premium payment history, agricultural income from cooperative banks, and state government benefit transfers — all data sources that paint a far more accurate picture of rural repayment capacity than bureau scores alone.\n\nWe've built a rural AA credit model that normalizes these non-standard data sources into a unified risk score, validated against a 500,000-loan performance dataset. Early results show 18% improvement in default prediction accuracy on thin-file rural borrowers.\n\nWould it be worth connecting with your credit analytics team to walk through the methodology?\n\nBest regards"
+      },
+      "lead_score": 0.8378
+    },
+    {
+      "id": "j1k2l3m4n5o6",
+      "company_name": "CoinSwitch Kuber",
+      "company_size": "mid",
+      "industry": "fintech_bfsi",
+      "website": "https://www.coinswitch.co",
+      "domain": "coinswitch.co",
+      "description": "CoinSwitch is India's largest crypto investing platform with 20 million registered users, focused on retail crypto investing with a simplified UX. It operates as a broker-aggregator model and is backed by Andreessen Horowitz and Ribbit Capital.",
+      "reason_relevant": "CoinSwitch's broker-aggregator model means it technically acts as an intermediary between retail investors and crypto exchanges — under SEBI's VDA framework, this model may require both a VDA intermediary registration and AML/KYC controls, creating compliance obligations distinct from but potentially more complex than exchange regulation.",
+      "trend_id": "SEBI's Virtual Digital Asset regulation framework requires crypto exchanges and VDA intermediaries to register with SEBI by June 2026 and implement broker-grade AML/KYC controls.",
+      "wikidata_id": "",
+      "founded_year": 2017,
+      "headquarters": "Bangalore, Karnataka",
+      "employee_count": "600",
+      "stock_ticker": "",
+      "ceo": "Ashish Singhal",
+      "funding_stage": "Series C",
+      "tech_stack": ["AWS", "Node.js", "React Native", "MongoDB", "Redis"],
+      "ner_verified": true,
+      "verification_source": "tavily_search",
+      "verification_confidence": 0.88,
+      "target_roles": [
+        "Chief Compliance Officer",
+        "VP Legal",
+        "CFO",
+        "VP Regulatory Affairs",
+        "CISO"
+      ],
+      "contacts": [
+        {
+          "name": "Rajan Menon",
+          "title": "VP Regulatory Affairs",
+          "email": "r.menon@coinswitch.co",
+          "linkedin_url": "https://www.linkedin.com/in/rajan-menon-coinswitch",
+          "confidence": 0.77
+        },
+        {
+          "name": "Lakshmi Narayanan",
+          "title": "Chief Compliance Officer",
+          "email": "l.narayanan@coinswitch.co",
+          "linkedin_url": "https://www.linkedin.com/in/lakshmi-narayanan-coinswitch",
+          "confidence": 0.73
+        }
+      ],
+      "outreach_email": {
+        "subject": "CoinSwitch's SEBI registration path: broker-aggregator model creates unique compliance questions",
+        "body": "Hi Rajan,\n\nCoinSwitch's broker-aggregator model sits in an interesting regulatory position under SEBI's VDA framework — you're not an exchange, but you're also not just a tech platform. The question of whether you need a VDA intermediary registration distinct from exchange registration is genuinely unclear in the current framework, and how you answer it has significant compliance cost implications.\n\nWe've been tracking SEBI's VDA technical committee discussions closely and have a view on how the intermediary category will be defined. We can help CoinSwitch navigate the regulatory ambiguity, prepare the right registration documentation, and build the AML/KYC infrastructure that satisfies whichever registration category applies.\n\nGiven your a16z and Ribbit Capital backing, investors will want to see a credible SEBI compliance roadmap before June — that's a board-level conversation that benefits from early preparation.\n\nWould it be useful to schedule a session with our regulatory counsel to work through CoinSwitch's specific situation?\n\nBest regards"
+      },
+      "lead_score": 0.8512
+    }
+  ],
+  "lead_count": 11,
+  "log_messages": []
+}

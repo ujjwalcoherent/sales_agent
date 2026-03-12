@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, AlertTriangle, Info, Zap } from "lucide-react";
-import type { TrendData, Severity } from "@/lib/types";
+import type { TrendData, TrendLevel, Severity } from "@/lib/types";
 
 // ── Severity helpers ───────────────────────────────
 
@@ -19,6 +19,12 @@ const SEVERITY_CONFIG: Record<
 function getSeverity(s: string): Severity {
   return (["high", "medium", "low", "negligible"].includes(s) ? s : "medium") as Severity;
 }
+
+const LEVEL_DOT: Record<TrendLevel, { color: string; title: string }> = {
+  major: { color: "var(--red)",   title: "Major trend" },
+  sub:   { color: "var(--amber,#e8a900)", title: "Sub trend" },
+  minor: { color: "var(--text-muted)", title: "Minor trend" },
+};
 
 // ── Individual trend card ──────────────────────────
 
@@ -134,6 +140,16 @@ function TrendCard({
           </span>
         )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          {trend.trend_level && trend.trend_level !== "sub" && (
+            <span
+              title={LEVEL_DOT[trend.trend_level as TrendLevel]?.title}
+              style={{
+                display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+                background: LEVEL_DOT[trend.trend_level as TrendLevel]?.color ?? "var(--text-muted)",
+                flexShrink: 0,
+              }}
+            />
+          )}
           <span style={{ fontSize: 11, color: "var(--text-xmuted)" }}>
             {trend.article_count} articles
           </span>

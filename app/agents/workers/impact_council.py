@@ -17,6 +17,7 @@ space that preserves analytical depth without separate agent overhead.
 """
 
 import logging
+import re
 from typing import Any, Dict, List
 
 from .schemas import CouncilPerspective, ImpactCouncilResult, ServiceRecommendation
@@ -24,6 +25,18 @@ from app.tools.llm.llm_service import LLMService
 from app.config import get_settings, CMI_SERVICES
 
 logger = logging.getLogger(__name__)
+
+_RE_IC_DATA = re.compile(
+    r'\d+\.?\d*\s*%|₹|\$|USD|INR|\d{4}|\d+\s*(crore|lakh|billion|million|employees|companies|firms)'
+)
+_RE_IC_SPEC = re.compile(
+    r'\d+[-–]\d+\s*employee|\d+\s*employee|\d+[-–]\d+\s*staff|tier[- ]?[123]|small|mid[- ]?size|SME|MSME',
+    re.IGNORECASE,
+)
+_RE_IC_CONSEQUENCE = re.compile(
+    r'if\s|will\s|must\s|by\s+Q[1-4]|deadline|%|\d+\s*(crore|lakh|million|billion)',
+    re.IGNORECASE,
+)
 
 
 def _build_services_context() -> str:
@@ -258,15 +271,12 @@ def _compute_confidence(result) -> float:
 
     Calibration target: good analysis → 50-70%, great → 70-85%, never >90%.
     """
-    import re
-
     # ── 1. Evidence Grounding (25%) ────────────────────────────────────
     # Count: need 10+ citations for full marks (not 5)
     citations = result.evidence_citations or []
     evidence_count = min(1.0, len(citations) / 10)
     # Quality: what fraction contain concrete data (numbers, %, names)?
-    _data_pattern = re.compile(r'\d+\.?\d*\s*%|₹|\$|USD|INR|\d{4}|\d+\s*(crore|lakh|billion|million|employees|companies|firms)')
-    grounded = sum(1 for c in citations if _data_pattern.search(c)) if citations else 0
+    grounded = sum(1 for c in citations if _RE_IC_DATA.search(c)) if citations else 0
     evidence_quality = (grounded / len(citations)) if citations else 0
     evidence = evidence_count * 0.5 + evidence_quality * 0.5
 
@@ -275,8 +285,7 @@ def _compute_confidence(result) -> float:
     company_types = result.affected_company_types or []
     spec_count = min(1.0, len(company_types) / 6)
     # Quality: fraction with specificity markers (employee ranges, locations, sub-industries)
-    _spec_pattern = re.compile(r'\d+[-–]\d+\s*employee|\d+\s*employee|\d+[-–]\d+\s*staff|tier[- ]?[123]|small|mid[- ]?size|SME|MSME', re.IGNORECASE)
-    specific = sum(1 for ct in company_types if _spec_pattern.search(ct)) if company_types else 0
+    specific = sum(1 for ct in company_types if _RE_IC_SPEC.search(ct)) if company_types else 0
     spec_quality = (specific / len(company_types)) if company_types else 0
     specificity = spec_count * 0.5 + spec_quality * 0.5
 
@@ -294,8 +303,7 @@ def _compute_confidence(result) -> float:
     pain_points = result.pain_points or []
     pain_count = min(1.0, len(pain_points) / 6)
     # Quality: fraction with concrete consequences (deadlines, numbers, "if...then")
-    _consequence_pattern = re.compile(r'if\s|will\s|must\s|by\s+Q[1-4]|deadline|%|\d+\s*(crore|lakh|million|billion)', re.IGNORECASE)
-    concrete = sum(1 for pp in pain_points if _consequence_pattern.search(pp)) if pain_points else 0
+    concrete = sum(1 for pp in pain_points if _RE_IC_CONSEQUENCE.search(pp)) if pain_points else 0
     pain_quality = (concrete / len(pain_points)) if pain_points else 0
     pain = pain_count * 0.5 + pain_quality * 0.5
 
@@ -437,9 +445,3 @@ def _build_council_result(result) -> ImpactCouncilResult:
     )
 
 
-def _empty_result() -> ImpactCouncilResult:
-    """Return empty result when analysis fails entirely."""
-    return ImpactCouncilResult(
-        consensus_reasoning="Analysis unavailable",
-        overall_confidence=0.1,
-    )

@@ -84,7 +84,7 @@ def _propagate_feedback(record: Dict[str, Any]) -> None:
 
     Called automatically after every save_feedback(). Routes:
       - lead feedback → CompanyRelevanceBandit.update_from_feedback()
-      - trend feedback → (weight_learner picks up from JSONL on next run)
+      - trend feedback → stored in JSONL only
     """
     feedback_type = record.get("type", "")
     try:

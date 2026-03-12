@@ -61,6 +61,7 @@ def create_app() -> FastAPI:
     from app.api.news import router as news_router
     from app.api.campaigns import router as campaigns_router
     from app.api.profiles import router as profiles_router
+    from app.api.settings_router import router as settings_router
 
     app.include_router(health_router, tags=["health"])
     app.include_router(pipeline_router, prefix="/api/v1/pipeline", tags=["pipeline"])
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(news_router, prefix="/api/v1/news", tags=["news"])
     app.include_router(campaigns_router, prefix="/api/v1/campaigns", tags=["campaigns"])
     app.include_router(profiles_router, prefix="/api/v1/profiles", tags=["profiles"])
+    app.include_router(settings_router, prefix="/api/v1/settings", tags=["settings"])
 
     return app
 

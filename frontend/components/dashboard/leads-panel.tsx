@@ -65,6 +65,9 @@ function LeadCard({
   const personEmail = lead.contact_email || p0?.email || "";
   const emailConf = lead.email_confidence || p0?.email_confidence || 0;
 
+  // Multi-contact count (beyond the primary contact shown)
+  const extraPeopleCount = (lead.people?.length ?? 0) > 1 ? lead.people!.length - 1 : 0;
+
   // Avatar color from name hash
   const AVATAR_COLORS = [
     ["#3b82f622", "#3b82f6"],
@@ -130,10 +133,15 @@ function LeadCard({
           </div>
         </div>
 
-        {/* Hop + type badges */}
+        {/* Hop + type + extra-contacts badges */}
         <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
           <HopBadge hop={lead.hop} />
           <LeadTypeBadge type={lead.lead_type} />
+          {extraPeopleCount > 0 && (
+            <span style={{ fontSize: "0.65rem", padding: "2px 5px", borderRadius: 4, background: "#14b8a622", color: "#14b8a6", fontWeight: 600 }}>
+              +{extraPeopleCount}
+            </span>
+          )}
         </div>
       </div>
 
@@ -204,10 +212,10 @@ function LeadCard({
           {emailConf > 0 && (
             <span style={{
               fontSize: 10, padding: "1px 6px", borderRadius: 4, fontWeight: 600, flexShrink: 0,
-              background: emailConf > 0.8 ? "#22c55e22" : "#f59e0b22",
-              color: emailConf > 0.8 ? "#22c55e" : (emailConf > 0.5 ? "#f59e0b" : "var(--text-muted)"),
+              background: emailConf > 80 ? "#22c55e22" : "#f59e0b22",
+              color: emailConf > 80 ? "#22c55e" : (emailConf > 50 ? "#f59e0b" : "var(--text-muted)"),
             }}>
-              {Math.round(emailConf * 100)}%
+              {Math.round(emailConf)}%
             </span>
           )}
         </div>
@@ -416,7 +424,8 @@ interface LeadsPanelProps {
 }
 
 export function LeadsPanel({ leads, loading, selectedId }: LeadsPanelProps) {
-  const sorted = [...leads].sort((a, b) => b.confidence - a.confidence);
+  // Use leads as-is — sorting is handled by the parent page (leads/page.tsx)
+  const sorted = leads;
 
   const initialIdx = (() => {
     if (sorted.length === 0) return null;

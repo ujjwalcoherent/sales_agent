@@ -43,7 +43,7 @@ venv/Scripts/python.exe -c "import asyncio; from app.agents.orchestrator import 
 app/
 |-- agents/          # LangGraph pipeline nodes
 |   |-- orchestrator.py, deps.py, leads.py, source_intel.py
-|   +-- workers/     # Per-entity worker agents (company, contact, email)
+|   +-- workers/     # Per-entity worker agents (contact, email, impact)
 |-- api/             # FastAPI routers (pipeline, leads, companies, campaigns, health)
 |-- intelligence/    # News clustering pipeline
 |   |-- fetch.py, filter.py, match.py, summarizer.py
@@ -51,9 +51,9 @@ app/
 |   +-- engine/      # Math core (similarity, NER, clustering, validation)
 |       +-- tools/   # classifier.py, extractor.py, normalizer.py, clusterer.py
 |-- learning/        # Self-learning loops
-|   |-- signal_bus.py, source_bandit.py, company_bandit.py
-|   |-- weight_learner.py, threshold_adapter.py, pipeline_metrics.py
-|   +-- meta_reasoner.py
+|   |-- signal_bus.py, source_bandit.py, company_bandit.py, contact_bandit.py
+|   |-- threshold_adapter.py, pipeline_metrics.py, experiment_tracker.py
+|   +-- dataset_enhancer.py
 |-- tools/           # External integrations (pure wrappers, no business logic)
 |   |-- crm/         # apollo_tool.py, hunter_tool.py, brevo_tool.py
 |   |-- web/         # tavily_tool.py, rss_tool.py, web_intel.py, news_collector.py

@@ -253,23 +253,3 @@ class SourceBandit:
         )
         return selected
 
-    def get_adaptive_credibility(self, source_id: str) -> float:
-        """Return 50/50 blend of static credibility and bandit posterior mean."""
-        try:
-            from app.config import NEWS_SOURCES
-            static = NEWS_SOURCES.get(source_id, {}).get(
-                "credibility_score", 0.5
-            )
-        except Exception:
-            static = 0.5
-
-        if source_id not in self._posteriors:
-            return static
-
-        p = self._posteriors[source_id]
-        posterior_mean = p["alpha"] / (p["alpha"] + p["beta"])
-        return round(0.50 * static + 0.50 * posterior_mean, 4)
-
-    @property
-    def source_count(self) -> int:
-        return len(self._posteriors)

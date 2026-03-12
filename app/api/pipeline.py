@@ -14,12 +14,13 @@ channel with compressed timing (~45s) instead of running the real pipeline.
 import asyncio
 import json
 import logging
+import time as _time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.api.schemas import (
@@ -88,11 +89,6 @@ class RunManager:
 
     def get_run(self, run_id: str) -> Optional[PipelineRun]:
         return self._runs.get(run_id)
-
-    def get_latest_run(self) -> Optional[PipelineRun]:
-        if not self._runs:
-            return None
-        return max(self._runs.values(), key=lambda r: r.started_at)
 
     def list_runs(self, limit: int = 20) -> List[PipelineRun]:
         runs = sorted(self._runs.values(), key=lambda r: r.started_at, reverse=True)
@@ -439,11 +435,20 @@ def _build_scope(
 
     # Inline scope params
     if mode or companies or industry or report_text:
+        # Auto-detect mode from params when caller omits it
+        _mode_str = (mode or "").strip().lower()
+        if not _mode_str:
+            if report_text:
+                _mode_str = "report_driven"
+            elif companies:
+                _mode_str = "company_first"
+            elif industry:
+                _mode_str = "industry_first"
         dm = {
             "company_first": DiscoveryMode.COMPANY_FIRST,
             "industry_first": DiscoveryMode.INDUSTRY_FIRST,
             "report_driven": DiscoveryMode.REPORT_DRIVEN,
-        }.get((mode or "").lower(), DiscoveryMode.INDUSTRY_FIRST)
+        }.get(_mode_str, DiscoveryMode.INDUSTRY_FIRST)
 
         return DiscoveryScope(
             mode=dm,
@@ -495,9 +500,9 @@ async def _execute_pipeline(
         provider_health.reset_for_new_run()
         ProviderManager.reset_cooldowns()
         LLMService.clear_cache()
-        # Clear NLI score cache so stale scores from a previous hypothesis don't persist.
-        from app.intelligence.engine.nli_filter import clear_score_cache
-        clear_score_cache()
+        # Clear NLI score cache only when the hypothesis has changed.
+        from app.intelligence.engine.nli_filter import clear_score_cache_if_hypothesis_changed
+        clear_score_cache_if_hypothesis_changed()
         logger.info("Provider health + cooldowns + agent cache + NLI cache reset for new run")
     except Exception as e:
         logger.warning(f"Provider reset failed: {e}")
@@ -520,8 +525,6 @@ async def _execute_pipeline(
             "level": level,
         })
 
-    import time as _time
-
     # Build DiscoveryScope from profile or inline params.
     # This drives which of the 3 pipeline paths runs:
     #   Company-First:  companies list → fetch news for those companies
@@ -537,6 +540,21 @@ async def _execute_pipeline(
         country=country,
     )
 
+    # Load full ProductEntry objects from profile (carries value_prop, target_roles, event_types).
+    # user_products on the scope only stores product names — insufficient for email personalization.
+    _own_products = []
+    if profile_id:
+        try:
+            from app.database import get_database
+            from app.schemas.industry_profile import UserProfile
+            _db = get_database()
+            _pdata = _db.get_profile(profile_id)
+            if _pdata:
+                _prof = UserProfile(**_pdata)
+                _own_products = list(_prof.own_products)
+        except Exception as _pe:
+            logger.debug(f"[pipeline] Could not load own_products from profile: {_pe}")
+
     deps = AgentDeps.create(
         mock_mode=mock_mode,
         log_callback=progress_callback,
@@ -544,6 +562,7 @@ async def _execute_pipeline(
         disabled_providers=disabled_providers or [],
         scope=scope,
     )
+    deps.own_products = _own_products
     deps._pipeline_t0 = _time.time()
 
     initial_state = {
@@ -623,8 +642,8 @@ async def _execute_pipeline(
                 "status": "completed",
                 "run_time_seconds": round(elapsed, 1),
             })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to update pipeline run {run.run_id} as completed: {e}")
 
         _safe_put(run, {
             "event": "complete",
@@ -1079,7 +1098,7 @@ async def get_result(run_id: str):
 
         for t in run.result.get("trends", []):
             # Recording uses trend_title/industries_affected; schema uses title/industries
-            _parse = lambda v, fallback=[]: v if isinstance(v, (list, dict)) else (json.loads(v) if isinstance(v, str) and v.startswith(("[", "{")) else fallback)
+            _parse = lambda v, fallback=None: v if isinstance(v, (list, dict)) else (json.loads(v) if isinstance(v, str) and v.startswith(("[", "{")) else (fallback if fallback is not None else []))
             trend_title = t.get("trend_title", "") or t.get("title", "")
             imp = impact_by_title.get(trend_title, {})
             trends.append(TrendResponse(
@@ -1093,6 +1112,7 @@ async def get_result(run_id: str):
                 trend_score=float(t.get("trend_score", 0)),
                 actionability_score=float(t.get("actionability_score", 0)),
                 oss_score=float(t.get("oss_score", 0)),
+                trend_level=t.get("trend_level", "sub"),
                 article_count=int(t.get("article_count", 0)),
                 event_5w1h=_parse(t.get("event_5w1h", {}), {}),
                 causal_chain=_parse(t.get("causal_chain", [])),
@@ -1207,6 +1227,7 @@ async def get_result(run_id: str):
                 trend_score=getattr(t, "trend_score", 0.0),
                 actionability_score=getattr(t, "actionability_score", 0.0),
                 oss_score=getattr(t, "oss_score", 0.0),
+                trend_level=getattr(t, "trend_level", "sub"),
                 article_count=getattr(t, "article_count", 0),
                 event_5w1h=getattr(t, "event_5w1h", {}),
                 causal_chain=getattr(t, "causal_chain", []),
