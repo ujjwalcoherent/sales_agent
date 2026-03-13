@@ -62,9 +62,14 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
     }
     const idx = Number(id);
     setLoading(true);
-    api.getLeads({ limit: 200 })
-      .then(({ leads }) => { setLead(leads.find((l) => l.id === idx) ?? null); })
-      .catch(() => {})
+    api.getLead(idx)
+      .then((l) => setLead(l))
+      .catch(() => {
+        // Fallback: search in list
+        api.getLeads({ limit: 200 })
+          .then(({ leads }) => { setLead(leads.find((l) => l.id === idx) ?? null); })
+          .catch(() => {});
+      })
       .finally(() => setLoading(false));
   };
 

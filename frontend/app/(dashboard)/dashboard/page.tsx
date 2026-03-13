@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Zap, RefreshCw, Building2, Users, TrendingUp, BarChart2,
-  Clock, CheckCircle, XCircle, AlertCircle, Loader2,
+  Clock, CheckCircle, XCircle, AlertCircle, Loader2, StopCircle,
   ArrowRight, Globe, ChevronRight, Activity,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -58,31 +58,50 @@ function KpiCard({
 function RunPipelineButton({
   status,
   onClick,
+  onStop,
 }: {
   status: string;
   onClick: () => void;
+  onStop: () => void;
 }) {
   const isRunning = status === "running";
 
   return (
-    <button
-      onClick={onClick}
-      disabled={isRunning}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 7,
-        padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-        background: isRunning ? "var(--surface-raised)" : "var(--accent)",
-        color: isRunning ? "var(--text-muted)" : "#fff",
-        border: "none", cursor: isRunning ? "not-allowed" : "pointer",
-        transition: "all 150ms",
-      }}
-    >
-      {isRunning
-        ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
-        : <Zap size={13} />
-      }
-      {isRunning ? "Pipeline running..." : "Run Pipeline"}
-    </button>
+    <div style={{ display: "flex", gap: 6 }}>
+      {isRunning && (
+        <button
+          onClick={onStop}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+            background: "var(--red-light)", color: "var(--red)",
+            border: "1px solid var(--red)", cursor: "pointer",
+            transition: "all 150ms",
+          }}
+        >
+          <XCircle size={13} />
+          Stop
+        </button>
+      )}
+      <button
+        onClick={onClick}
+        disabled={isRunning}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 7,
+          padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+          background: isRunning ? "var(--surface-raised)" : "var(--accent)",
+          color: isRunning ? "var(--text-muted)" : "#fff",
+          border: "none", cursor: isRunning ? "not-allowed" : "pointer",
+          transition: "all 150ms",
+        }}
+      >
+        {isRunning
+          ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+          : <Zap size={13} />
+        }
+        {isRunning ? "Running..." : "Run Pipeline"}
+      </button>
+    </div>
   );
 }
 
@@ -272,11 +291,33 @@ export default function DashboardPage() {
     try {
       const mockStatus = await api.getMockMode().catch(() => ({ enabled: false }));
       await api.runPipeline(mockStatus.enabled, undefined, undefined, { mode: selectedMode });
-      // Pipeline context will pick up running status via its own polling/stream
     } catch (err) {
-      setPipelineError(err instanceof Error ? err.message : "Failed to start pipeline");
+      const msg = err instanceof Error ? err.message : "Failed to start pipeline";
+      if (msg.includes("409")) {
+        // Auto-cancel stuck run and retry
+        try {
+          await api.cancelPipeline();
+          const mockStatus = await api.getMockMode().catch(() => ({ enabled: false }));
+          await api.runPipeline(mockStatus.enabled, undefined, undefined, { mode: selectedMode });
+        } catch (retryErr) {
+          setPipelineError(retryErr instanceof Error ? retryErr.message : "Failed after cancelling stuck run");
+        }
+      } else {
+        setPipelineError(msg);
+      }
     } finally {
       setStartingPipeline(false);
+    }
+  }
+
+  async function handleStopPipeline() {
+    try {
+      await api.cancelPipeline();
+      setStartingPipeline(false);
+      setPipelineError(null);
+      loadRuns();
+    } catch (err) {
+      setPipelineError(err instanceof Error ? err.message : "Failed to stop pipeline");
     }
   }
 
@@ -331,28 +372,28 @@ export default function DashboardPage() {
             Refresh
           </button>
           {/* Mode selector — determines which pipeline mode to run */}
-          {!isRunning && (
-            <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
-              {PIPELINE_MODES.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setSelectedMode(m.id)}
-                  title={m.id.replace(/_/g, " ")}
-                  style={{
-                    padding: "5px 10px", fontSize: 11, fontWeight: 600,
-                    border: "none", borderRight: "1px solid var(--border)", cursor: "pointer",
-                    background: selectedMode === m.id ? "var(--accent)" : "var(--surface)",
-                    color: selectedMode === m.id ? "#fff" : "var(--text-secondary)",
-                    transition: "all 120ms",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          )}
-          <RunPipelineButton status={isRunning ? "running" : status} onClick={handleRunPipeline} />
+          <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
+            {PIPELINE_MODES.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => !isRunning && setSelectedMode(m.id)}
+                title={m.id.replace(/_/g, " ")}
+                style={{
+                  padding: "5px 10px", fontSize: 11, fontWeight: 600,
+                  border: "none", borderRight: "1px solid var(--border)",
+                  cursor: isRunning ? "default" : "pointer",
+                  background: selectedMode === m.id ? "var(--accent)" : "var(--surface)",
+                  color: selectedMode === m.id ? "#fff" : "var(--text-secondary)",
+                  opacity: isRunning && selectedMode !== m.id ? 0.5 : 1,
+                  transition: "all 120ms",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <RunPipelineButton status={isRunning ? "running" : status} onClick={handleRunPipeline} onStop={handleStopPipeline} />
         </div>
       </div>
 

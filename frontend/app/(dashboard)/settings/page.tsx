@@ -435,7 +435,7 @@ function MockModeSection() {
           ? <div style={{ width: 36, height: 20, borderRadius: 10, background: "var(--border)", animation: "pulse 1s ease-in-out infinite" }} />
           : <ToggleSwitch checked={state?.enabled ?? false} onChange={toggle} />
         }
-        {(state?.available_recordings.length ?? 0) > 0 && (
+        {(state?.available_recordings?.length ?? 0) > 0 && (
           <button
             onClick={() => setExpanded(p => !p)}
             style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", padding: 2 }}
@@ -446,7 +446,7 @@ function MockModeSection() {
       </div>
 
       {/* Recording picker */}
-      {expanded && state && state.available_recordings.length > 0 && (
+      {expanded && state && (state.available_recordings?.length ?? 0) > 0 && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "10px 16px" }}>
           {state.recommendation && (
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>

@@ -105,6 +105,11 @@ export const api = {
     return apiFetch(`/api/v1/leads${query ? `?${query}` : ""}`);
   },
 
+  /** GET /api/v1/leads/{id} — single lead by ID */
+  getLead(leadId: number): Promise<LeadRecord> {
+    return apiFetch(`/api/v1/leads/${leadId}`);
+  },
+
   /** GET /api/v1/leads/latest — leads from most recent completed run */
   getLatestLeads(limit = 50): Promise<LeadListResponse> {
     return apiFetch(`/api/v1/leads/latest?limit=${limit}`);
@@ -423,9 +428,13 @@ export async function listProfiles(): Promise<ProfileListResponse> {
 }
 
 export async function createProfile(data: CreateProfileRequest): Promise<UserProfile> {
+  // Backend requires profile_id — generate one from the user name
+  const profileId = (data.user_name || "profile")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+    + "_" + Date.now().toString(36);
   return apiFetch("/api/v1/profiles", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({ profile_id: profileId, ...data }),
   })
 }
 
